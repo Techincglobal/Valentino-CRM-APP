@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'api_service.dart';
 
 class CallerService {
-  static const String _base = "/api/method/nxtgen_crm_mobile.api";
+  static const String _base =
+      "/api/method/nxtgen_crm_mobile.api";
 
-  static Future<Map<String, dynamic>> getCallerDetails(String phone) async {
+  // Get Caller Details
+  static Future<Map<String, dynamic>> getCallerDetails(
+      String phone) async {
     final response = await ApiService.post(
       "$_base.get_caller_details",
       {"caller_number": phone},
@@ -15,10 +18,12 @@ class CallerService {
     if (response.statusCode == 200) {
       return data["message"];
     } else {
-      throw Exception(data["message"] ?? "Failed to fetch caller details");
+      throw Exception(
+          data["message"] ?? "Failed to fetch caller details");
     }
   }
 
+  // Create Lead With Optional Note
   static Future<Map<String, dynamic>> createLead({
     required String firstName,
     String? email,
@@ -40,10 +45,12 @@ class CallerService {
     if (response.statusCode == 200) {
       return data["message"];
     } else {
-      throw Exception(data["message"] ?? "Lead creation failed");
+      throw Exception(
+          data["message"] ?? "Lead creation failed");
     }
   }
 
+  // Add Note To Existing Lead / Opportunity
   static Future<void> addNote({
     required String doctype,
     required String docname,
@@ -60,10 +67,12 @@ class CallerService {
 
     if (response.statusCode != 200) {
       final data = jsonDecode(response.body);
-      throw Exception(data["message"] ?? "Failed to add note");
+      throw Exception(
+          data["message"] ?? "Failed to add note");
     }
   }
 
+  // Get Notes
   static Future<List<dynamic>> getNotes({
     required String doctype,
     required String docname,
@@ -81,7 +90,8 @@ class CallerService {
     if (response.statusCode == 200) {
       return data["message"] ?? [];
     } else {
-      throw Exception(data["message"] ?? "Failed to fetch notes");
+      throw Exception(
+          data["message"] ?? "Failed to fetch notes");
     }
   }
 }

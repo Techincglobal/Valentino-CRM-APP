@@ -36,6 +36,11 @@ class AuthService {
 
       final data = jsonDecode(response.body);
 
+      final fullName = data['full_name'] as String?;
+      if (fullName != null && fullName.isNotEmpty) {
+        await StorageService.saveFullName(fullName);
+      }
+
       return data;
     } else {
       throw Exception("Login failed: ${response.body}");
