@@ -10,21 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/caller_service.dart';
 import '../services/storage_service.dart';
+import '../theme/app_theme.dart';
 import 'login_screen.dart';
-
-// ── Frappe-inspired palette ──────────────────────────────────────────────────
-const _primary = Color(0xFF2490EF);
-const _primaryDark = Color(0xFF1A6EC7);
-const _bgPage = Color(0xFFF0F4F8);
-const _cardBg = Color(0xFFFFFFFF);
-const _textPrimary = Color(0xFF1F272B);
-const _textSecondary = Color(0xFF687076);
-const _success = Color(0xFF2DB04B);
-const _danger = Color(0xFFE03636);
-const _border = Color(0xFFE2E8F0);
-const _inputBg = Color(0xFFF8FAFC);
-const _unknownColor = Color(0xFFD97706);
-// ────────────────────────────────────────────────────────────────────────────
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
@@ -76,38 +63,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!mounted) return;
 
       if (_lifecycleState == AppLifecycleState.resumed) {
-        // App is visible — show the inline bottom sheet
         _showCallPopup(phone, response);
       } else {
-        // App is backgrounded — write data and pop up a system overlay window
         await _saveCallerDataToPrefs(phone, response);
         await FlutterOverlayWindow.showOverlay(
           height: WindowSize.matchParent,
           width: WindowSize.matchParent,
-          enableDrag: false,
+          enableDrag: true,
           overlayTitle: 'CRM Caller',
         );
       }
     } catch (e) {
       if (!mounted) return;
-      _showError("Lookup failed: $e");
+      _showError('Lookup failed: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// Persists caller data to SharedPreferences so the overlay widget can read it.
-  /// Keys mirror what CallService.kt and overlay_bubble.dart use (flutter.* prefix
-  /// is added automatically by the shared_preferences plugin).
   Future<void> _saveCallerDataToPrefs(
-      String phone, Map<String, dynamic> result) async {
+    String phone,
+    Map<String, dynamic> result,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('crm_caller_phone', phone);
     await prefs.setString(
-        'crm_caller_name', (result['customer_name'] as String?) ?? '');
+      'crm_caller_name',
+      (result['customer_name'] as String?) ?? '',
+    );
     await prefs.setString('crm_caller_type', (result['type'] as String?) ?? '');
     await prefs.setString(
-        'crm_caller_docname', (result['name'] as String?) ?? '');
+      'crm_caller_docname',
+      (result['name'] as String?) ?? '',
+    );
     await prefs.setBool('crm_caller_found', result['found'] == true);
   }
 
@@ -131,10 +119,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: _danger,
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: Colors.white, size: 17),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: AppColors.danger,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -149,11 +145,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgPage,
+    return GradientScaffold(
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -171,114 +166,170 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const _StatusCard(),
             const SizedBox(height: 16),
             const _OverlayPermissionCard(),
+            const SizedBox(height: 16),
+            _TestOverlayCard(
+              onTest: () => _handleIncomingNumber('+91 99999 88888'),
+            ),
           ],
         ),
       ),
     );
   }
 
-  AppBar _buildAppBar() {
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: _cardBg,
+      backgroundColor: Colors.transparent,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: _border),
-      ),
       title: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: _primary,
-              borderRadius: BorderRadius.circular(8),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.primary, AppColors.primaryDark],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: const Icon(Icons.phone_in_talk_rounded,
-                color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.phone_in_talk_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           const Text(
             'CRM Caller',
             style: TextStyle(
-              color: _textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
             ),
           ),
         ],
       ),
       actions: [
-        PopupMenuButton<String>(
-          offset: const Offset(0, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: _border),
-          ),
-          color: _cardBg,
-          elevation: 4,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: _Avatar(name: widget.user.username),
-          ),
-          itemBuilder: (_) => [
-            PopupMenuItem(
-              enabled: false,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.user.username,
-                    style: const TextStyle(
-                        color: _textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13),
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: PopupMenuButton<String>(
+            offset: const Offset(0, 52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            color: Colors.white,
+            elevation: 8,
+            shadowColor: Colors.black.withValues(alpha: 0.15),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.12),
+                    AppColors.accent.withValues(alpha: 0.08),
+                  ],
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  widget.user.username.isNotEmpty
+                      ? widget.user.username[0].toUpperCase()
+                      : 'U',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
                   ),
-                  const SizedBox(height: 2),
-                  const Text('Signed in',
-                      style:
-                          TextStyle(color: _textSecondary, fontSize: 11)),
-                ],
+                ),
               ),
             ),
-            const PopupMenuDivider(height: 1),
-            PopupMenuItem(
-              value: 'logout',
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: const Row(
-                children: [
-                  Icon(Icons.logout_rounded, size: 16, color: _danger),
-                  SizedBox(width: 10),
-                  Text('Sign out',
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                enabled: false,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.user.username,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Signed in',
                       style: TextStyle(
-                          color: _danger,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 13)),
-                ],
+                        color: AppColors.textTertiary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-          onSelected: (value) async {
-            if (value == 'logout') {
-              await StorageService.clearAll();
-              if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (_) => false,
-              );
-            }
-          },
+              const PopupMenuDivider(height: 1),
+              PopupMenuItem(
+                value: 'logout',
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: const Row(
+                  children: [
+                    Icon(Icons.logout_rounded,
+                        size: 16, color: AppColors.danger),
+                    SizedBox(width: 10),
+                    Text(
+                      'Sign out',
+                      style: TextStyle(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            onSelected: (value) async {
+              if (value == 'logout') {
+                await StorageService.clearAll();
+                if (!mounted) return;
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (_) => false,
+                );
+              }
+            },
+          ),
         ),
       ],
     );
   }
 }
 
-// ── Home screen cards ────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
+// HOME CARDS
+// ════════════════════════════════════════════════════════════════════════════════
 
 class _WelcomeCard extends StatelessWidget {
   final String username;
@@ -287,71 +338,107 @@ class _WelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [_primary, _primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            AppColors.primary,
+            AppColors.primaryDark,
+            Color(0xFF1E40AF),
+          ],
+          stops: [0.0, 0.6, 1.0],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: _primary.withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
+            color: AppColors.primary.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.white.withValues(alpha: 0.2),
-            child: Text(
-              username.isNotEmpty ? username[0].toUpperCase() : 'U',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1.5,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Welcome back,',
-                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(
+                  'Welcome back,',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 13,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+                const SizedBox(height: 2),
                 Text(
                   username,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 17),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 19,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ],
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+              ),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.circle, color: Color(0xFF4ADE80), size: 7),
-                SizedBox(width: 5),
-                Text('Active',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500)),
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4ADE80),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Active',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -374,82 +461,103 @@ class _ManualLookupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Card(
+    return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.manage_search_rounded, color: _primary, size: 18),
-              SizedBox(width: 8),
-              Text('Manual Lookup',
-                  style: TextStyle(
-                      color: _textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.manage_search_rounded,
+                    color: AppColors.primary, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Manual Lookup',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 3),
-          const Text('Search a phone number in CRM',
-              style: TextStyle(color: _textSecondary, fontSize: 12)),
-          const SizedBox(height: 14),
+          const SizedBox(height: 4),
+          const Padding(
+            padding: EdgeInsets.only(left: 42),
+            child: Text(
+              'Search a phone number in your CRM',
+              style: TextStyle(
+                color: AppColors.textTertiary,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: AppTextField(
                   controller: controller,
+                  hint: '+91 98765 43210',
+                  icon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
                   onSubmitted: (_) => onLookup(),
-                  style: const TextStyle(
-                      color: _textPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: '+91 98765 43210',
-                    hintStyle: const TextStyle(
-                        color: _textSecondary, fontSize: 13),
-                    prefixIcon: const Icon(Icons.phone_outlined,
-                        color: _textSecondary, size: 18),
-                    filled: true,
-                    fillColor: _inputBg,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: _border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide:
-                          const BorderSide(color: _primary, width: 1.5),
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: loading ? null : onLookup,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: _primary.withValues(alpha: 0.5),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 18),
+              GestureDetector(
+                onTap: loading ? null : onLookup,
+                child: Container(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: loading
+                          ? [
+                              AppColors.primary.withValues(alpha: 0.5),
+                              AppColors.primaryDark.withValues(alpha: 0.5),
+                            ]
+                          : [AppColors.primary, AppColors.primaryDark],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: loading
+                        ? []
+                        : [
+                            BoxShadow(
+                              color:
+                                  AppColors.primary.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                   ),
-                  child: loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Lookup',
-                          style: TextStyle(
+                  child: Center(
+                    child: loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Lookup',
+                            style: TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
-                              fontSize: 14)),
+                              fontSize: 15,
+                            ),
+                          ),
+                  ),
                 ),
               ),
             ],
@@ -465,29 +573,42 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Card(
+    return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.sensors_rounded, color: _primary, size: 18),
-              SizedBox(width: 8),
-              Text('Auto Detection',
-                  style: TextStyle(
-                      color: _textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.sensors_rounded,
+                    color: AppColors.success, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Auto Detection',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           _StatusRow(
-            dot: const Color(0xFF4ADE80),
+            color: AppColors.success,
             text: 'Listening for incoming & outgoing calls',
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           _StatusRow(
-            dot: _primary,
+            color: AppColors.primary,
             text: 'CRM lookup runs automatically on call end',
           ),
         ],
@@ -497,32 +618,46 @@ class _StatusCard extends StatelessWidget {
 }
 
 class _StatusRow extends StatelessWidget {
-  final Color dot;
+  final Color color;
   final String text;
-  const _StatusRow({required this.dot, required this.text});
+  const _StatusRow({required this.color, required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Container(
-          width: 7,
-          height: 7,
-          decoration:
-              BoxDecoration(color: dot, shape: BoxShape.circle),
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.4),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
-          child: Text(text,
-              style:
-                  const TextStyle(color: _textSecondary, fontSize: 13)),
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.3,
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-// ── Overlay permission card ───────────────────────────────────────────────────
+// ── Overlay Permission Card ─────────────────────────────────────────────────
 
 class _OverlayPermissionCard extends StatefulWidget {
   const _OverlayPermissionCard();
@@ -534,7 +669,7 @@ class _OverlayPermissionCard extends StatefulWidget {
 
 class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
     with WidgetsBindingObserver {
-  bool _granted = true; // optimistic — hides card if already granted
+  bool _granted = true;
 
   @override
   void initState() {
@@ -559,7 +694,6 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
       final granted = await FlutterOverlayWindow.isPermissionGranted();
       if (mounted) setState(() => _granted = granted);
     } catch (_) {
-      // Plugin error or unsupported — hide the card
       if (mounted) setState(() => _granted = true);
     }
   }
@@ -567,52 +701,89 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
   Future<void> _request() async {
     try {
       await FlutterOverlayWindow.requestPermission();
-    } catch (_) {
-      // Ignore
-    }
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     if (_granted) return const SizedBox.shrink();
 
-    return _Card(
+    return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.bubble_chart_outlined,
-                  color: _unknownColor, size: 18),
-              SizedBox(width: 8),
-              Text('Background Bubble',
-                  style: TextStyle(
-                      color: _textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.bubble_chart_outlined,
+                    color: AppColors.warning, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Background Bubble',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'Grant "Display over other apps" so the CRM bubble appears when a call ends, even when the app is closed.',
-            style: TextStyle(color: _textSecondary, fontSize: 12),
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.only(left: 42),
+            child: Text(
+              'Grant "Display over other apps" so the CRM bubble appears when a call ends, even when the app is closed.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _request,
-              icon: const Icon(Icons.security_rounded, size: 16),
-              label: const Text('Grant Permission',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _unknownColor,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+            child: GestureDetector(
+              onTap: _request,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.warning, Color(0xFFD97706)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.warning.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.security_rounded,
+                        size: 17, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Grant Permission',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -622,7 +793,9 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
   }
 }
 
-// ── Bottom sheets ─────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
+// BOTTOM SHEETS
+// ════════════════════════════════════════════════════════════════════════════════
 
 class _CreateLeadSheet extends StatefulWidget {
   final String phone;
@@ -647,7 +820,7 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      _showSnack('Lead name is required', _danger);
+      _showSnack('Lead name is required', AppColors.danger);
       return;
     }
 
@@ -662,28 +835,34 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
 
       if (!mounted) return;
       Navigator.pop(context);
-      _showSnack('Lead created successfully', _success,
-          icon: Icons.check_circle_outline_rounded);
+      _showSnack(
+        'Lead created successfully',
+        AppColors.success,
+        icon: Icons.check_circle_outline_rounded,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _showSnack('Error: $e', _danger);
+      _showSnack('Error: $e', AppColors.danger);
     }
   }
 
   void _showSnack(String msg, Color bg, {IconData? icon}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.white, size: 17),
-            const SizedBox(width: 8),
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white, size: 17),
+              const SizedBox(width: 8),
+            ],
+            Expanded(child: Text(msg)),
           ],
-          Expanded(child: Text(msg)),
-        ]),
+        ),
         backgroundColor: bg,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -691,28 +870,63 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return _BottomSheetContainer(
+    return AppSheetContainer(
       padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SheetHandle(),
-          _SheetHeader(
-            icon: Icons.person_add_alt_1_rounded,
-            iconBg: const Color(0xFFFEF3C7),
-            iconColor: const Color(0xFFD97706),
-            title: 'Unknown Caller',
-            subtitle: widget.phone,
+          const AppSheetHandle(),
+
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.warningSurface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.person_add_alt_1_rounded,
+                    color: AppColors.warning, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Unknown Caller',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.phone,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _SheetCloseBtn(),
+            ],
           ),
           const SizedBox(height: 20),
-          const Divider(color: _border, height: 1),
+          const Divider(color: AppColors.divider, height: 1),
           const SizedBox(height: 20),
 
           // Name
-          const _FieldLabel(label: 'Lead Name', required: true),
-          const SizedBox(height: 6),
-          _FrappeField(
+          const AppFieldLabel(label: 'Lead Name', required: true),
+          const SizedBox(height: 8),
+          AppTextField(
             controller: _nameCtrl,
             hint: 'Enter full name',
             icon: Icons.person_outline_rounded,
@@ -720,34 +934,36 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
           const SizedBox(height: 16),
 
           // Note
-          const _FieldLabel(label: 'Call Note'),
-          const SizedBox(height: 6),
-          _FrappeField(
+          const AppFieldLabel(label: 'Call Note'),
+          const SizedBox(height: 8),
+          AppTextField(
             controller: _noteCtrl,
-            hint: 'Briefly describe this call…',
+            hint: 'Briefly describe this call...',
             maxLines: 3,
           ),
           const SizedBox(height: 24),
 
           // Actions
-          Row(children: [
-            Expanded(
-              child: _OutlineBtn(
-                label: 'Cancel',
-                onTap: _saving ? null : () => Navigator.pop(context),
+          Row(
+            children: [
+              Expanded(
+                child: AppOutlineButton(
+                  label: 'Cancel',
+                  onTap: _saving ? null : () => Navigator.pop(context),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: _PrimaryBtn(
-                label: 'Create Lead',
-                icon: Icons.add_rounded,
-                loading: _saving,
-                onTap: _saving ? null : _submit,
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: AppButton(
+                  label: 'Create Lead',
+                  icon: Icons.add_rounded,
+                  loading: _saving,
+                  onTap: _saving ? null : _submit,
+                ),
               ),
-            ),
-          ]),
+            ],
+          ),
         ],
       ),
     );
@@ -774,27 +990,7 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
     super.dispose();
   }
 
-  String get _initials {
-    final name =
-        (widget.result['customer_name'] as String? ?? '').trim();
-    final parts = name.split(' ');
-    if (parts.isEmpty || parts[0].isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-
-  Color get _typeColor {
-    switch ((widget.result['type'] as String? ?? '').toLowerCase()) {
-      case 'lead':
-        return const Color(0xFF7C3AED);
-      case 'opportunity':
-        return const Color(0xFF059669);
-      case 'customer':
-        return _primary;
-      default:
-        return _textSecondary;
-    }
-  }
+  Color get _typeColor => typeColor(widget.result['type'] as String? ?? '');
 
   Future<void> _saveNote() async {
     if (_noteCtrl.text.trim().isEmpty) return;
@@ -808,133 +1004,169 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
       );
       if (!mounted) return;
       Navigator.pop(context);
-      _showSnack('Note added successfully', _success,
-          icon: Icons.check_circle_outline_rounded);
+      _showSnack(
+        'Note added successfully',
+        AppColors.success,
+        icon: Icons.check_circle_outline_rounded,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _showSnack('Error: $e', _danger);
+      _showSnack('Error: $e', AppColors.danger);
     }
   }
 
   void _showSnack(String msg, Color bg, {IconData? icon}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.white, size: 17),
-            const SizedBox(width: 8),
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white, size: 17),
+              const SizedBox(width: 8),
+            ],
+            Expanded(child: Text(msg)),
           ],
-          Expanded(child: Text(msg)),
-        ]),
+        ),
         backgroundColor: bg,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final name =
-        widget.result['customer_name'] as String? ?? 'Unknown';
+    final name = widget.result['customer_name'] as String? ?? 'Unknown';
     final type = widget.result['type'] as String? ?? '-';
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return _BottomSheetContainer(
+    return AppSheetContainer(
       padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SheetHandle(),
+          const AppSheetHandle(),
 
-          // Caller row
-          Row(children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: _primary.withValues(alpha: 0.1),
-              child: Text(
-                _initials,
-                style: const TextStyle(
-                    color: _primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16),
+          // Caller info
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.12),
+                      AppColors.accent.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    initials(name),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
                       style: const TextStyle(
-                          color: _textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 17)),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    _TypeChip(label: type, color: _typeColor),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.phone_outlined,
-                        size: 12, color: _textSecondary),
-                    const SizedBox(width: 3),
-                    Text(widget.phone,
-                        style: const TextStyle(
-                            color: _textSecondary, fontSize: 12)),
-                  ]),
-                ],
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        AppTypeChip(label: type, color: _typeColor),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.phone_outlined,
+                            size: 13, color: AppColors.textTertiary),
+                        const SizedBox(width: 3),
+                        Text(
+                          widget.phone,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            _CloseBtn(),
-          ]),
+              _SheetCloseBtn(),
+            ],
+          ),
 
           const SizedBox(height: 20),
-          const Divider(color: _border, height: 1),
+          const Divider(color: AppColors.divider, height: 1),
           const SizedBox(height: 16),
 
           if (!_showNoteField)
             SizedBox(
               width: double.infinity,
-              child: _PrimaryBtn(
+              child: AppButton(
                 label: 'Add Call Note',
-                icon: Icons.note_add_outlined,
+                icon: Icons.edit_note_rounded,
                 onTap: () => setState(() => _showNoteField = true),
               ),
             )
           else ...[
-            const _FieldLabel(label: 'Call Note'),
-            const SizedBox(height: 6),
-            _FrappeField(
+            const AppFieldLabel(label: 'Call Note'),
+            const SizedBox(height: 8),
+            AppTextField(
               controller: _noteCtrl,
-              hint: 'Describe this call…',
+              hint: 'Describe this call...',
               maxLines: 3,
               autofocus: true,
             ),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: _OutlineBtn(
-                  label: 'Cancel',
-                  onTap: _saving
-                      ? null
-                      : () => setState(() {
-                            _showNoteField = false;
-                            _noteCtrl.clear();
-                          }),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: AppOutlineButton(
+                    label: 'Cancel',
+                    onTap: _saving
+                        ? null
+                        : () => setState(() {
+                              _showNoteField = false;
+                              _noteCtrl.clear();
+                            }),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: _PrimaryBtn(
-                  label: 'Save Note',
-                  icon: Icons.save_outlined,
-                  loading: _saving,
-                  onTap: _saving ? null : _saveNote,
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: AppButton(
+                    label: 'Save Note',
+                    icon: Icons.check_rounded,
+                    loading: _saving,
+                    onTap: _saving ? null : _saveNote,
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ],
         ],
       ),
@@ -942,298 +1174,87 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
   }
 }
 
-// ── Shared UI atoms ───────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
+// SHARED ATOMS
+// ════════════════════════════════════════════════════════════════════════════════
 
-class _Card extends StatelessWidget {
-  final Widget child;
-  const _Card({required this.child});
+class _SheetCloseBtn extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.inputBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+        ),
+        child: const Icon(Icons.close_rounded,
+            color: AppColors.textSecondary, size: 18),
+      ),
+    );
+  }
+}
+
+class _TestOverlayCard extends StatelessWidget {
+  final VoidCallback onTest;
+  const _TestOverlayCard({required this.onTest});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.terminal_rounded,
+                    color: AppColors.accent, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Developer Tools',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.only(left: 42),
+            child: Text(
+              'Simulate a call to test the overlay behavior.',
+              style: TextStyle(
+                color: AppColors.textTertiary,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: AppOutlineButton(
+              label: 'Test Call Overlay',
+              icon: Icons.play_circle_outline_rounded,
+              onTap: onTest,
+              color: AppColors.accent,
+            ),
+          ),
         ],
       ),
-      child: child,
-    );
-  }
-}
-
-class _BottomSheetContainer extends StatelessWidget {
-  final Widget child;
-  final EdgeInsets padding;
-  const _BottomSheetContainer(
-      {required this.child, required this.padding});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: padding,
-      child: child,
-    );
-  }
-}
-
-class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 12),
-        width: 40,
-        height: 4,
-        decoration: BoxDecoration(
-            color: _border, borderRadius: BorderRadius.circular(2)),
-      ),
-    );
-  }
-}
-
-class _SheetHeader extends StatelessWidget {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  const _SheetHeader(
-      {required this.icon,
-      required this.iconBg,
-      required this.iconColor,
-      required this.title,
-      required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-            color: iconBg, borderRadius: BorderRadius.circular(12)),
-        child: Icon(icon, color: iconColor, size: 22),
-      ),
-      const SizedBox(width: 14),
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title,
-              style: const TextStyle(
-                  color: _textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17)),
-          Text(subtitle,
-              style:
-                  const TextStyle(color: _textSecondary, fontSize: 13)),
-        ]),
-      ),
-      _CloseBtn(),
-    ]);
-  }
-}
-
-class _CloseBtn extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: () => Navigator.pop(context),
-      icon: const Icon(Icons.close_rounded, color: _textSecondary, size: 20),
-      style: IconButton.styleFrom(
-        backgroundColor: _inputBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.all(6),
-        minimumSize: const Size(34, 34),
-      ),
-    );
-  }
-}
-
-class _TypeChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _TypeChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20)),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  final String name;
-  const _Avatar({required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: _primary.withValues(alpha: 0.12),
-      child: Text(
-        name.isNotEmpty ? name[0].toUpperCase() : 'U',
-        style: const TextStyle(
-            color: _primary, fontWeight: FontWeight.w700, fontSize: 13),
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  final String label;
-  final bool required;
-  const _FieldLabel({required this.label, this.required = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return RichText(
-      text: TextSpan(
-        text: label,
-        style: const TextStyle(
-            color: _textSecondary,
-            fontWeight: FontWeight.w500,
-            fontSize: 12),
-        children: required
-            ? const [
-                TextSpan(
-                    text: ' *',
-                    style: TextStyle(
-                        color: _danger, fontWeight: FontWeight.w700))
-              ]
-            : [],
-      ),
-    );
-  }
-}
-
-class _FrappeField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final IconData? icon;
-  final int maxLines;
-  final bool autofocus;
-
-  const _FrappeField({
-    required this.controller,
-    required this.hint,
-    this.icon,
-    this.maxLines = 1,
-    this.autofocus = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      autofocus: autofocus,
-      style: const TextStyle(color: _textPrimary, fontSize: 14),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle:
-            const TextStyle(color: _textSecondary, fontSize: 13),
-        prefixIcon: icon != null
-            ? Icon(icon, color: _textSecondary, size: 18)
-            : null,
-        filled: true,
-        fillColor: _inputBg,
-        contentPadding: EdgeInsets.symmetric(
-            horizontal: 14, vertical: maxLines > 1 ? 14 : 12),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: _border)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: _primary, width: 1.5)),
-      ),
-    );
-  }
-}
-
-class _PrimaryBtn extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final bool loading;
-  final VoidCallback? onTap;
-
-  const _PrimaryBtn(
-      {required this.label,
-      this.icon,
-      this.loading = false,
-      this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: _primary.withValues(alpha: 0.5),
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      child: loading
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white))
-          : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (icon != null) ...[
-                Icon(icon, size: 17),
-                const SizedBox(width: 6),
-              ],
-              Text(label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
-            ]),
-    );
-  }
-}
-
-class _OutlineBtn extends StatelessWidget {
-  final String label;
-  final VoidCallback? onTap;
-
-  const _OutlineBtn({required this.label, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: _textSecondary,
-        side: const BorderSide(color: _border),
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      child: Text(label,
-          style: const TextStyle(
-              fontWeight: FontWeight.w500, fontSize: 14)),
     );
   }
 }

@@ -17,17 +17,13 @@ void overlayMain() {
     MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2490EF),
-          brightness: Brightness.light,
-        ),
         useMaterial3: true,
+        brightness: Brightness.light,
         splashFactory: NoSplash.splashFactory,
         highlightColor: Colors.transparent,
       ),
       home: const OverlayBubble(),
     ),
   );
-  // Keep overlay listener active to receive close signals from main app
   FlutterOverlayWindow.overlayListener.listen((_) {});
 }

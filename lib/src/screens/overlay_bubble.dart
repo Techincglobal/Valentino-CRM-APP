@@ -4,19 +4,33 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ── Palette (mirrors home_screen.dart) ──────────────────────────────────────
-const _primary = Color(0xFF2490EF);
-const _cardBg = Color(0xFFFFFFFF);
-const _textPrimary = Color(0xFF1F272B);
-const _textSecondary = Color(0xFF687076);
-const _danger = Color(0xFFE03636);
+// ============================================================================
+// Overlay Bubble — Frosted Glass iOS Design
+// Runs in a separate Flutter engine; no BackdropFilter (isolated window).
+// Glass effect is simulated with gradients, borders, and shadows.
+// ============================================================================
+
+// ── Palette ─────────────────────────────────────────────────────────────────
+const _primary = Color(0xFF2563EB);
+const _primaryDark = Color(0xFF1D4ED8);
+const _primaryLight = Color(0xFF93C5FD);
+const _textPrimary = Color(0xFF0F172A);
+const _textSecondary = Color(0xFF64748B);
+const _textTertiary = Color(0xFF94A3B8);
+const _success = Color(0xFF10B981);
+const _danger = Color(0xFFEF4444);
+const _warning = Color(0xFFF59E0B);
 const _border = Color(0xFFE2E8F0);
 const _inputBg = Color(0xFFF8FAFC);
-const _unknownColor = Color(0xFFD97706);
-// ────────────────────────────────────────────────────────────────────────────
 
-const _compactHeight = 220;
-const _expandedHeight = 390;
+const _lead = Color(0xFF8B5CF6);
+const _opportunity = Color(0xFF10B981);
+const _customer = Color(0xFF3B82F6);
+
+// ── Sizes ───────────────────────────────────────────────────────────────────
+const _bubbleSize = 68;
+const _compactHeight = 310;
+const _expandedHeight = 460;
 
 class OverlayBubble extends StatefulWidget {
   const OverlayBubble({super.key});
@@ -25,7 +39,8 @@ class OverlayBubble extends StatefulWidget {
   State<OverlayBubble> createState() => _OverlayBubbleState();
 }
 
-class _OverlayBubbleState extends State<OverlayBubble> {
+class _OverlayBubbleState extends State<OverlayBubble>
+    with SingleTickerProviderStateMixin {
   // Caller data
   String _phone = '';
   String _name = '';
@@ -33,26 +48,39 @@ class _OverlayBubbleState extends State<OverlayBubble> {
   String _docname = '';
   bool _found = false;
 
-  // Auth (read from SharedPreferences — written by StorageService)
+  // Notes
+  String _latestNote = '';
+  bool _loadingNotes = false;
+
+  // Auth
   String? _baseUrl;
   String? _sid;
 
   // UI state
   bool _loaded = false;
-  bool _showForm = false; // add note / create lead form
+  bool _isMinimized = true;
+  bool _showForm = false;
   bool _saving = false;
+  String? _successMessage;
 
   final _nameCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
 
+  late AnimationController _pulseCtrl;
+
   @override
   void initState() {
     super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
     _load();
   }
 
   @override
   void dispose() {
+    _pulseCtrl.dispose();
     _nameCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
@@ -70,14 +98,48 @@ class _OverlayBubbleState extends State<OverlayBubble> {
       _sid = prefs.getString('crm_sid');
       _loaded = true;
     });
-    // Snap to compact height so overlay doesn't cover the full screen on open
+
     try {
-      await FlutterOverlayWindow.resizeOverlay(
-          WindowSize.matchParent, _compactHeight, false);
+      await FlutterOverlayWindow.resizeOverlay(_bubbleSize, _bubbleSize, true);
     } catch (_) {}
+
+    // Fetch latest note for known callers
+    if (_found && _docname.isNotEmpty && _type.isNotEmpty) {
+      _fetchLatestNote();
+    }
   }
 
-  // ── API helpers ────────────────────────────────────────────────────────────
+  // ── Notes fetching ──────────────────────────────────────────────────────────
+
+  Future<void> _fetchLatestNote() async {
+    if (_baseUrl == null || _sid == null) return;
+    setState(() => _loadingNotes = true);
+
+    try {
+      final url = Uri.parse(_baseUrl!)
+          .resolve('/api/method/nxtgen_crm_mobile.api.get_notes');
+      final response = await http.post(
+        url,
+        headers: {'Cookie': 'sid=$_sid', 'Content-Type': 'application/json'},
+        body: jsonEncode({'doctype': _type, 'docname': _docname}),
+      );
+      if (response.statusCode == 200 && mounted) {
+        final data = jsonDecode(response.body);
+        final notes = data['message'] as List? ?? [];
+        if (notes.isNotEmpty) {
+          setState(() {
+            _latestNote = (notes[0]['content'] as String? ?? '').trim();
+          });
+        }
+      }
+    } catch (_) {
+      // Silently fail — notes are supplementary
+    } finally {
+      if (mounted) setState(() => _loadingNotes = false);
+    }
+  }
+
+  // ── API helpers ─────────────────────────────────────────────────────────────
 
   Future<void> _createLead() async {
     final name = _nameCtrl.text.trim();
@@ -86,14 +148,16 @@ class _OverlayBubbleState extends State<OverlayBubble> {
 
     try {
       final noteText = _noteCtrl.text.trim();
-      await _post(
-        '/api/method/nxtgen_crm_mobile.api.create_lead_with_note',
-        {
-          'first_name': name,
-          'mobile_no': _phone,
-          if (noteText.isNotEmpty) 'note_content': noteText,
-        },
-      );
+      await _post('/api/method/nxtgen_crm_mobile.api.create_lead_with_note', {
+        'first_name': name,
+        'mobile_no': _phone,
+        if (noteText.isNotEmpty) 'note_content': noteText,
+      });
+      setState(() {
+        _successMessage = 'Lead created!';
+        _saving = false;
+      });
+      await Future.delayed(const Duration(seconds: 1));
       await FlutterOverlayWindow.closeOverlay();
     } catch (e) {
       setState(() => _saving = false);
@@ -106,14 +170,16 @@ class _OverlayBubbleState extends State<OverlayBubble> {
     setState(() => _saving = true);
 
     try {
-      await _post(
-        '/api/method/nxtgen_crm_mobile.api.add_call_note',
-        {
-          'doctype': _type.isNotEmpty ? _type : 'Lead',
-          'docname': _docname,
-          'note_content': note,
-        },
-      );
+      await _post('/api/method/nxtgen_crm_mobile.api.add_call_note', {
+        'doctype': _type.isNotEmpty ? _type : 'Lead',
+        'docname': _docname,
+        'note_content': note,
+      });
+      setState(() {
+        _successMessage = 'Note saved!';
+        _saving = false;
+      });
+      await Future.delayed(const Duration(seconds: 1));
       await FlutterOverlayWindow.closeOverlay();
     } catch (e) {
       setState(() => _saving = false);
@@ -121,16 +187,11 @@ class _OverlayBubbleState extends State<OverlayBubble> {
   }
 
   Future<void> _post(String endpoint, Map<String, dynamic> body) async {
-    if (_baseUrl == null || _sid == null) {
-      throw Exception('Not authenticated');
-    }
+    if (_baseUrl == null || _sid == null) throw Exception('Not authenticated');
     final url = Uri.parse(_baseUrl!).resolve(endpoint);
     final response = await http.post(
       url,
-      headers: {
-        'Cookie': 'sid=$_sid',
-        'Content-Type': 'application/json',
-      },
+      headers: {'Cookie': 'sid=$_sid', 'Content-Type': 'application/json'},
       body: jsonEncode(body),
     );
     if (response.statusCode != 200) {
@@ -138,26 +199,53 @@ class _OverlayBubbleState extends State<OverlayBubble> {
     }
   }
 
-  // ── Overlay resize helpers ─────────────────────────────────────────────────
+  // ── Overlay resize ──────────────────────────────────────────────────────────
+
+  Future<void> _expand() async {
+    await FlutterOverlayWindow.resizeOverlay(
+      WindowSize.matchParent,
+      _compactHeight,
+      false,
+    );
+    setState(() {
+      _isMinimized = false;
+      _showForm = false;
+    });
+  }
+
+  Future<void> _minimize() async {
+    await FlutterOverlayWindow.resizeOverlay(_bubbleSize, _bubbleSize, true);
+    setState(() {
+      _isMinimized = true;
+      _showForm = false;
+    });
+  }
 
   Future<void> _openForm() async {
     await FlutterOverlayWindow.resizeOverlay(
-        WindowSize.matchParent, _expandedHeight, false);
+      WindowSize.matchParent,
+      _expandedHeight,
+      false,
+    );
     setState(() => _showForm = true);
   }
 
   Future<void> _closeForm() async {
     await FlutterOverlayWindow.resizeOverlay(
-        WindowSize.matchParent, _compactHeight, false);
+      WindowSize.matchParent,
+      _compactHeight,
+      false,
+    );
     setState(() {
       _showForm = false;
       _saving = false;
+      _successMessage = null;
       _nameCtrl.clear();
       _noteCtrl.clear();
     });
   }
 
-  // ── Derived display helpers ────────────────────────────────────────────────
+  // ── Display helpers ─────────────────────────────────────────────────────────
 
   String get _initials {
     if (!_found || _name.isEmpty) return '?';
@@ -166,29 +254,96 @@ class _OverlayBubbleState extends State<OverlayBubble> {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  Color get _avatarColor => _found ? _primary : _unknownColor;
+  Color get _avatarColor => _found ? _primary : _warning;
 
   Color get _typeColor {
     switch (_type.toLowerCase()) {
       case 'lead':
-        return const Color(0xFF7C3AED);
+        return _lead;
       case 'opportunity':
-        return const Color(0xFF059669);
+        return _opportunity;
       case 'customer':
-        return _primary;
+        return _customer;
       default:
         return _textSecondary;
     }
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // ── Build ───────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded) {
-      return const SizedBox.shrink();
-    }
+    if (!_loaded) return const SizedBox.shrink();
+    if (_isMinimized) return _buildBubble();
+    return _buildCard();
+  }
 
+  // ── Minimized Bubble ────────────────────────────────────────────────────────
+
+  Widget _buildBubble() {
+    return GestureDetector(
+      onTap: _expand,
+      child: AnimatedBuilder(
+        animation: _pulseCtrl,
+        builder: (context, child) {
+          final glowOpacity = 0.15 + (_pulseCtrl.value * 0.15);
+          return Container(
+            width: _bubbleSize.toDouble(),
+            height: _bubbleSize.toDouble(),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_primary, Color(0xFF60A5FA)],
+              ),
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: _primary.withValues(alpha: glowOpacity),
+                  blurRadius: 20,
+                  spreadRadius: 4,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.phone_callback_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+                if (_found && _name.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text(
+                      _name.split(' ')[0],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Expanded Card ───────────────────────────────────────────────────────────
+
+  Widget _buildCard() {
     return Material(
       color: Colors.transparent,
       child: SafeArea(
@@ -199,25 +354,51 @@ class _OverlayBubbleState extends State<OverlayBubble> {
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               decoration: BoxDecoration(
-                color: _cardBg,
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 24,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 6),
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 32,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: _primary.withValues(alpha: 0.06),
+                    blurRadius: 48,
+                    offset: const Offset(0, 16),
                   ),
                 ],
-                border: Border.all(color: _border),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHeader(),
-                  const Divider(color: _border, height: 1, indent: 16, endIndent: 16),
-                  _showForm ? _buildForm() : _buildActions(),
-                ],
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Top accent line
+                    Container(
+                      height: 3,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _found
+                              ? [_primary, _primaryLight]
+                              : [_warning, const Color(0xFFFCD34D)],
+                        ),
+                      ),
+                    ),
+                    _buildHeader(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Divider(color: _border.withValues(alpha: 0.6), height: 1),
+                    ),
+                    if (_successMessage != null)
+                      _buildSuccess()
+                    else if (_showForm)
+                      _buildForm()
+                    else
+                      _buildBody(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -226,61 +407,82 @@ class _OverlayBubbleState extends State<OverlayBubble> {
     );
   }
 
+  // ── Header ──────────────────────────────────────────────────────────────────
+
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 10, 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
       child: Row(
         children: [
           // Avatar
           Container(
-            width: 42,
-            height: 42,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: _avatarColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _avatarColor.withValues(alpha: 0.15),
+                  _avatarColor.withValues(alpha: 0.08),
+                ],
+              ),
+              border: Border.all(
+                color: _avatarColor.withValues(alpha: 0.2),
+                width: 1.5,
+              ),
             ),
             child: Center(
               child: Text(
                 _initials,
                 style: TextStyle(
                   color: _avatarColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // Name + info
+          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _found && _name.isNotEmpty ? _name : 'Unknown Caller',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textPrimary,
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontSize: 16,
+                    letterSpacing: -0.3,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     if (_found && _type.isNotEmpty) ...[
-                      _TypeChip(label: _type, color: _typeColor),
-                      const SizedBox(width: 6),
+                      _TypeBadge(label: _type, color: _typeColor),
+                      const SizedBox(width: 8),
                     ],
-                    const Icon(Icons.phone_outlined,
-                        size: 11, color: _textSecondary),
+                    Icon(
+                      Icons.phone_outlined,
+                      size: 12,
+                      color: _textTertiary,
+                    ),
                     const SizedBox(width: 3),
                     Flexible(
                       child: Text(
                         _phone,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            color: _textSecondary, fontSize: 12),
+                          color: _textSecondary,
+                          fontSize: 12,
+                          letterSpacing: -0.1,
+                        ),
                       ),
                     ),
                   ],
@@ -288,149 +490,324 @@ class _OverlayBubbleState extends State<OverlayBubble> {
               ],
             ),
           ),
-          // Close
-          IconButton(
-            onPressed: () => FlutterOverlayWindow.closeOverlay(),
-            icon: const Icon(Icons.close_rounded,
-                color: _textSecondary, size: 18),
-            style: IconButton.styleFrom(
-              backgroundColor: _inputBg,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.all(6),
-              minimumSize: const Size(32, 32),
-            ),
+          // Controls
+          _IconBtn(
+            icon: Icons.remove_rounded,
+            onTap: _minimize,
+          ),
+          const SizedBox(width: 4),
+          _IconBtn(
+            icon: Icons.close_rounded,
+            onTap: () => FlutterOverlayWindow.closeOverlay(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActions() {
-    if (_found) {
-      // Known caller: Add Note
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-        child: SizedBox(
-          width: double.infinity,
-          child: _PrimaryBtn(
-            label: 'Add Call Note',
-            icon: Icons.note_add_outlined,
-            onTap: _openForm,
-          ),
-        ),
-      );
-    } else {
-      // Unknown caller: Create Lead or dismiss
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: _OutlineBtn(
-                label: 'Not a lead',
-                icon: Icons.block_rounded,
-                onTap: () => FlutterOverlayWindow.closeOverlay(),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 2,
-              child: _PrimaryBtn(
-                label: 'Create Lead',
-                icon: Icons.person_add_alt_1_rounded,
-                onTap: _openForm,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+  // ── Body (known/unknown) ────────────────────────────────────────────────────
+
+  Widget _buildBody() {
+    if (_found) return _buildKnownBody();
+    return _buildUnknownBody();
   }
 
-  Widget _buildForm() {
+  Widget _buildKnownBody() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Name field (only for create lead)
+          // Latest note preview
+          if (_loadingNotes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: _textTertiary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Loading notes...',
+                    style: TextStyle(color: _textTertiary, fontSize: 12),
+                  ),
+                ],
+              ),
+            )
+          else if (_latestNote.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _inputBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.sticky_note_2_outlined,
+                          size: 13, color: _primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Latest Note',
+                        style: TextStyle(
+                          color: _primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _latestNote,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _textSecondary,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+          // Add Note button
+          SizedBox(
+            width: double.infinity,
+            child: _GradientBtn(
+              label: 'Add Call Note',
+              icon: Icons.edit_note_rounded,
+              onTap: _openForm,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnknownBody() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Info box
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _warning.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 16, color: _warning),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'This number isn\'t saved in your CRM yet.',
+                    style: TextStyle(
+                      color: const Color(0xFF92400E),
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: _GlassBtn(
+                  label: 'Dismiss',
+                  icon: Icons.close_rounded,
+                  onTap: () => FlutterOverlayWindow.closeOverlay(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: _GradientBtn(
+                  label: 'Save Contact',
+                  icon: Icons.person_add_alt_1_rounded,
+                  onTap: _openForm,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Form ────────────────────────────────────────────────────────────────────
+
+  Widget _buildForm() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Name field (only for unknown callers)
           if (!_found) ...[
-            _FieldLabel(label: 'Lead Name', required: true),
-            const SizedBox(height: 5),
-            _FrappeField(
+            _Label(label: 'Contact Name', required: true),
+            const SizedBox(height: 6),
+            _Field(
               controller: _nameCtrl,
               hint: 'Full name',
               icon: Icons.person_outline_rounded,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
           ],
           // Note field
-          _FieldLabel(
-              label: _found ? 'Call Note' : 'Note (optional)'),
-          const SizedBox(height: 5),
-          _FrappeField(
+          _Label(label: _found ? 'Call Note' : 'Note (optional)'),
+          const SizedBox(height: 6),
+          _Field(
             controller: _noteCtrl,
-            hint: 'Briefly describe the call…',
+            hint: 'Briefly describe the call...',
             maxLines: 3,
           ),
-          const SizedBox(height: 14),
-          // Action row
-          Row(children: [
-            Expanded(
-              child: _OutlineBtn(
-                label: 'Cancel',
-                onTap: _saving ? null : _closeForm,
+          const SizedBox(height: 16),
+          // Buttons
+          Row(
+            children: [
+              Expanded(
+                child: _GlassBtn(
+                  label: 'Cancel',
+                  onTap: _saving ? null : _closeForm,
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 2,
-              child: _PrimaryBtn(
-                label: _found ? 'Save Note' : 'Create Lead',
-                icon: _found
-                    ? Icons.save_outlined
-                    : Icons.add_rounded,
-                loading: _saving,
-                onTap: _saving
-                    ? null
-                    : (_found ? _addNote : _createLead),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: _GradientBtn(
+                  label: _found ? 'Save Note' : 'Create Lead',
+                  icon: _found ? Icons.check_rounded : Icons.add_rounded,
+                  loading: _saving,
+                  onTap: _saving ? null : (_found ? _addNote : _createLead),
+                ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Success state ───────────────────────────────────────────────────────────
+
+  Widget _buildSuccess() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _success.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
             ),
-          ]),
+            child: const Icon(
+              Icons.check_rounded,
+              color: _success,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _successMessage!,
+            style: const TextStyle(
+              color: _textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Shared atoms ──────────────────────────────────────────────────────────────
+// ============================================================================
+// Local Widgets (self-contained for overlay engine)
+// ============================================================================
 
-class _TypeChip extends StatelessWidget {
+class _TypeBadge extends StatelessWidget {
   final String label;
   final Color color;
-  const _TypeChip({required this.label, required this.color});
+  const _TypeBadge({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+        ),
+      ),
     );
   }
 }
 
-class _FieldLabel extends StatelessWidget {
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: _inputBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _border.withValues(alpha: 0.5)),
+        ),
+        child: Icon(icon, color: _textSecondary, size: 16),
+      ),
+    );
+  }
+}
+
+class _Label extends StatelessWidget {
   final String label;
   final bool required;
-  const _FieldLabel({required this.label, this.required = false});
+  const _Label({required this.label, this.required = false});
 
   @override
   Widget build(BuildContext context) {
@@ -438,15 +815,17 @@ class _FieldLabel extends StatelessWidget {
       text: TextSpan(
         text: label,
         style: const TextStyle(
-            color: _textSecondary,
-            fontWeight: FontWeight.w500,
-            fontSize: 11),
+          color: _textSecondary,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          letterSpacing: -0.1,
+        ),
         children: required
             ? const [
                 TextSpan(
-                    text: ' *',
-                    style: TextStyle(
-                        color: _danger, fontWeight: FontWeight.w700))
+                  text: ' *',
+                  style: TextStyle(color: _danger, fontWeight: FontWeight.w700),
+                ),
               ]
             : [],
       ),
@@ -454,13 +833,13 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _FrappeField extends StatelessWidget {
+class _Field extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final IconData? icon;
   final int maxLines;
 
-  const _FrappeField({
+  const _Field({
     required this.controller,
     required this.hint,
     this.icon,
@@ -472,99 +851,155 @@ class _FrappeField extends StatelessWidget {
     return TextField(
       controller: controller,
       maxLines: maxLines,
-      style: const TextStyle(color: _textPrimary, fontSize: 13),
+      style: const TextStyle(
+        color: _textPrimary,
+        fontSize: 14,
+        letterSpacing: -0.1,
+      ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle:
-            const TextStyle(color: _textSecondary, fontSize: 12),
+        hintStyle: const TextStyle(color: _textTertiary, fontSize: 13),
         prefixIcon: icon != null
-            ? Icon(icon, color: _textSecondary, size: 16)
+            ? Padding(
+                padding: const EdgeInsets.only(left: 12, right: 8),
+                child: Icon(icon, color: _textTertiary, size: 18),
+              )
             : null,
+        prefixIconConstraints:
+            icon != null ? const BoxConstraints(minWidth: 38) : null,
         filled: true,
         fillColor: _inputBg,
         isDense: true,
         contentPadding: EdgeInsets.symmetric(
-            horizontal: 12, vertical: maxLines > 1 ? 12 : 10),
+          horizontal: 14,
+          vertical: maxLines > 1 ? 12 : 12,
+        ),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(color: _border)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _border),
+        ),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide:
-                const BorderSide(color: _primary, width: 1.5)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _primary, width: 1.5),
+        ),
       ),
     );
   }
 }
 
-class _PrimaryBtn extends StatelessWidget {
+class _GradientBtn extends StatelessWidget {
   final String label;
   final IconData? icon;
   final bool loading;
   final VoidCallback? onTap;
 
-  const _PrimaryBtn(
-      {required this.label, this.icon, this.loading = false, this.onTap});
+  const _GradientBtn({
+    required this.label,
+    this.icon,
+    this.loading = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: _primary.withValues(alpha: 0.5),
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(9)),
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: onTap == null
+                ? [
+                    _primary.withValues(alpha: 0.4),
+                    _primaryDark.withValues(alpha: 0.4),
+                  ]
+                : [_primary, _primaryDark],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: onTap != null
+              ? [
+                  BoxShadow(
+                    color: _primary.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : [],
+        ),
+        child: Center(
+          child: loading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, color: Colors.white, size: 16),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
-      child: loading
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white))
-          : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (icon != null) ...[
-                Icon(icon, size: 15),
-                const SizedBox(width: 5),
-              ],
-              Text(label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
     );
   }
 }
 
-class _OutlineBtn extends StatelessWidget {
+class _GlassBtn extends StatelessWidget {
   final String label;
   final IconData? icon;
   final VoidCallback? onTap;
 
-  const _OutlineBtn({required this.label, this.icon, this.onTap});
+  const _GlassBtn({required this.label, this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: _textSecondary,
-        side: const BorderSide(color: _border),
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(9)),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: _inputBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _border),
+        ),
+        child: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: _textSecondary, size: 14),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: const TextStyle(
+                  color: _textSecondary,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        if (icon != null) ...[
-          Icon(icon, size: 14),
-          const SizedBox(width: 4),
-        ],
-        Text(label,
-            style: const TextStyle(
-                fontWeight: FontWeight.w500, fontSize: 13)),
-      ]),
     );
   }
 }

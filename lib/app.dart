@@ -4,6 +4,7 @@ import 'src/screens/site_setup_screen.dart';
 import 'src/screens/login_screen.dart';
 import 'src/screens/home_screen.dart';
 import 'src/services/storage_service.dart';
+import 'src/theme/app_theme.dart';
 
 enum _StartupRoute { siteSetup, login, home }
 
@@ -19,10 +20,7 @@ class MyApp extends StatelessWidget {
 
       final sid = await StorageService.getSessionId();
 
-      // sid present → treat as logged in (session may have expired, APIs will
-      // show errors naturally; user can sign out from the menu).
       if (sid != null && sid.isNotEmpty) {
-        // full_name might not have been saved on older installs — fall back gracefully
         final fullName = await StorageService.getFullName();
 
         // Sync credentials to SharedPreferences so native CallService can read
@@ -38,7 +36,6 @@ class MyApp extends StatelessWidget {
 
       return (route: _StartupRoute.login, user: null);
     } catch (_) {
-      // Keystore or storage error — send user to login
       return (route: _StartupRoute.login, user: null);
     }
   }
@@ -48,26 +45,49 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2490EF),
-          brightness: Brightness.light,
-        ),
         useMaterial3: true,
-        fontFamily: 'Roboto',
-        scaffoldBackgroundColor: const Color(0xFFF0F4F8),
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: Brightness.light,
+          primary: AppColors.primary,
+          onPrimary: Colors.white,
+          surface: AppColors.surface,
+          onSurface: AppColors.textPrimary,
+        ),
+        scaffoldBackgroundColor: Colors.transparent,
         splashFactory: NoSplash.splashFactory,
         highlightColor: Colors.transparent,
       ),
       home: FutureBuilder(
         future: _resolveStartup(),
         builder: (context, snapshot) {
-          // Error or still loading
           if (!snapshot.hasData) {
-            return Scaffold(
-              body: Center(
-                child: snapshot.hasError
-                    ? const Text('Failed to load. Please restart the app.')
-                    : const CircularProgressIndicator(),
+            return Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.bgStart, AppColors.bgMid, AppColors.bgEnd],
+                ),
+              ),
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Center(
+                  child: snapshot.hasError
+                      ? const Text(
+                          'Failed to load. Please restart the app.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        )
+                      : SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                ),
               ),
             );
           }
