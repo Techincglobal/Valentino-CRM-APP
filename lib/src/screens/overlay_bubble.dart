@@ -58,7 +58,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
   // UI state
   bool _loaded = false;
-  bool _isMinimized = true;
+  bool _isMinimized = false;
   bool _showForm = false;
   bool _saving = false;
   String? _successMessage;
@@ -100,7 +100,11 @@ class _OverlayBubbleState extends State<OverlayBubble>
     });
 
     try {
-      await FlutterOverlayWindow.resizeOverlay(_bubbleSize, _bubbleSize, true);
+      await FlutterOverlayWindow.resizeOverlay(
+        WindowSize.matchParent,
+        _compactHeight,
+        false,
+      );
     } catch (_) {}
 
     // Fetch latest note for known callers

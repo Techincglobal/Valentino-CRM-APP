@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!Platform.isAndroid) return;
     await Permission.phone.request();
     _phoneSubscription = PhoneState.stream.listen((PhoneState event) {
-      if (event.status == PhoneStateStatus.CALL_ENDED &&
+      if (event.status == PhoneStateStatus.CALL_INCOMING &&
           event.number != null &&
           event.number!.isNotEmpty) {
         _handleIncomingNumber(event.number!);
@@ -113,10 +113,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       } else {
         await _saveCallerDataToPrefs(phone, response);
         await FlutterOverlayWindow.showOverlay(
-          height: WindowSize.matchParent,
+          height: 360,
           width: WindowSize.matchParent,
           enableDrag: true,
           overlayTitle: 'CRM Caller',
+          alignment: OverlayAlignment.topCenter,
         );
       }
     } catch (e) {
@@ -744,7 +745,7 @@ class _StatusCardState extends State<_StatusCard>
           const SizedBox(height: 10),
           _StatusRow(
             color: AppColors.primary,
-            text: 'CRM lookup runs automatically on call end',
+            text: 'CRM lookup runs automatically on incoming calls',
           ),
         ],
       ),
