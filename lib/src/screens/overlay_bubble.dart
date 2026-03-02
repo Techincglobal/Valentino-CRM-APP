@@ -64,6 +64,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
   String? _successMessage;
 
   final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
 
   late AnimationController _pulseCtrl;
@@ -82,6 +83,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
   void dispose() {
     _pulseCtrl.dispose();
     _nameCtrl.dispose();
+    _emailCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -153,9 +155,11 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
     try {
       final noteText = _noteCtrl.text.trim();
+      final emailText = _emailCtrl.text.trim();
       await _post('/api/method/nxtgen_crm_mobile.api.create_lead_with_note', {
         'first_name': name,
         'mobile_no': _phone,
+        if (emailText.isNotEmpty) 'email_id': emailText,
         if (noteText.isNotEmpty) 'note_content': noteText,
       });
       setState(() {
@@ -246,6 +250,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
       _saving = false;
       _successMessage = null;
       _nameCtrl.clear();
+      _emailCtrl.clear();
       _noteCtrl.clear();
     });
   }
@@ -680,6 +685,15 @@ class _OverlayBubbleState extends State<OverlayBubble>
               controller: _nameCtrl,
               hint: 'Full name',
               icon: Icons.person_outline_rounded,
+            ),
+            const SizedBox(height: 14),
+
+            _Label(label: 'Email (Optional)'),
+            const SizedBox(height: 6),
+            _Field(
+              controller: _emailCtrl,
+              hint: 'email@example.com',
+              icon: Icons.alternate_email_rounded,
             ),
             const SizedBox(height: 14),
           ],

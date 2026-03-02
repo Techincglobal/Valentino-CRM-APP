@@ -950,12 +950,14 @@ class _CreateLeadSheet extends StatefulWidget {
 
 class _CreateLeadSheetState extends State<_CreateLeadSheet> {
   final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   bool _saving = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _emailCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -973,6 +975,7 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
       await CallerService.createLead(
         firstName: name,
         mobile: widget.phone,
+        email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
         note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
       );
 
@@ -1076,6 +1079,17 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
             controller: _nameCtrl,
             hint: 'Enter full name',
             icon: Icons.person_outline_rounded,
+          ),
+          const SizedBox(height: 16),
+
+          // Email
+          const AppFieldLabel(label: 'Email (Optional)'),
+          const SizedBox(height: 8),
+          AppTextField(
+            controller: _emailCtrl,
+            hint: 'email@example.com',
+            icon: Icons.alternate_email_rounded,
+            keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 16),
 
