@@ -22,29 +22,31 @@ class CallReceiver : BroadcastReceiver() {
 
         when (state) {
             TelephonyManager.EXTRA_STATE_RINGING -> {
-                // Save incoming number while we still have it
+                // Call starts ringing — trigger Truecaller-like lookup overlay!
                 val number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
                 if (!number.isNullOrEmpty()) {
                     prefs.edit().putString(KEY_INCOMING_NUMBER, number).apply()
+
+                    // Immediately start service to fetch CRM data & show popup
+                    try {
+                        val serviceIntent = Intent(context, CallService::class.java)
+                        serviceIntent.putExtra(CallService.EXTRA_PHONE, number)
+                        context.startForegroundService(serviceIntent)
+                    } catch (_: Exception) {
+                        // Handle strict foreground start limits
+                    }
                 }
             }
 
             TelephonyManager.EXTRA_STATE_IDLE -> {
-                // Call ended — only act if we were previously in a live call state
+                // Call ended or rejected — clean up intent and stop flutter overlay
                 val wasActive = prevState == TelephonyManager.EXTRA_STATE_OFFHOOK ||
                         prevState == TelephonyManager.EXTRA_STATE_RINGING
 
                 if (wasActive) {
                     val phone = prefs.getString(KEY_INCOMING_NUMBER, null)
                     if (!phone.isNullOrEmpty()) {
-                        try {
-                            val serviceIntent = Intent(context, CallService::class.java)
-                            serviceIntent.putExtra(CallService.EXTRA_PHONE, phone)
-                            context.startForegroundService(serviceIntent)
-                        } catch (_: Exception) {
-                            // startForegroundService can throw on very old devices; swallow silently
-                        }
-                        // Clear stored number so stale data is not reused
+                        // Clear stored number
                         prefs.edit().remove(KEY_INCOMING_NUMBER).apply()
                     }
                 }

@@ -362,32 +362,32 @@ class _OverlayBubbleState extends State<OverlayBubble>
           children: [
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.all(24),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 32,
-                    spreadRadius: 0,
-                    offset: const Offset(0, 8),
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 40,
+                    spreadRadius: 4,
+                    offset: const Offset(0, 12),
                   ),
                   BoxShadow(
-                    color: _primary.withValues(alpha: 0.06),
-                    blurRadius: 48,
-                    offset: const Offset(0, 16),
+                    color: _primary.withValues(alpha: 0.12),
+                    blurRadius: 60,
+                    offset: const Offset(0, 24),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(28),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Top accent line
                     Container(
-                      height: 3,
+                      height: 4,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: _found
@@ -630,11 +630,11 @@ class _OverlayBubbleState extends State<OverlayBubble>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'This number isn\'t saved in your CRM yet.',
+                    'This number isn\'t saved in your CRM yet. Save it to keep track of this interaction.',
                     style: TextStyle(
                       color: const Color(0xFF92400E),
-                      fontSize: 12,
-                      height: 1.3,
+                      fontSize: 13,
+                      height: 1.4,
                     ),
                   ),
                 ),
@@ -924,18 +924,18 @@ class _GradientBtn extends StatelessWidget {
           gradient: LinearGradient(
             colors: onTap == null
                 ? [
-                    _primary.withValues(alpha: 0.4),
-                    _primaryDark.withValues(alpha: 0.4),
+                    _primary.withValues(alpha: 0.3),
+                    _primaryDark.withValues(alpha: 0.3),
                   ]
-                : [_primary, _primaryDark],
+                : [_primaryLight, _primary],
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           boxShadow: onTap != null
               ? [
                   BoxShadow(
-                    color: _primary.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    color: _primary.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ]
               : [],
