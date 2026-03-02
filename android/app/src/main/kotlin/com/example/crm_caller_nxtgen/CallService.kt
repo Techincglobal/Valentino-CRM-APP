@@ -116,6 +116,35 @@ class CallService : Service() {
      */
     private fun tryStartOverlay(): Boolean {
         return try {
+            try {
+                // We use reflection to set the WindowSetup variables before starting OverlayService.
+                // This ensures the overlay starts correctly from the background with correct size and layout flags.
+                val setupClazz = Class.forName("flutter.overlay.window.flutter_overlay_window.WindowSetup")
+                
+                setupClazz.getDeclaredField("height").apply {
+                    isAccessible = true
+                    set(null, 360) // Will be resized properly by Flutter soon after boot
+                }
+                setupClazz.getDeclaredField("width").apply {
+                    isAccessible = true
+                    set(null, -1) // match_parent
+                }
+                setupClazz.getDeclaredMethod("setGravityFromAlignment", String::class.java).apply {
+                    isAccessible = true
+                    invoke(null, "topCenter")
+                }
+                setupClazz.getDeclaredMethod("setFlag", String::class.java).apply {
+                    isAccessible = true
+                    invoke(null, "flagNotFocusable") // allows tap events inside the window without capturing all back presses
+                }
+                setupClazz.getDeclaredField("enableDrag").apply {
+                    isAccessible = true
+                    set(null, true)
+                }
+            } catch (e: Exception) {
+                // If reflection fails, we still try starting the service.
+            }
+
             val clazz = Class.forName(
                 "flutter.overlay.window.flutter_overlay_window.OverlayService"
             )

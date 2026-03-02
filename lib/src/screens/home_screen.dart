@@ -88,7 +88,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _initializePhoneListener() async {
     if (!Platform.isAndroid) return;
+
+    // Request standard phone metadata access
     await Permission.phone.request();
+
+    // Check and request System Alert Window (Display over other apps)
+    if (!await FlutterOverlayWindow.isPermissionGranted()) {
+      await FlutterOverlayWindow.requestPermission();
+    }
+
     _phoneSubscription = PhoneState.stream.listen((PhoneState event) {
       if (event.status == PhoneStateStatus.CALL_INCOMING &&
           event.number != null &&
