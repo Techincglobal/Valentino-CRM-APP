@@ -52,52 +52,63 @@ class _SiteSetupScreenState extends State<SiteSetupScreen> {
 
               // Branding
               Center(
-                child: Column(children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primaryDark,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.35),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.primaryLight,
+                            AppColors.primary,
+                            AppColors.primaryDark,
+                          ],
                         ),
-                      ],
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 32,
+                            offset: const Offset(0, 12),
+                            spreadRadius: 4,
+                          ),
+                        ],
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.dns_rounded,
+                        color: Colors.white,
+                        size: 38,
+                      ),
                     ),
-                    child: const Icon(Icons.dns_rounded,
-                        color: Colors.white, size: 32),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Connect Your Site',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.8,
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Connect Your Site',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.0,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Enter your Frappe CRM site URL\nto get started',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 15,
-                      height: 1.4,
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Enter your Frappe CRM site URL\nto get started',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 15,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                ]),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 40),

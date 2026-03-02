@@ -29,12 +29,56 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _loading = false;
   bool _popupOpen = false;
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
+  int _callsToday = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializePhoneListener();
+    _loadDailyCallCount();
+  }
+
+  Future<void> _loadDailyCallCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final savedDate = prefs.getString('crm_call_date') ?? '';
+
+    if (savedDate == today) {
+      if (mounted) {
+        setState(() {
+          _callsToday = prefs.getInt('crm_call_count') ?? 0;
+        });
+      }
+    } else {
+      await prefs.setString('crm_call_date', today);
+      await prefs.setInt('crm_call_count', 0);
+      if (mounted) {
+        setState(() {
+          _callsToday = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _incrementCallCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final savedDate = prefs.getString('crm_call_date') ?? '';
+
+    int newCount = 1;
+    if (savedDate == today) {
+      newCount = (prefs.getInt('crm_call_count') ?? 0) + 1;
+    } else {
+      await prefs.setString('crm_call_date', today);
+    }
+
+    await prefs.setInt('crm_call_count', newCount);
+    if (mounted) {
+      setState(() {
+        _callsToday = newCount;
+      });
+    }
   }
 
   @override
@@ -57,6 +101,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _handleIncomingNumber(String phone) async {
     if (!mounted) return;
     setState(() => _loading = true);
+
+    await _incrementCallCount();
 
     try {
       final response = await CallerService.getCallerDetails(phone);
@@ -121,8 +167,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline_rounded,
-                color: Colors.white, size: 17),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Colors.white,
+              size: 17,
+            ),
             const SizedBox(width: 8),
             Expanded(child: Text(message)),
           ],
@@ -152,7 +201,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _WelcomeCard(username: widget.user.username),
+            _DashboardCard(
+              username: widget.user.username,
+              callsToday: _callsToday,
+            ),
             const SizedBox(height: 16),
             _ManualLookupCard(
               controller: _phoneController,
@@ -263,8 +315,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             itemBuilder: (_) => [
               PopupMenuItem(
                 enabled: false,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -290,12 +344,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               const PopupMenuDivider(height: 1),
               PopupMenuItem(
                 value: 'logout',
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: const Row(
                   children: [
-                    Icon(Icons.logout_rounded,
-                        size: 16, color: AppColors.danger),
+                    Icon(
+                      Icons.logout_rounded,
+                      size: 16,
+                      color: AppColors.danger,
+                    ),
                     SizedBox(width: 10),
                     Text(
                       'Sign out',
@@ -331,117 +390,163 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 // HOME CARDS
 // ════════════════════════════════════════════════════════════════════════════════
 
-class _WelcomeCard extends StatelessWidget {
+class _DashboardCard extends StatelessWidget {
   final String username;
-  const _WelcomeCard({required this.username});
+  final int callsToday;
+  const _DashboardCard({required this.username, required this.callsToday});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary,
-            AppColors.primaryDark,
-            Color(0xFF1E40AF),
-          ],
-          stops: [0.0, 0.6, 1.0],
+          colors: [AppColors.primary, AppColors.primaryDark, Color(0xFF0F172A)],
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: AppColors.primary.withValues(alpha: 0.4),
+            blurRadius: 32,
+            offset: const Offset(0, 16),
+            spreadRadius: 4,
           ),
         ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1.5,
+        ),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.25),
-                width: 1.5,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                username.isNotEmpty ? username[0].toUpperCase() : 'U',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 22,
+          // Header row with Username and Active status
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome back,',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      username,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13,
-                    letterSpacing: -0.1,
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
                   ),
                 ),
-                const SizedBox(height: 2),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4ADE80),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF4ADE80,
+                            ).withValues(alpha: 0.6),
+                            blurRadius: 6,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Online',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 36),
+          // Main stat
+          Container(
+            padding: const EdgeInsets.all(42),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.15),
+                  Colors.white.withValues(alpha: 0.02),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  spreadRadius: 10,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
                 Text(
-                  username,
-                  overflow: TextOverflow.ellipsis,
+                  callsToday.toString(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 19,
-                    letterSpacing: -0.5,
+                    fontSize: 56,
+                    fontWeight: FontWeight.w900,
+                    height: 1.0,
+                    letterSpacing: -2,
                   ),
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF4ADE80),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'Active',
+                const SizedBox(height: 6),
+                Text(
+                  'Calls Today',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -474,8 +579,11 @@ class _ManualLookupCard extends StatelessWidget {
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Icon(Icons.manage_search_rounded,
-                    color: AppColors.primary, size: 18),
+                child: const Icon(
+                  Icons.manage_search_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -494,10 +602,7 @@ class _ManualLookupCard extends StatelessWidget {
             padding: EdgeInsets.only(left: 42),
             child: Text(
               'Search a phone number in your CRM',
-              style: TextStyle(
-                color: AppColors.textTertiary,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
             ),
           ),
           const SizedBox(height: 16),
@@ -532,8 +637,7 @@ class _ManualLookupCard extends StatelessWidget {
                         ? []
                         : [
                             BoxShadow(
-                              color:
-                                  AppColors.primary.withValues(alpha: 0.3),
+                              color: AppColors.primary.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
                             ),
@@ -568,8 +672,31 @@ class _ManualLookupCard extends StatelessWidget {
   }
 }
 
-class _StatusCard extends StatelessWidget {
+class _StatusCard extends StatefulWidget {
   const _StatusCard();
+
+  @override
+  State<_StatusCard> createState() => _StatusCardState();
+}
+
+class _StatusCardState extends State<_StatusCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -586,8 +713,11 @@ class _StatusCard extends StatelessWidget {
                   color: AppColors.success.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Icon(Icons.sensors_rounded,
-                    color: AppColors.success, size: 18),
+                child: const Icon(
+                  Icons.sensors_rounded,
+                  color: AppColors.success,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -601,10 +731,15 @@ class _StatusCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _StatusRow(
-            color: AppColors.success,
-            text: 'Listening for incoming & outgoing calls',
+          AnimatedBuilder(
+            animation: _pulseCtrl,
+            builder: (context, child) {
+              return _StatusRow(
+                color: AppColors.success,
+                text: 'Listening for incoming calls',
+                pulseValue: _pulseCtrl.value,
+              );
+            },
           ),
           const SizedBox(height: 10),
           _StatusRow(
@@ -620,7 +755,12 @@ class _StatusCard extends StatelessWidget {
 class _StatusRow extends StatelessWidget {
   final Color color;
   final String text;
-  const _StatusRow({required this.color, required this.text});
+  final double pulseValue;
+  const _StatusRow({
+    required this.color,
+    required this.text,
+    this.pulseValue = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -634,13 +774,14 @@ class _StatusRow extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withValues(alpha: 0.4),
-                blurRadius: 4,
-                spreadRadius: 1,
+                color: color.withValues(alpha: 0.4 + (pulseValue * 0.4)),
+                blurRadius: 4 + (pulseValue * 4),
+                spreadRadius: 1 + (pulseValue * 2),
               ),
             ],
           ),
         ),
+
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -663,8 +804,7 @@ class _OverlayPermissionCard extends StatefulWidget {
   const _OverlayPermissionCard();
 
   @override
-  State<_OverlayPermissionCard> createState() =>
-      _OverlayPermissionCardState();
+  State<_OverlayPermissionCard> createState() => _OverlayPermissionCardState();
 }
 
 class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
@@ -721,8 +861,11 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
                   color: AppColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Icon(Icons.bubble_chart_outlined,
-                    color: AppColors.warning, size: 18),
+                child: const Icon(
+                  Icons.bubble_chart_outlined,
+                  color: AppColors.warning,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -771,8 +914,7 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.security_rounded,
-                        size: 17, color: Colors.white),
+                    Icon(Icons.security_rounded, size: 17, color: Colors.white),
                     SizedBox(width: 8),
                     Text(
                       'Grant Permission',
@@ -888,8 +1030,11 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
                   color: AppColors.warningSurface,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.person_add_alt_1_rounded,
-                    color: AppColors.warning, size: 24),
+                child: const Icon(
+                  Icons.person_add_alt_1_rounded,
+                  color: AppColors.warning,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1100,8 +1245,11 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
                       children: [
                         AppTypeChip(label: type, color: _typeColor),
                         const SizedBox(width: 8),
-                        const Icon(Icons.phone_outlined,
-                            size: 13, color: AppColors.textTertiary),
+                        const Icon(
+                          Icons.phone_outlined,
+                          size: 13,
+                          color: AppColors.textTertiary,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           widget.phone,
@@ -1150,9 +1298,9 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
                     onTap: _saving
                         ? null
                         : () => setState(() {
-                              _showNoteField = false;
-                              _noteCtrl.clear();
-                            }),
+                            _showNoteField = false;
+                            _noteCtrl.clear();
+                          }),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1191,8 +1339,11 @@ class _SheetCloseBtn extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
         ),
-        child: const Icon(Icons.close_rounded,
-            color: AppColors.textSecondary, size: 18),
+        child: const Icon(
+          Icons.close_rounded,
+          color: AppColors.textSecondary,
+          size: 18,
+        ),
       ),
     );
   }
@@ -1217,8 +1368,11 @@ class _TestOverlayCard extends StatelessWidget {
                   color: AppColors.accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Icon(Icons.terminal_rounded,
-                    color: AppColors.accent, size: 18),
+                child: const Icon(
+                  Icons.terminal_rounded,
+                  color: AppColors.accent,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -1237,10 +1391,7 @@ class _TestOverlayCard extends StatelessWidget {
             padding: EdgeInsets.only(left: 42),
             child: Text(
               'Simulate a call to test the overlay behavior.',
-              style: TextStyle(
-                color: AppColors.textTertiary,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
             ),
           ),
           const SizedBox(height: 16),

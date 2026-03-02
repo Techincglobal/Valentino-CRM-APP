@@ -11,9 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ============================================================================
 
 // ── Palette ─────────────────────────────────────────────────────────────────
-const _primary = Color(0xFF2563EB);
-const _primaryDark = Color(0xFF1D4ED8);
-const _primaryLight = Color(0xFF93C5FD);
+const _primary = Color(0xFF2563EB); // Deep Blue
+const _primaryDark = Color(0xFF1E40AF); // Deeper Blue
+const _primaryLight = Color(0xFF60A5FA);
 const _textPrimary = Color(0xFF0F172A);
 const _textSecondary = Color(0xFF64748B);
 const _textTertiary = Color(0xFF94A3B8);
@@ -29,8 +29,8 @@ const _customer = Color(0xFF3B82F6);
 
 // ── Sizes ───────────────────────────────────────────────────────────────────
 const _bubbleSize = 68;
-const _compactHeight = 310;
-const _expandedHeight = 460;
+const _compactHeight = 360;
+const _expandedHeight = 520;
 
 class OverlayBubble extends StatefulWidget {
   const OverlayBubble({super.key});
@@ -116,8 +116,9 @@ class _OverlayBubbleState extends State<OverlayBubble>
     setState(() => _loadingNotes = true);
 
     try {
-      final url = Uri.parse(_baseUrl!)
-          .resolve('/api/method/nxtgen_crm_mobile.api.get_notes');
+      final url = Uri.parse(
+        _baseUrl!,
+      ).resolve('/api/method/nxtgen_crm_mobile.api.get_notes');
       final response = await http.post(
         url,
         headers: {'Cookie': 'sid=$_sid', 'Content-Type': 'application/json'},
@@ -295,14 +296,14 @@ class _OverlayBubbleState extends State<OverlayBubble>
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [_primary, Color(0xFF60A5FA)],
+                colors: [_primary, Color(0xFF60A5FA), _primaryDark],
               ),
-              border: Border.all(color: Colors.white, width: 3),
+              border: Border.all(color: Colors.white, width: 3.5),
               boxShadow: [
                 BoxShadow(
-                  color: _primary.withValues(alpha: glowOpacity),
-                  blurRadius: 20,
-                  spreadRadius: 4,
+                  color: _primary.withValues(alpha: glowOpacity * 1.5),
+                  blurRadius: 28,
+                  spreadRadius: 6,
                 ),
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.15),
@@ -348,11 +349,11 @@ class _OverlayBubbleState extends State<OverlayBubble>
       color: Colors.transparent,
       child: SafeArea(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              margin: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
@@ -389,7 +390,10 @@ class _OverlayBubbleState extends State<OverlayBubble>
                     _buildHeader(),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Divider(color: _border.withValues(alpha: 0.6), height: 1),
+                      child: Divider(
+                        color: _border.withValues(alpha: 0.6),
+                        height: 1,
+                      ),
                     ),
                     if (_successMessage != null)
                       _buildSuccess()
@@ -468,11 +472,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                       _TypeBadge(label: _type, color: _typeColor),
                       const SizedBox(width: 8),
                     ],
-                    Icon(
-                      Icons.phone_outlined,
-                      size: 12,
-                      color: _textTertiary,
-                    ),
+                    Icon(Icons.phone_outlined, size: 12, color: _textTertiary),
                     const SizedBox(width: 3),
                     Flexible(
                       child: Text(
@@ -491,10 +491,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
             ),
           ),
           // Controls
-          _IconBtn(
-            icon: Icons.remove_rounded,
-            onTap: _minimize,
-          ),
+          _IconBtn(icon: Icons.remove_rounded, onTap: _minimize),
           const SizedBox(width: 4),
           _IconBtn(
             icon: Icons.close_rounded,
@@ -555,8 +552,11 @@ class _OverlayBubbleState extends State<OverlayBubble>
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.sticky_note_2_outlined,
-                          size: 13, color: _primary),
+                      Icon(
+                        Icons.sticky_note_2_outlined,
+                        size: 13,
+                        color: _primary,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Latest Note',
@@ -617,8 +617,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline_rounded,
-                    size: 16, color: _warning),
+                Icon(Icons.info_outline_rounded, size: 16, color: _warning),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -729,11 +728,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
               color: _success.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: _success,
-              size: 26,
-            ),
+            child: const Icon(Icons.check_rounded, color: _success, size: 26),
           ),
           const SizedBox(height: 12),
           Text(
@@ -865,8 +860,9 @@ class _Field extends StatelessWidget {
                 child: Icon(icon, color: _textTertiary, size: 18),
               )
             : null,
-        prefixIconConstraints:
-            icon != null ? const BoxConstraints(minWidth: 38) : null,
+        prefixIconConstraints: icon != null
+            ? const BoxConstraints(minWidth: 38)
+            : null,
         filled: true,
         fillColor: _inputBg,
         isDense: true,

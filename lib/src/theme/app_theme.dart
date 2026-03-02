@@ -11,9 +11,9 @@ class AppColors {
   AppColors._();
 
   // Primary
-  static const primary = Color(0xFF2563EB);
-  static const primaryDark = Color(0xFF1D4ED8);
-  static const primaryLight = Color(0xFF93C5FD);
+  static const primary = Color(0xFF2563EB); // Deep Blue
+  static const primaryDark = Color(0xFF1E40AF); // Deeper Blue
+  static const primaryLight = Color(0xFF60A5FA);
   static const primarySurface = Color(0xFFEFF6FF);
 
   // Accent
@@ -21,9 +21,9 @@ class AppColors {
   static const accentLight = Color(0xFFEDE9FE);
 
   // Backgrounds (gradient stops)
-  static const bgStart = Color(0xFFF0F5FF);
-  static const bgMid = Color(0xFFF5F3FF);
-  static const bgEnd = Color(0xFFEFF6FF);
+  static const bgStart = Color(0xFFF8FAFC);
+  static const bgMid = Color(0xFFEEF2FF);
+  static const bgEnd = Color(0xFFE0E7FF);
 
   // Text
   static const textPrimary = Color(0xFF0F172A);
@@ -75,11 +75,7 @@ class GradientScaffold extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppColors.bgStart,
-            AppColors.bgMid,
-            AppColors.bgEnd,
-          ],
+          colors: [AppColors.bgStart, AppColors.bgMid, AppColors.bgEnd],
           stops: [0.0, 0.5, 1.0],
         ),
       ),
@@ -114,14 +110,14 @@ class GlassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.03),
-            blurRadius: 40,
-            offset: const Offset(0, 16),
+            color: AppColors.primary.withValues(alpha: 0.04),
+            blurRadius: 48,
+            offset: const Offset(0, 24),
           ),
         ],
       ),
@@ -136,13 +132,13 @@ class GlassCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.82),
-                  Colors.white.withValues(alpha: 0.65),
+                  Colors.white.withValues(alpha: 0.85),
+                  Colors.white.withValues(alpha: 0.60),
                 ],
               ),
               borderRadius: BorderRadius.circular(borderRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withValues(alpha: 0.8),
                 width: 1.5,
               ),
             ),
@@ -156,7 +152,7 @@ class GlassCard extends StatelessWidget {
 
 // ── Gradient Primary Button ─────────────────────────────────────────────────
 
-class AppButton extends StatelessWidget {
+class AppButton extends StatefulWidget {
   final String label;
   final IconData? icon;
   final bool loading;
@@ -171,63 +167,78 @@ class AppButton extends StatelessWidget {
   });
 
   @override
+  State<AppButton> createState() => _AppButtonState();
+}
+
+class _AppButtonState extends State<AppButton> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: loading ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: onTap == null
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.loading ? null : widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed && !widget.loading ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeInOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: widget.onTap == null
+                  ? [
+                      AppColors.primary.withValues(alpha: 0.4),
+                      AppColors.primaryDark.withValues(alpha: 0.4),
+                    ]
+                  : [AppColors.primary, AppColors.primaryDark],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: widget.onTap != null
                 ? [
-                    AppColors.primary.withValues(alpha: 0.4),
-                    AppColors.primaryDark.withValues(alpha: 0.4),
-                  ]
-                : [AppColors.primary, AppColors.primaryDark],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: onTap != null
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [],
-        ),
-        child: Center(
-          child: loading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Colors.white,
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        letterSpacing: -0.2,
-                      ),
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
-                  ],
-                ),
+                  ]
+                : [],
+          ),
+          child: Center(
+            child: widget.loading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.icon != null) ...[
+                        Icon(widget.icon, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        widget.label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
@@ -329,10 +340,7 @@ class AppTextField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(
-          color: AppColors.textTertiary,
-          fontSize: 14,
-        ),
+        hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
         prefixIcon: icon != null
             ? Padding(
                 padding: const EdgeInsets.only(left: 14, right: 10),
@@ -346,15 +354,15 @@ class AppTextField extends StatelessWidget {
         filled: true,
         fillColor: AppColors.inputBg,
         contentPadding: EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: maxLines > 1 ? 14 : 14,
+          horizontal: 18,
+          vertical: maxLines > 1 ? 16 : 16,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
       ),
@@ -446,10 +454,7 @@ class AppSheetContainer extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withValues(alpha: 0.95),
-            Colors.white,
-          ],
+          colors: [Colors.white.withValues(alpha: 0.95), Colors.white],
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
