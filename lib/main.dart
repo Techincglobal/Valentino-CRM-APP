@@ -1,11 +1,14 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 import 'app.dart';
 import 'src/screens/overlay_bubble.dart';
+import 'src/services/background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundService.initializeService();
   runApp(const MyApp());
 }
 
@@ -13,6 +16,7 @@ void main() async {
 @pragma('vm:entry-point')
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
   runApp(
     MaterialApp(
       debugShowCheckedModeBanner: false,

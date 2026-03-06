@@ -42,6 +42,8 @@ dependencies:
   flutter_overlay_window: ^0.4.0
   shared_preferences: ^2.5.0
   flutter_callkit_incoming: ^3.0.0
+  flutter_background_service: ^5.1.0
+  flutter_local_notifications: ^21.0.0
 
 dev_dependencies:
   flutter_test:

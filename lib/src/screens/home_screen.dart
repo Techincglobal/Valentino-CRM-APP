@@ -89,10 +89,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _initializePhoneListener() async {
     if (!Platform.isAndroid) return;
 
-    // Request standard phone metadata access
-    await Permission.phone.request();
+    // 1. Standard phone permissions
+    await [Permission.phone, Permission.notification].request();
 
-    // Check and request System Alert Window (Display over other apps)
+    // 2. Battery Optimization (for reliable background execution)
+    // Most Chinese OEMs (Xiaomi, Oppo) kill background apps unless this is enabled.
+    if (!await Permission.ignoreBatteryOptimizations.isGranted) {
+      await Permission.ignoreBatteryOptimizations.request();
+    }
+
+    // 3. System Alert Window (Overlay)
     if (!await FlutterOverlayWindow.isPermissionGranted()) {
       await FlutterOverlayWindow.requestPermission();
     }

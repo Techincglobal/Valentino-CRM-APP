@@ -11,9 +11,16 @@
     <!-- Background foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <!-- Notification (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Background execution & Boot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
         android:label="crm_caller_nxtgen"
@@ -41,24 +48,24 @@
             </intent-filter>
         </activity>
 
-        <!-- Native call state receiver — fires even when app is killed -->
-        <receiver
-            android:name=".CallReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.PHONE_STATE"/>
-            </intent-filter>
-        </receiver>
 
-        <!-- Background service: makes Frappe API call + starts Flutter overlay -->
-        <service
-            android:name=".CallService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false"/>
 
         <meta-data
             android:name="flutterEmbedding"
             android:value="2"/>
+
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="CRM Call Detection" />
+        </service>
+
+        <service
+            android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
+            android:exported="false" />
+
+        <receiver android:enabled="true" android:exported="true" android:name="id.flutter.flutter_background_service.WatchdogReceiver"/>
+        
     </application>
 
     <queries>

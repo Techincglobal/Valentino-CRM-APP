@@ -12,18 +12,20 @@ class StorageService {
   }
 
   static Future<String?> getBaseUrl() async {
-    return await _storage.read(key: 'base_url');
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('crm_base_url') ??
+        await _storage.read(key: 'base_url');
   }
 
   static Future<void> saveSessionId(String sid) async {
     await _storage.write(key: 'sid', value: sid);
-    // Also write to SharedPreferences so native Kotlin can read it
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('crm_sid', sid);
   }
 
   static Future<String?> getSessionId() async {
-    return await _storage.read(key: 'sid');
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('crm_sid') ?? await _storage.read(key: 'sid');
   }
 
   static Future<void> saveFullName(String name) async {
