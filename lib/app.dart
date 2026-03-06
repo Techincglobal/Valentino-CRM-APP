@@ -111,10 +111,19 @@ class MyApp extends StatelessWidget {
                                   width: 2,
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.hub_rounded,
-                                color: Colors.white,
-                                size: 38,
+                              child: Center(
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  width: 48,
+                                  height: 48,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(
+                                      Icons.hub_rounded,
+                                      color: Colors.white,
+                                      size: 38,
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                             const SizedBox(height: 32),

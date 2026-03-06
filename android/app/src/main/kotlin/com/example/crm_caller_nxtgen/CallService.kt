@@ -13,6 +13,12 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import io.flutter.FlutterInjector
+import io.flutter.embedding.engine.FlutterEngineCache
+import io.flutter.embedding.engine.FlutterEngineGroup
+import io.flutter.embedding.engine.dart.DartExecutor
+import android.os.Handler
+import android.os.Looper
 
 /**
  * Foreground service that:
@@ -145,10 +151,26 @@ class CallService : Service() {
                 // If reflection fails, we still try starting the service.
             }
 
-            val clazz = Class.forName(
-                "flutter.overlay.window.flutter_overlay_window.OverlayService"
-            )
-            startService(Intent(this, clazz))
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    val ctx = applicationContext
+                    if (FlutterEngineCache.getInstance().get("myCachedEngine") == null) {
+                        FlutterInjector.instance().flutterLoader().ensureInitializationComplete(ctx, null)
+                        val group = FlutterEngineGroup(ctx)
+                        val dEntry = DartExecutor.DartEntrypoint(
+                            FlutterInjector.instance().flutterLoader().findAppBundlePath(),
+                            "overlayMain"
+                        )
+                        val engine = group.createAndRunEngine(ctx, dEntry)
+                        FlutterEngineCache.getInstance().put("myCachedEngine", engine)
+                    }
+
+                    val clazz = Class.forName("flutter.overlay.window.flutter_overlay_window.OverlayService")
+                    startService(Intent(this@CallService, clazz))
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
             true
         } catch (_: Exception) {
             false
