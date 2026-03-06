@@ -113,16 +113,6 @@ void onStart(ServiceInstance service) async {
 
       debugPrint("🖥️ [BackgroundService] Attempting to show Overlay...");
 
-      // Share data first so it's ready when the window pops
-      final data = {
-        'phone': phone,
-        'name': callerName,
-        'type': callerType,
-        'docname': callerDocname,
-        'found': found,
-      };
-      await FlutterOverlayWindow.shareData(data);
-
       final isActive = await FlutterOverlayWindow.isActive();
       if (!isActive) {
         await FlutterOverlayWindow.showOverlay(
@@ -136,16 +126,35 @@ void onStart(ServiceInstance service) async {
           height: 220,
           width: 340,
         );
-        debugPrint("✨ [BackgroundService] Overlay show command sent!");
+
+        // Wait for overlay to be ready
+        await Future.delayed(const Duration(milliseconds: 600));
+
+        final data = {
+          'phone': phone,
+          'name': callerName,
+          'type': callerType,
+          'docname': callerDocname,
+          'found': found,
+        };
+        await FlutterOverlayWindow.shareData(data);
+        debugPrint("✨ [BackgroundService] Overlay shown and data shared!");
       } else {
-        // If already active, refresh data
-        debugPrint(
-          "ℹ️ [BackgroundService] Overlay is already active. Refreshing data...",
-        );
+        debugPrint("ℹ️ [BackgroundService] Overlay active. Refreshing data...");
+        final data = {
+          'phone': phone,
+          'name': callerName,
+          'type': callerType,
+          'docname': callerDocname,
+          'found': found,
+        };
         await FlutterOverlayWindow.shareData(data);
       }
-    } else if (event.status == PhoneStateStatus.CALL_ENDED) {
-      debugPrint("📱 [BackgroundService] Call Ended. Closing Overlay.");
+    } else if (event.status == PhoneStateStatus.CALL_ENDED ||
+        event.status == PhoneStateStatus.CALL_STARTED) {
+      debugPrint(
+        "📱 [BackgroundService] Call Status Change: ${event.status}. Closing Overlay.",
+      );
       if (await FlutterOverlayWindow.isActive()) {
         await FlutterOverlayWindow.closeOverlay();
       }

@@ -1419,7 +1419,7 @@ class _TestOverlayCard extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.only(left: 42),
             child: Text(
-              'Simulate a call to test the overlay behavior.',
+              'Force show the overlay popup even if the app is open.',
               style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
             ),
           ),
@@ -1427,9 +1427,18 @@ class _TestOverlayCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: AppOutlineButton(
-              label: 'Test Call Overlay',
-              icon: Icons.play_circle_outline_rounded,
-              onTap: onTest,
+              label: 'Force Overlay Popup',
+              icon: Icons.flash_on,
+              onTap: () async {
+                // Force it
+                await FlutterOverlayWindow.showOverlay(
+                  height: 220,
+                  width: 340,
+                  enableDrag: true,
+                  overlayTitle: 'CRM Test',
+                  alignment: OverlayAlignment.center,
+                );
+              },
               color: AppColors.accent,
             ),
           ),
