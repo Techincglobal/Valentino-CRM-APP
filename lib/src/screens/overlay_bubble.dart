@@ -223,7 +223,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
     if (_isExpanded) {
       await FlutterOverlayWindow.resizeOverlay(
         WindowSize.matchParent,
-        250,
+        380,
         true,
       );
     } else {
@@ -333,7 +333,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      height: 250,
+      height: 380,
       decoration: BoxDecoration(
         color: const Color(0xFF111827).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(24),
@@ -481,7 +481,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                             ),
                           ],
                         ),
-                        const Spacer(),
+                        const SizedBox(height: 16),
                       ] else ...[
                         const SizedBox(height: 16),
                         // Note input
@@ -511,7 +511,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                           ),
                         ),
 
-                        const Spacer(),
+                        const SizedBox(height: 16),
 
                         // Action Buttons
                         Row(

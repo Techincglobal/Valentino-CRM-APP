@@ -126,7 +126,7 @@ void onStart(ServiceInstance service) async {
             visibility: NotificationVisibility.visibilityPublic,
             positionGravity: PositionGravity.auto,
             alignment: OverlayAlignment.topCenter,
-            height: 250,
+            height: 380,
             width: WindowSize.matchParent,
           );
 
