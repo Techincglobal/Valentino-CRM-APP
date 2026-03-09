@@ -282,8 +282,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               },
             ),
             const SizedBox(height: 16),
-            const _StatusCard(),
-            const SizedBox(height: 16),
             const _OverlayPermissionCard(),
             const SizedBox(height: 16),
             _TestOverlayCard(
@@ -477,29 +475,8 @@ class _DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return GlassCard(
       padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryDark, Color(0xFF0F172A)],
-        ),
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.4),
-            blurRadius: 32,
-            offset: const Offset(0, 16),
-            spreadRadius: 4,
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
-          width: 1.5,
-        ),
-      ),
       child: Column(
         children: [
           // Header row with Username and Active status
@@ -513,7 +490,7 @@ class _DashboardCard extends StatelessWidget {
                     Text(
                       'Welcome back,',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: AppColors.textSecondary,
                         fontSize: 14,
                       ),
                     ),
@@ -521,7 +498,7 @@ class _DashboardCard extends StatelessWidget {
                       username,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -537,10 +514,10 @@ class _DashboardCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: AppColors.success.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: AppColors.success.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
@@ -549,13 +526,11 @@ class _DashboardCard extends StatelessWidget {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4ADE80),
+                        color: AppColors.success,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(
-                              0xFF4ADE80,
-                            ).withValues(alpha: 0.6),
+                            color: AppColors.success.withValues(alpha: 0.4),
                             blurRadius: 6,
                             spreadRadius: 2,
                           ),
@@ -566,9 +541,9 @@ class _DashboardCard extends StatelessWidget {
                     const Text(
                       'Online',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.success,
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -582,21 +557,14 @@ class _DashboardCard extends StatelessWidget {
             padding: const EdgeInsets.all(42),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.15),
-                  Colors.white.withValues(alpha: 0.02),
-                ],
-              ),
+              color: AppColors.primary.withValues(alpha: 0.05),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: AppColors.primary.withValues(alpha: 0.15),
                 width: 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: AppColors.primary.withValues(alpha: 0.05),
                   blurRadius: 24,
                   spreadRadius: 10,
                 ),
@@ -607,7 +575,7 @@ class _DashboardCard extends StatelessWidget {
                 Text(
                   callsToday.toString(),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.primary,
                     fontSize: 56,
                     fontWeight: FontWeight.w900,
                     height: 1.0,
@@ -615,10 +583,10 @@ class _DashboardCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
+                const Text(
                   'Calls Today',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: AppColors.textSecondary,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -748,132 +716,6 @@ class _ManualLookupCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _StatusCard extends StatefulWidget {
-  const _StatusCard();
-
-  @override
-  State<_StatusCard> createState() => _StatusCardState();
-}
-
-class _StatusCardState extends State<_StatusCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: const Icon(
-                  Icons.sensors_rounded,
-                  color: AppColors.success,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Auto Detection',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ],
-          ),
-          AnimatedBuilder(
-            animation: _pulseCtrl,
-            builder: (context, child) {
-              return _StatusRow(
-                color: AppColors.success,
-                text: 'Listening for incoming calls',
-                pulseValue: _pulseCtrl.value,
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          _StatusRow(
-            color: AppColors.primary,
-            text: 'CRM lookup runs automatically on incoming calls',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusRow extends StatelessWidget {
-  final Color color;
-  final String text;
-  final double pulseValue;
-  const _StatusRow({
-    required this.color,
-    required this.text,
-    this.pulseValue = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.4 + (pulseValue * 0.4)),
-                blurRadius: 4 + (pulseValue * 4),
-                spreadRadius: 1 + (pulseValue * 2),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-              height: 1.3,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

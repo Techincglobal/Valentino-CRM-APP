@@ -72,21 +72,66 @@ class GradientScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.bgStart, AppColors.bgMid, AppColors.bgEnd],
-          stops: [0.0, 0.5, 1.0],
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        extendBodyBehindAppBar: extendBodyBehindAppBar,
-        appBar: appBar,
-        body: body,
-        floatingActionButton: floatingActionButton,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6), // Base light grey
+      extendBodyBehindAppBar: extendBodyBehindAppBar,
+      appBar: appBar,
+      floatingActionButton: floatingActionButton,
+      body: Stack(
+        children: [
+          // Ambient Blob 1 (Top Left)
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primaryLight.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+          // Ambient Blob 2 (Bottom Right)
+          Positioned(
+            bottom: -50,
+            right: -100,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.accentLight.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          // Ambient Blob 3 (Center Right)
+          Positioned(
+            top: 300,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFE0E7FF).withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+          // The Ultimate Glass Blur Over the Blobs
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+              child: Container(
+                color: Colors.white.withValues(
+                  alpha: 0.2,
+                ), // Light frosted tint
+              ),
+            ),
+          ),
+          // The actual body
+          SafeArea(bottom: false, top: !extendBodyBehindAppBar, child: body),
+        ],
       ),
     );
   }
