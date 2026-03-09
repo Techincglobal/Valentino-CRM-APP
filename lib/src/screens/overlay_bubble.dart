@@ -363,17 +363,17 @@ class _OverlayBubbleState extends State<OverlayBubble>
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF23252A).withValues(alpha: 0.85),
-                  const Color(0xFF131417).withValues(alpha: 0.95),
+                  Colors.white.withValues(alpha: 0.95),
+                  Colors.white.withValues(alpha: 0.85),
                 ],
               ),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.12),
-                width: 1,
+                color: Colors.white.withValues(alpha: 0.9),
+                width: 1.5,
               ),
             ),
             child: Column(
@@ -387,7 +387,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                     width: 40,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.black.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -425,7 +425,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                           ? _name
                                           : 'Unknown Caller',
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: Colors.black87,
                                         fontSize: 20,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: -0.5,
@@ -449,7 +449,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                           const Text(
                                             '•',
                                             style: TextStyle(
-                                              color: Colors.white38,
+                                              color: Colors.black38,
                                               fontSize: 13,
                                             ),
                                           ),
@@ -458,7 +458,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                         Text(
                                           _phone,
                                           style: const TextStyle(
-                                            color: Colors.white70,
+                                            color: Colors.black54,
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                             letterSpacing: 0.3,
@@ -478,10 +478,14 @@ class _OverlayBubbleState extends State<OverlayBubble>
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.05),
+                                color: Colors.blueAccent.withValues(
+                                  alpha: 0.05,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.05),
+                                  color: Colors.blueAccent.withValues(
+                                    alpha: 0.1,
+                                  ),
                                 ),
                               ),
                               child: Row(
@@ -489,7 +493,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                 children: [
                                   Icon(
                                     Icons.notes_rounded,
-                                    color: Colors.white60,
+                                    color: Colors.black54,
                                     size: 16,
                                   ),
                                   const SizedBox(width: 10),
@@ -497,7 +501,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                     child: Text(
                                       _latestNote,
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: Colors.black87,
                                         fontSize: 13,
                                         height: 1.4,
                                       ),
@@ -584,8 +588,8 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                 _buildActionButton(
                                   icon: Icons.keyboard_arrow_up_rounded,
                                   label: 'Hide',
-                                  color: Colors.white,
-                                  bgColor: Colors.white.withValues(alpha: 0.15),
+                                  color: Colors.black87,
+                                  bgColor: Colors.black.withValues(alpha: 0.05),
                                   onTap: _toggleExpanded,
                                 ),
                                 const SizedBox(width: 12),
@@ -657,7 +661,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
               ),
             ],
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: Colors.black.withValues(alpha: 0.05),
               width: 1,
             ),
           ),
@@ -692,12 +696,19 @@ class _OverlayBubbleState extends State<OverlayBubble>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 1,
+          color: Colors.white.withValues(alpha: 0.9),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -705,15 +716,15 @@ class _OverlayBubbleState extends State<OverlayBubble>
           controller: controller,
           keyboardType: keyboardType,
           style: const TextStyle(
-            color: Colors.white,
+            color: Colors.black87,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Colors.white54, size: 20),
+            prefixIcon: Icon(icon, color: Colors.black45, size: 20),
             hintText: hint,
             hintStyle: const TextStyle(
-              color: Colors.white38,
+              color: Colors.black38,
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
