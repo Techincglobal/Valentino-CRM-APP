@@ -511,84 +511,27 @@ class _OverlayBubbleState extends State<OverlayBubble>
                           ] else ...[
                             const SizedBox(height: 16),
                             if (!_found) ...[
-                              TextField(
+                              _buildInputField(
                                 controller: _nameCtrl,
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 13,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Lead Name...',
-                                  hintStyle: const TextStyle(
-                                    color: Colors.black45,
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
+                                hint: 'Full Name...',
+                                icon: Icons.person_outline_rounded,
                               ),
-                              const SizedBox(height: 10),
-                              TextField(
+                              const SizedBox(height: 12),
+                              _buildInputField(
                                 controller: _emailCtrl,
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 13,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Email (Optional)...',
-                                  hintStyle: const TextStyle(
-                                    color: Colors.black45,
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
+                                hint: 'Email Address (Optional)...',
+                                icon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 12),
                             ],
                             // Note input
-                            TextField(
+                            _buildInputField(
                               controller: _noteCtrl,
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 13,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: _found
-                                    ? 'Add a quick note...'
-                                    : 'Add note (Optional)...',
-                                hintStyle: const TextStyle(
-                                  color: Colors.black45,
-                                ),
-                                filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.6),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
+                              hint: _found
+                                  ? 'Add a quick note...'
+                                  : 'Initial note (Optional)...',
+                              icon: Icons.edit_note_rounded,
                             ),
 
                             const SizedBox(height: 16),
@@ -696,6 +639,54 @@ class _OverlayBubbleState extends State<OverlayBubble>
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.8),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: Colors.black45, size: 18),
+          hintText: hint,
+          hintStyle: const TextStyle(
+            color: Colors.black38,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
           ),
         ),
       ),
