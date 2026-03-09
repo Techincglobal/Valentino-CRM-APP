@@ -345,7 +345,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
         : const Color(0xFF0A84FF); // iOS Blue
 
     return Container(
-      width: double.infinity,
+      width: MediaQuery.of(context).size.width,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
