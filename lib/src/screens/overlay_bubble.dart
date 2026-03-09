@@ -289,7 +289,6 @@ class _OverlayBubbleState extends State<OverlayBubble>
   }
 
   Widget _buildBubble() {
-    final String initial = _name.isNotEmpty ? _name[0].toUpperCase() : '?';
     final Color ringColor = _found
         ? Colors.green.shade600
         : Colors.indigo.shade600;
@@ -323,12 +322,11 @@ class _OverlayBubbleState extends State<OverlayBubble>
                 ),
               ),
               child: Center(
-                child: Text(
-                  initial,
-                  style: TextStyle(
-                    color: ringColor,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
