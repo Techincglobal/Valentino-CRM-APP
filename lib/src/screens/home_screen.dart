@@ -187,13 +187,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           context: context,
           barrierColor: Colors.black26,
           builder: (context) {
-            return const Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: EdgeInsets.only(top: 100),
-                child: OverlayBubble(),
-              ),
-            );
+            return const _DraggableOverlayWrapper(child: OverlayBubble());
           },
         );
       }
@@ -1303,6 +1297,42 @@ class _TestOverlayCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DraggableOverlayWrapper extends StatefulWidget {
+  final Widget child;
+  const _DraggableOverlayWrapper({required this.child});
+
+  @override
+  State<_DraggableOverlayWrapper> createState() =>
+      _DraggableOverlayWrapperState();
+}
+
+class _DraggableOverlayWrapperState extends State<_DraggableOverlayWrapper> {
+  Offset _position = const Offset(0, 100);
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          left: _position.dx,
+          top: _position.dy,
+          // Limit exactly to media query to ensure the inner constrained boxes don't overflow
+          width: MediaQuery.of(context).size.width,
+          child: GestureDetector(
+            onPanUpdate: (details) {
+              setState(() {
+                _position += details.delta;
+              });
+            },
+            behavior: HitTestBehavior.deferToChild,
+            child: widget.child,
+          ),
+        ),
+      ],
     );
   }
 }
