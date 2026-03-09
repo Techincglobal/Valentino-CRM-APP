@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             visibility: NotificationVisibility.visibilityPublic,
             positionGravity: PositionGravity.auto,
             alignment: OverlayAlignment.topCenter,
-            height: 380,
+            height: (response['found'] == true) ? 380 : 520,
             width: WindowSize.matchParent,
           );
 
@@ -551,50 +551,6 @@ class _DashboardCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 36),
-          // Main stat
-          Container(
-            padding: const EdgeInsets.all(42),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary.withValues(alpha: 0.05),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.05),
-                  blurRadius: 24,
-                  spreadRadius: 10,
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Text(
-                  callsToday.toString(),
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 56,
-                    fontWeight: FontWeight.w900,
-                    height: 1.0,
-                    letterSpacing: -2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Calls Today',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
         ],
       ),
     );

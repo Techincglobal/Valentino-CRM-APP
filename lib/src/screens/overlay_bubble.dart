@@ -186,8 +186,17 @@ class _OverlayBubbleState extends State<OverlayBubble>
   }
 
   Future<void> _createLead() async {
+    final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
     final note = _noteCtrl.text.trim();
-    if (note.isEmpty) return;
+
+    if (name.isEmpty) {
+      setState(() => _successMessage = 'Name is required!');
+      await Future.delayed(const Duration(seconds: 2));
+      setState(() => _successMessage = null);
+      return;
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -200,9 +209,10 @@ class _OverlayBubbleState extends State<OverlayBubble>
         url,
         headers: {'Cookie': 'sid=$_sid', 'Content-Type': 'application/json'},
         body: jsonEncode({
-          'first_name': 'Unknown Caller',
+          'first_name': name,
+          if (email.isNotEmpty) 'email_id': email,
           'mobile_no': _phone,
-          'note_content': note,
+          if (note.isNotEmpty) 'note_content': note,
         }),
       );
       setState(() {
@@ -223,7 +233,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
     if (_isExpanded) {
       await FlutterOverlayWindow.resizeOverlay(
         WindowSize.matchParent,
-        380,
+        _found ? 380 : 520,
         true,
       );
     } else {
@@ -500,6 +510,60 @@ class _OverlayBubbleState extends State<OverlayBubble>
                             const SizedBox(height: 16),
                           ] else ...[
                             const SizedBox(height: 16),
+                            if (!_found) ...[
+                              TextField(
+                                controller: _nameCtrl,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 13,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Lead Name...',
+                                  hintStyle: const TextStyle(
+                                    color: Colors.black45,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _emailCtrl,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 13,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Email (Optional)...',
+                                  hintStyle: const TextStyle(
+                                    color: Colors.black45,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
                             // Note input
                             TextField(
                               controller: _noteCtrl,
@@ -510,7 +574,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                               decoration: InputDecoration(
                                 hintText: _found
                                     ? 'Add a quick note...'
-                                    : 'Add note to create Lead...',
+                                    : 'Add note (Optional)...',
                                 hintStyle: const TextStyle(
                                   color: Colors.black45,
                                 ),
