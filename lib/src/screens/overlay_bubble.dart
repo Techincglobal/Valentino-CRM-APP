@@ -581,20 +581,19 @@ class _OverlayBubbleState extends State<OverlayBubble>
             border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: color, size: 16),
               const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
