@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 import 'app.dart';
 import 'src/screens/overlay_bubble.dart';
@@ -29,5 +28,4 @@ void overlayMain() {
       home: const OverlayBubble(),
     ),
   );
-  FlutterOverlayWindow.overlayListener.listen((_) {});
 }

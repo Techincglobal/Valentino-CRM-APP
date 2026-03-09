@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -52,6 +53,8 @@ class _OverlayBubbleState extends State<OverlayBubble>
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
 
+  StreamSubscription? _overlaySub;
+
   @override
   void initState() {
     super.initState();
@@ -69,31 +72,36 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
     // Also listen to background updates (optional, for real-time)
     if (Platform.isAndroid) {
-      FlutterOverlayWindow.overlayListener.listen((event) {
-        if (event != null && event is Map) {
-          if (event['command'] == 'collapse' && _isExpanded) {
-            _toggleExpanded();
-            return;
-          }
+      try {
+        _overlaySub = FlutterOverlayWindow.overlayListener.listen((event) {
+          if (event != null && event is Map) {
+            if (event['command'] == 'collapse' && _isExpanded) {
+              _toggleExpanded();
+              return;
+            }
 
-          // Handle incoming caller data
-          if (event.containsKey('phone')) {
-            setState(() {
-              _phone = event['phone'] ?? '';
-              _name = event['name'] ?? '';
-              _type = event['type'] ?? '';
-              _docname = event['docname'] ?? '';
-              _found = event['found'] ?? false;
-              _loaded = true;
-            });
+            // Handle incoming caller data
+            if (event.containsKey('phone')) {
+              setState(() {
+                _phone = event['phone'] ?? '';
+                _name = event['name'] ?? '';
+                _type = event['type'] ?? '';
+                _docname = event['docname'] ?? '';
+                _found = event['found'] ?? false;
+                _loaded = true;
+              });
+            }
           }
-        }
-      });
+        });
+      } catch (e) {
+        debugPrint("Overlay Listener Error: $e");
+      }
     }
   }
 
   @override
   void dispose() {
+    _overlaySub?.cancel();
     _animController.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
