@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -67,26 +68,28 @@ class _OverlayBubbleState extends State<OverlayBubble>
     _load();
 
     // Also listen to background updates (optional, for real-time)
-    FlutterOverlayWindow.overlayListener.listen((event) {
-      if (event != null && event is Map) {
-        if (event['command'] == 'collapse' && _isExpanded) {
-          _toggleExpanded();
-          return;
-        }
+    if (Platform.isAndroid) {
+      FlutterOverlayWindow.overlayListener.listen((event) {
+        if (event != null && event is Map) {
+          if (event['command'] == 'collapse' && _isExpanded) {
+            _toggleExpanded();
+            return;
+          }
 
-        // Handle incoming caller data
-        if (event.containsKey('phone')) {
-          setState(() {
-            _phone = event['phone'] ?? '';
-            _name = event['name'] ?? '';
-            _type = event['type'] ?? '';
-            _docname = event['docname'] ?? '';
-            _found = event['found'] ?? false;
-            _loaded = true;
-          });
+          // Handle incoming caller data
+          if (event.containsKey('phone')) {
+            setState(() {
+              _phone = event['phone'] ?? '';
+              _name = event['name'] ?? '';
+              _type = event['type'] ?? '';
+              _docname = event['docname'] ?? '';
+              _found = event['found'] ?? false;
+              _loaded = true;
+            });
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   @override
@@ -209,6 +212,8 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
   void _toggleExpanded() async {
     setState(() => _isExpanded = !_isExpanded);
+    if (!Platform.isAndroid) return;
+
     if (_isExpanded) {
       await FlutterOverlayWindow.resizeOverlay(
         _cardWidth.toInt(),
@@ -226,7 +231,12 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
   void _closeOverlay() async {
     await _animController.reverse();
-    await FlutterOverlayWindow.closeOverlay();
+    if (Platform.isAndroid) {
+      await FlutterOverlayWindow.closeOverlay();
+    } else {
+      // In iOS Test mode, pop the modal dialog
+      if (mounted) Navigator.of(context).pop();
+    }
   }
 
   @override

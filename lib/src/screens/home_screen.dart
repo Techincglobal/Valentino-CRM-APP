@@ -12,6 +12,7 @@ import '../services/caller_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
+import 'overlay_bubble.dart';
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
@@ -136,42 +137,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       await _saveCallerDataToPrefs(phone, response);
 
-      final isActive = await FlutterOverlayWindow.isActive();
-      if (!isActive) {
-        await FlutterOverlayWindow.showOverlay(
-          enableDrag: true,
-          overlayTitle: 'CRM Caller',
-          overlayContent: 'Looking up details...',
-          flag: OverlayFlag.defaultFlag,
-          visibility: NotificationVisibility.visibilityPublic,
-          positionGravity: PositionGravity.auto,
-          alignment: OverlayAlignment.center,
-          height: 220,
-          width: 340,
-        );
+      if (Platform.isAndroid) {
+        final isActive = await FlutterOverlayWindow.isActive();
+        if (!isActive) {
+          await FlutterOverlayWindow.showOverlay(
+            enableDrag: true,
+            overlayTitle: 'CRM Caller',
+            overlayContent: 'Looking up details...',
+            flag: OverlayFlag.defaultFlag,
+            visibility: NotificationVisibility.visibilityPublic,
+            positionGravity: PositionGravity.auto,
+            alignment: OverlayAlignment.center,
+            height: 220,
+            width: 340,
+          );
 
-        // Wait to be ready
-        await Future.delayed(const Duration(milliseconds: 600));
+          // Wait to be ready
+          await Future.delayed(const Duration(milliseconds: 600));
 
-        final data = {
-          'phone': phone,
-          'name':
-              response['customer_name'] ?? response['name'] ?? 'Unknown Caller',
-          'type': response['type'] ?? '',
-          'docname': response['name'] ?? '',
-          'found': response['found'] == true,
-        };
-        await FlutterOverlayWindow.shareData(data);
+          final data = {
+            'phone': phone,
+            'name':
+                response['customer_name'] ??
+                response['name'] ??
+                'Unknown Caller',
+            'type': response['type'] ?? '',
+            'docname': response['name'] ?? '',
+            'found': response['found'] == true,
+          };
+          await FlutterOverlayWindow.shareData(data);
+        } else {
+          final data = {
+            'phone': phone,
+            'name':
+                response['customer_name'] ??
+                response['name'] ??
+                'Unknown Caller',
+            'type': response['type'] ?? '',
+            'docname': response['name'] ?? '',
+            'found': response['found'] == true,
+          };
+          await FlutterOverlayWindow.shareData(data);
+        }
       } else {
-        final data = {
-          'phone': phone,
-          'name':
-              response['customer_name'] ?? response['name'] ?? 'Unknown Caller',
-          'type': response['type'] ?? '',
-          'docname': response['name'] ?? '',
-          'found': response['found'] == true,
-        };
-        await FlutterOverlayWindow.shareData(data);
+        if (!mounted) return;
+        // Render fake overlay for iOS testing
+        showDialog(
+          context: context,
+          barrierColor: Colors.black26,
+          builder: (context) {
+            return const Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: EdgeInsets.only(top: 100),
+                child: OverlayBubble(),
+              ),
+            );
+          },
+        );
       }
     } catch (e) {
       debugPrint("Overlay error: $e");
