@@ -156,8 +156,7 @@ void onStart(ServiceInstance service) async {
           await FlutterOverlayWindow.shareData(data);
         }
       }
-    } else if (event.status == PhoneStateStatus.CALL_ENDED ||
-        event.status == PhoneStateStatus.CALL_STARTED) {
+    } else if (event.status == PhoneStateStatus.CALL_ENDED) {
       debugPrint(
         "📱 [BackgroundService] Call Status Change: ${event.status}. Closing Overlay.",
       );
