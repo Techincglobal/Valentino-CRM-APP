@@ -116,10 +116,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     await _incrementCallCount();
 
+    Map<String, dynamic> response;
     try {
-      final response = await CallerService.getCallerDetails(phone);
+      response = await CallerService.getCallerDetails(phone);
+    } catch (e) {
       if (!mounted) return;
+      // Show snackbar, but continue to show popup with fallback data
+      _showError('Lookup failed (Using Fallback)');
+      response = {
+        'found': false,
+        'name': 'Unknown Caller',
+        'customer_name': 'Unknown Caller',
+        'type': 'Network/API Error',
+      };
+    }
 
+    if (!mounted) return;
+
+    try {
       await _saveCallerDataToPrefs(phone, response);
 
       final isActive = await FlutterOverlayWindow.isActive();
@@ -160,8 +174,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         await FlutterOverlayWindow.shareData(data);
       }
     } catch (e) {
-      if (!mounted) return;
-      _showError('Lookup failed: $e');
+      debugPrint("Overlay error: $e");
     } finally {
       if (mounted) setState(() => _loading = false);
     }

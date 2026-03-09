@@ -10,12 +10,16 @@ class CallerService {
       "caller_number": phone,
     });
 
-    final data = jsonDecode(response.body);
-
-    if (response.statusCode == 200) {
-      return data["message"];
-    } else {
-      throw Exception(data["message"] ?? "Failed to fetch caller details");
+    try {
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return data["message"];
+      } else {
+        throw Exception(data["message"] ?? "Failed to fetch caller details");
+      }
+    } catch (_) {
+      // Return safe fallback so the overlay can still proceed gracefully instead of crashing
+      return {"found": false, "name": "Unknown", "type": "Network/API Error"};
     }
   }
 
