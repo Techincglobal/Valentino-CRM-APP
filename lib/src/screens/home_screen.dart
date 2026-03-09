@@ -27,8 +27,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   StreamSubscription<PhoneState>? _phoneSubscription;
 
   bool _loading = false;
-  bool _popupOpen = false;
-  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   int _callsToday = 0;
 
   @override
@@ -83,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _lifecycleState = state;
+    // Left empty since we no longer track lifecycle manually for overlays
   }
 
   Future<void> _initializePhoneListener() async {
@@ -122,17 +120,44 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final response = await CallerService.getCallerDetails(phone);
       if (!mounted) return;
 
-      if (_lifecycleState == AppLifecycleState.resumed) {
-        _showCallPopup(phone, response);
-      } else {
-        await _saveCallerDataToPrefs(phone, response);
+      await _saveCallerDataToPrefs(phone, response);
+
+      final isActive = await FlutterOverlayWindow.isActive();
+      if (!isActive) {
         await FlutterOverlayWindow.showOverlay(
-          height: 360,
-          width: WindowSize.matchParent,
           enableDrag: true,
           overlayTitle: 'CRM Caller',
-          alignment: OverlayAlignment.topCenter,
+          overlayContent: 'Looking up details...',
+          flag: OverlayFlag.defaultFlag,
+          visibility: NotificationVisibility.visibilityPublic,
+          positionGravity: PositionGravity.auto,
+          alignment: OverlayAlignment.center,
+          height: 220,
+          width: 340,
         );
+
+        // Wait to be ready
+        await Future.delayed(const Duration(milliseconds: 600));
+
+        final data = {
+          'phone': phone,
+          'name':
+              response['customer_name'] ?? response['name'] ?? 'Unknown Caller',
+          'type': response['type'] ?? '',
+          'docname': response['name'] ?? '',
+          'found': response['found'] == true,
+        };
+        await FlutterOverlayWindow.shareData(data);
+      } else {
+        final data = {
+          'phone': phone,
+          'name':
+              response['customer_name'] ?? response['name'] ?? 'Unknown Caller',
+          'type': response['type'] ?? '',
+          'docname': response['name'] ?? '',
+          'found': response['found'] == true,
+        };
+        await FlutterOverlayWindow.shareData(data);
       }
     } catch (e) {
       if (!mounted) return;
@@ -158,23 +183,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       (result['name'] as String?) ?? '',
     );
     await prefs.setBool('crm_caller_found', result['found'] == true);
-  }
-
-  void _showCallPopup(String phone, Map<String, dynamic> result) {
-    if (_popupOpen) return;
-    _popupOpen = true;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        if (result['found'] == false) {
-          return _CreateLeadSheet(phone: phone);
-        }
-        return _KnownCallerSheet(phone: phone, result: result);
-      },
-    ).whenComplete(() => _popupOpen = false);
   }
 
   void _showError(String message) {
@@ -1429,16 +1437,7 @@ class _TestOverlayCard extends StatelessWidget {
             child: AppOutlineButton(
               label: 'Force Overlay Popup',
               icon: Icons.flash_on,
-              onTap: () async {
-                // Force it
-                await FlutterOverlayWindow.showOverlay(
-                  height: 220,
-                  width: 340,
-                  enableDrag: true,
-                  overlayTitle: 'CRM Test',
-                  alignment: OverlayAlignment.center,
-                );
-              },
+              onTap: onTest,
               color: AppColors.accent,
             ),
           ),

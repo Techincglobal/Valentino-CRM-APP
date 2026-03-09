@@ -2,24 +2,20 @@ import 'dart:convert';
 import 'api_service.dart';
 
 class CallerService {
-  static const String _base =
-      "/api/method/nxtgen_crm_mobile.api";
+  static const String _base = "/api/method/nxtgen_crm_mobile.api";
 
   // Get Caller Details
-  static Future<Map<String, dynamic>> getCallerDetails(
-      String phone) async {
-    final response = await ApiService.post(
-      "$_base.get_caller_details",
-      {"caller_number": phone},
-    );
+  static Future<Map<String, dynamic>> getCallerDetails(String phone) async {
+    final response = await ApiService.post("$_base.get_caller_details", {
+      "caller_number": phone,
+    });
 
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
       return data["message"];
     } else {
-      throw Exception(
-          data["message"] ?? "Failed to fetch caller details");
+      throw Exception(data["message"] ?? "Failed to fetch caller details");
     }
   }
 
@@ -30,23 +26,19 @@ class CallerService {
     String? mobile,
     String? note,
   }) async {
-    final response = await ApiService.post(
-      "$_base.create_lead_with_note",
-      {
-        "first_name": firstName,
-        "email_id": email,
-        "mobile_no": mobile,
-        "note_content": note,
-      },
-    );
+    final response = await ApiService.post("$_base.create_lead_with_note", {
+      "first_name": firstName,
+      "email_id": email,
+      "mobile_no": mobile,
+      "note_content": note,
+    });
 
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
       return data["message"];
     } else {
-      throw Exception(
-          data["message"] ?? "Lead creation failed");
+      throw Exception(data["message"] ?? "Lead creation failed");
     }
   }
 
@@ -56,19 +48,15 @@ class CallerService {
     required String docname,
     required String note,
   }) async {
-    final response = await ApiService.post(
-      "$_base.add_call_note",
-      {
-        "doctype": doctype,
-        "docname": docname,
-        "note_content": note,
-      },
-    );
+    final response = await ApiService.post("$_base.add_call_note", {
+      "doctype": doctype,
+      "docname": docname,
+      "note_content": note,
+    });
 
     if (response.statusCode != 200) {
       final data = jsonDecode(response.body);
-      throw Exception(
-          data["message"] ?? "Failed to add note");
+      throw Exception(data["message"] ?? "Failed to add note");
     }
   }
 
@@ -77,21 +65,17 @@ class CallerService {
     required String doctype,
     required String docname,
   }) async {
-    final response = await ApiService.post(
-      "$_base.get_notes",
-      {
-        "doctype": doctype,
-        "docname": docname,
-      },
-    );
+    final response = await ApiService.post("$_base.get_notes", {
+      "doctype": doctype,
+      "docname": docname,
+    });
 
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
       return data["message"] ?? [];
     } else {
-      throw Exception(
-          data["message"] ?? "Failed to fetch notes");
+      throw Exception(data["message"] ?? "Failed to fetch notes");
     }
   }
 }

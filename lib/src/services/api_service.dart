@@ -15,10 +15,7 @@ class ApiService {
 
     return await http.get(
       url,
-      headers: {
-        "Cookie": "sid=$sid",
-        "Content-Type": "application/json",
-      },
+      headers: {"Cookie": "sid=$sid", "Content-Type": "application/json"},
     );
   }
 
@@ -34,10 +31,7 @@ class ApiService {
 
     return await http.post(
       url,
-      headers: {
-        "Cookie": "sid=$sid",
-        "Content-Type": "application/json",
-      },
+      headers: {"Cookie": "sid=$sid", "Content-Type": "application/json"},
       body: jsonEncode(body),
     );
   }

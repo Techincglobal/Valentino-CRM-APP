@@ -12,10 +12,7 @@ class AuthService {
 
     final response = await http.post(
       url,
-      body: {
-        "usr": username,
-        "pwd": password,
-      },
+      body: {"usr": username, "pwd": password},
     );
 
     if (response.statusCode == 200) {
