@@ -125,9 +125,9 @@ void onStart(ServiceInstance service) async {
             flag: OverlayFlag.defaultFlag,
             visibility: NotificationVisibility.visibilityPublic,
             positionGravity: PositionGravity.auto,
-            alignment: OverlayAlignment.center,
-            height: 220,
-            width: 340,
+            alignment: OverlayAlignment.topCenter,
+            height: 250,
+            width: WindowSize.matchParent,
           );
 
           // Wait for overlay to be ready

@@ -22,8 +22,6 @@ class _OverlayBubbleState extends State<OverlayBubble>
     with SingleTickerProviderStateMixin {
   // Config
   static const double _bubbleSize = 64.0;
-  static const double _cardWidth = 340.0;
-  static const double _cardHeight = 220.0;
 
   // Caller data
   String _phone = '';
@@ -224,8 +222,8 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
     if (_isExpanded) {
       await FlutterOverlayWindow.resizeOverlay(
-        _cardWidth.toInt(),
-        _cardHeight.toInt(),
+        WindowSize.matchParent,
+        250,
         true,
       );
     } else {
@@ -333,8 +331,9 @@ class _OverlayBubbleState extends State<OverlayBubble>
         : Colors.indigoAccent.shade200;
 
     return Container(
-      width: _cardWidth,
-      height: _cardHeight,
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      height: 250,
       decoration: BoxDecoration(
         color: const Color(0xFF111827).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(24),

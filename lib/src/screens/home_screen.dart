@@ -148,9 +148,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             flag: OverlayFlag.defaultFlag,
             visibility: NotificationVisibility.visibilityPublic,
             positionGravity: PositionGravity.auto,
-            alignment: OverlayAlignment.center,
-            height: 220,
-            width: 340,
+            alignment: OverlayAlignment.topCenter,
+            height: 250,
+            width: WindowSize.matchParent,
           );
 
           // Wait to be ready
