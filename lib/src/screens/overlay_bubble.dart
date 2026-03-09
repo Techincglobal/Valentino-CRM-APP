@@ -341,49 +341,59 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
   Widget _buildCard() {
     final Color accentColor = _found
-        ? Colors.green.shade600
-        : Colors.indigo.shade600;
+        ? const Color(0xFF32D74B) // iOS Green
+        : const Color(0xFF0A84FF); // iOS Blue
 
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 32,
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 40,
             spreadRadius: -4,
-            offset: const Offset(0, 16),
+            offset: const Offset(0, 24),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  Colors.white.withValues(alpha: 0.85),
-                  Colors.white.withValues(alpha: 0.55),
+                  const Color(0xFF23252A).withValues(alpha: 0.85),
+                  const Color(0xFF131417).withValues(alpha: 0.95),
                 ],
               ),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.8),
-                width: 1.5,
+                color: Colors.white.withValues(alpha: 0.12),
+                width: 1,
               ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top Accent Bar
-                Container(height: 4, color: accentColor),
+                // Minimal Top Handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
 
                 // Content Area
                 Flexible(
@@ -417,14 +427,15 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                           ? _name
                                           : 'Unknown Caller',
                                       style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.5,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 6),
                                     Row(
                                       children: [
                                         if (_found && _type.isNotEmpty) ...[
@@ -432,25 +443,27 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                             _type,
                                             style: TextStyle(
                                               color: accentColor,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                          const SizedBox(width: 6),
+                                          const SizedBox(width: 8),
                                           const Text(
                                             '•',
                                             style: TextStyle(
-                                              color: Colors.black38,
-                                              fontSize: 12,
+                                              color: Colors.white38,
+                                              fontSize: 13,
                                             ),
                                           ),
-                                          const SizedBox(width: 6),
+                                          const SizedBox(width: 8),
                                         ],
                                         Text(
                                           _phone,
                                           style: const TextStyle(
-                                            color: Colors.black54,
-                                            fontSize: 12,
+                                            color: Colors.white70,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            letterSpacing: 0.3,
                                           ),
                                         ),
                                       ],
@@ -463,27 +476,32 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
                           if (_latestNote.isNotEmpty &&
                               _successMessage == null) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 16),
                             Container(
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.white.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                ),
                               ),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(
-                                    Icons.notes,
-                                    color: Colors.black45,
-                                    size: 14,
+                                  Icon(
+                                    Icons.notes_rounded,
+                                    color: Colors.white60,
+                                    size: 16,
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _latestNote,
                                       style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 12,
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        height: 1.4,
                                       ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
@@ -495,15 +513,23 @@ class _OverlayBubbleState extends State<OverlayBubble>
                           ],
 
                           if (_successMessage != null) ...[
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 24),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.check_circle, color: accentColor),
-                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.check_circle,
+                                  color: accentColor,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 10),
                                 Text(
                                   _successMessage!,
-                                  style: const TextStyle(color: Colors.black87),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -534,7 +560,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                               icon: Icons.edit_note_rounded,
                             ),
 
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 20),
 
                             // Action Buttons
                             Row(
@@ -542,12 +568,15 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                 Expanded(
                                   child: _buildActionButton(
                                     icon: _found
-                                        ? Icons.save
-                                        : Icons.add_circle,
+                                        ? Icons.save_rounded
+                                        : Icons.person_add_rounded,
                                     label: _saving
                                         ? 'Saving...'
-                                        : (_found ? 'Save Note' : 'New Lead'),
-                                    color: accentColor,
+                                        : (_found
+                                              ? 'Save Note'
+                                              : 'Create Lead'),
+                                    color: Colors.white,
+                                    bgColor: accentColor,
                                     onTap: _saving
                                         ? () {}
                                         : (_found ? _addNote : _createLead),
@@ -555,28 +584,35 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                 ),
                                 const SizedBox(width: 12),
                                 _buildActionButton(
-                                  icon: Icons.compress,
+                                  icon: Icons.keyboard_arrow_up_rounded,
                                   label: 'Hide',
-                                  color: Colors.black54,
+                                  color: Colors.white,
+                                  bgColor: Colors.white.withValues(alpha: 0.15),
                                   onTap: _toggleExpanded,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 12),
                                 Material(
                                   color: Colors.transparent,
                                   child: InkWell(
                                     onTap: _closeOverlay,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(16),
                                     child: Container(
-                                      padding: const EdgeInsets.all(10),
+                                      padding: const EdgeInsets.all(14),
                                       decoration: BoxDecoration(
-                                        color: Colors.red.withValues(
-                                          alpha: 0.1,
+                                        color: const Color(
+                                          0xFFFF453A,
+                                        ).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: const Color(
+                                            0xFFFF453A,
+                                          ).withValues(alpha: 0.3),
+                                          width: 1,
                                         ),
-                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: const Icon(
-                                        Icons.close,
-                                        color: Colors.redAccent,
+                                        Icons.close_rounded,
+                                        color: Color(0xFFFF453A),
                                         size: 20,
                                       ),
                                     ),
@@ -602,24 +638,28 @@ class _OverlayBubbleState extends State<OverlayBubble>
     required IconData icon,
     required String label,
     required Color color,
+    required Color bgColor,
     required VoidCallback onTap,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           decoration: BoxDecoration(
-            color: color == Colors.black54
-                ? Colors.white.withValues(alpha: 0.7)
-                : color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(16),
+            color: bgColor,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: bgColor.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
             border: Border.all(
-              color: color == Colors.black54
-                  ? Colors.black.withValues(alpha: 0.05)
-                  : color.withValues(alpha: 0.3),
+              color: Colors.white.withValues(alpha: 0.1),
               width: 1,
             ),
           ),
@@ -627,14 +667,15 @@ class _OverlayBubbleState extends State<OverlayBubble>
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(width: 6),
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w600,
-                  fontSize: 12,
+                  fontSize: 14,
+                  letterSpacing: -0.2,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -653,40 +694,33 @@ class _OverlayBubbleState extends State<OverlayBubble>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.65),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.8),
-          width: 1.5,
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
         style: const TextStyle(
-          color: Colors.black87,
+          color: Colors.white,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Colors.black45, size: 18),
+          prefixIcon: Icon(icon, color: Colors.white54, size: 20),
           hintText: hint,
           hintStyle: const TextStyle(
-            color: Colors.black38,
+            color: Colors.white38,
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 14,
+            vertical: 16,
           ),
         ),
       ),
