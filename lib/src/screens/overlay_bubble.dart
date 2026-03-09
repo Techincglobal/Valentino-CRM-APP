@@ -366,199 +366,204 @@ class _OverlayBubbleState extends State<OverlayBubble>
                     horizontal: 20,
                     vertical: 16,
                   ),
-                  child: Column(
-                    children: [
-                      // Header Row
-                      Row(
-                        children: [
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Header Row
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.phone, color: accentColor),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _found && _name.isNotEmpty
+                                        ? _name
+                                        : 'Unknown Caller',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      if (_found && _type.isNotEmpty) ...[
+                                        Text(
+                                          _type,
+                                          style: TextStyle(
+                                            color: accentColor,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Text(
+                                          '•',
+                                          style: TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      Text(
+                                        _phone,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.6,
+                                          ),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        if (_latestNote.isNotEmpty &&
+                            _successMessage == null) ...[
+                          const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: accentColor.withValues(alpha: 0.15),
-                              shape: BoxShape.circle,
+                              color: Colors.black.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Icon(Icons.phone, color: accentColor),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  _found && _name.isNotEmpty
-                                      ? _name
-                                      : 'Unknown Caller',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
+                                const Icon(
+                                  Icons.notes,
+                                  color: Colors.white54,
+                                  size: 14,
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    if (_found && _type.isNotEmpty) ...[
-                                      Text(
-                                        _type,
-                                        style: TextStyle(
-                                          color: accentColor,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _latestNote,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.8,
                                       ),
-                                      const SizedBox(width: 6),
-                                      const Text(
-                                        '•',
-                                        style: TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                    ],
-                                    Text(
-                                      _phone,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.6,
-                                        ),
-                                        fontSize: 12,
-                                      ),
+                                      fontSize: 12,
                                     ),
-                                  ],
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      ),
 
-                      if (_latestNote.isNotEmpty &&
-                          _successMessage == null) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
+                        if (_successMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.notes,
-                                color: Colors.white54,
-                                size: 14,
+                              Icon(Icons.check_circle, color: accentColor),
+                              const SizedBox(width: 8),
+                              Text(
+                                _successMessage!,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ] else ...[
+                          const SizedBox(height: 16),
+                          // Note input
+                          TextField(
+                            controller: _noteCtrl,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: _found
+                                  ? 'Add a quick note...'
+                                  : 'Add note to create Lead...',
+                              hintStyle: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4),
+                              ),
+                              filled: true,
+                              fillColor: Colors.black.withValues(alpha: 0.2),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildActionButton(
+                                  icon: _found ? Icons.save : Icons.add_circle,
+                                  label: _saving
+                                      ? 'Saving...'
+                                      : (_found ? 'Save Note' : 'New Lead'),
+                                  color: accentColor,
+                                  onTap: _saving
+                                      ? () {}
+                                      : (_found ? _addNote : _createLead),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              _buildActionButton(
+                                icon: Icons.compress,
+                                label: 'Hide',
+                                color: Colors.white24,
+                                onTap: _toggleExpanded,
                               ),
                               const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _latestNote,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.8),
-                                    fontSize: 12,
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _closeOverlay,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.redAccent,
+                                      size: 20,
+                                    ),
                                   ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
-                        ),
+                        ],
                       ],
-
-                      if (_successMessage != null) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.check_circle, color: accentColor),
-                            const SizedBox(width: 8),
-                            Text(
-                              _successMessage!,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ] else ...[
-                        const SizedBox(height: 16),
-                        // Note input
-                        TextField(
-                          controller: _noteCtrl,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: _found
-                                ? 'Add a quick note...'
-                                : 'Add note to create Lead...',
-                            hintStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
-                            ),
-                            filled: true,
-                            fillColor: Colors.black.withValues(alpha: 0.2),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Action Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildActionButton(
-                                icon: _found ? Icons.save : Icons.add_circle,
-                                label: _saving
-                                    ? 'Saving...'
-                                    : (_found ? 'Save Note' : 'New Lead'),
-                                color: accentColor,
-                                onTap: _saving
-                                    ? () {}
-                                    : (_found ? _addNote : _createLead),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            _buildActionButton(
-                              icon: Icons.compress,
-                              label: 'Hide',
-                              color: Colors.white24,
-                              onTap: _toggleExpanded,
-                            ),
-                            const SizedBox(width: 8),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _closeOverlay,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.redAccent,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               ),
