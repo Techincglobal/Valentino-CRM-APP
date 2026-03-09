@@ -281,8 +281,8 @@ class _OverlayBubbleState extends State<OverlayBubble>
   Widget _buildBubble() {
     final String initial = _name.isNotEmpty ? _name[0].toUpperCase() : '?';
     final Color ringColor = _found
-        ? Colors.greenAccent.shade400
-        : Colors.indigoAccent.shade200;
+        ? Colors.green.shade600
+        : Colors.indigo.shade600;
 
     return GestureDetector(
       onTap: _toggleExpanded,
@@ -293,26 +293,30 @@ class _OverlayBubbleState extends State<OverlayBubble>
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: ringColor.withValues(alpha: 0.4),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 16,
               spreadRadius: 2,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: ClipOval(
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.5),
-                border: Border.all(color: ringColor, width: 2.5),
+                color: Colors.white.withValues(alpha: 0.85),
+                border: Border.all(
+                  color: ringColor.withValues(alpha: 0.8),
+                  width: 2.5,
+                ),
               ),
               child: Center(
                 child: Text(
                   initial,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: ringColor,
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
                   ),
@@ -334,234 +338,253 @@ class _OverlayBubbleState extends State<OverlayBubble>
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.black.withValues(alpha: 0.05),
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 32,
+            spreadRadius: -4,
+            offset: const Offset(0, 16),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Top Accent Bar
-              Container(height: 4, color: accentColor),
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.85),
+                  Colors.white.withValues(alpha: 0.55),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.8),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top Accent Bar
+                Container(height: 4, color: accentColor),
 
-              // Content Area
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Header Row
-                        Row(
-                          children: [
+                // Content Area
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Header Row
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.phone, color: accentColor),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _found && _name.isNotEmpty
+                                          ? _name
+                                          : 'Unknown Caller',
+                                      style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        if (_found && _type.isNotEmpty) ...[
+                                          Text(
+                                            _type,
+                                            style: TextStyle(
+                                              color: accentColor,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Text(
+                                            '•',
+                                            style: TextStyle(
+                                              color: Colors.black38,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        Text(
+                                          _phone,
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          if (_latestNote.isNotEmpty &&
+                              _successMessage == null) ...[
+                            const SizedBox(height: 12),
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: accentColor.withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(Icons.phone, color: accentColor),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    _found && _name.isNotEmpty
-                                        ? _name
-                                        : 'Unknown Caller',
-                                    style: const TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
+                                  const Icon(
+                                    Icons.notes,
+                                    color: Colors.black45,
+                                    size: 14,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      if (_found && _type.isNotEmpty) ...[
-                                        Text(
-                                          _type,
-                                          style: TextStyle(
-                                            color: accentColor,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        const Text(
-                                          '•',
-                                          style: TextStyle(
-                                            color: Colors.black38,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                      ],
-                                      Text(
-                                        _phone,
-                                        style: const TextStyle(
-                                          color: Colors.black54,
-                                          fontSize: 12,
-                                        ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _latestNote,
+                                      style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 12,
                                       ),
-                                    ],
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ],
-                        ),
 
-                        if (_latestNote.isNotEmpty &&
-                            _successMessage == null) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
+                          if (_successMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(
-                                  Icons.notes,
+                                Icon(Icons.check_circle, color: accentColor),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _successMessage!,
+                                  style: const TextStyle(color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                          ] else ...[
+                            const SizedBox(height: 16),
+                            // Note input
+                            TextField(
+                              controller: _noteCtrl,
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 13,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: _found
+                                    ? 'Add a quick note...'
+                                    : 'Add note to create Lead...',
+                                hintStyle: const TextStyle(
                                   color: Colors.black45,
-                                  size: 14,
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.6),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Action Buttons
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildActionButton(
+                                    icon: _found
+                                        ? Icons.save
+                                        : Icons.add_circle,
+                                    label: _saving
+                                        ? 'Saving...'
+                                        : (_found ? 'Save Note' : 'New Lead'),
+                                    color: accentColor,
+                                    onTap: _saving
+                                        ? () {}
+                                        : (_found ? _addNote : _createLead),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                _buildActionButton(
+                                  icon: Icons.compress,
+                                  label: 'Hide',
+                                  color: Colors.black54,
+                                  onTap: _toggleExpanded,
                                 ),
                                 const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _latestNote,
-                                    style: const TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 12,
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: _closeOverlay,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.redAccent,
+                                        size: 20,
+                                      ),
                                     ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
+                          ],
                         ],
-
-                        if (_successMessage != null) ...[
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.check_circle, color: accentColor),
-                              const SizedBox(width: 8),
-                              Text(
-                                _successMessage!,
-                                style: const TextStyle(color: Colors.black87),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                        ] else ...[
-                          const SizedBox(height: 16),
-                          // Note input
-                          TextField(
-                            controller: _noteCtrl,
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 13,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: _found
-                                  ? 'Add a quick note...'
-                                  : 'Add note to create Lead...',
-                              hintStyle: const TextStyle(color: Colors.black38),
-                              filled: true,
-                              fillColor: Colors.black.withValues(alpha: 0.04),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Action Buttons
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildActionButton(
-                                  icon: _found ? Icons.save : Icons.add_circle,
-                                  label: _saving
-                                      ? 'Saving...'
-                                      : (_found ? 'Save Note' : 'New Lead'),
-                                  color: accentColor,
-                                  onTap: _saving
-                                      ? () {}
-                                      : (_found ? _addNote : _createLead),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              _buildActionButton(
-                                icon: Icons.compress,
-                                label: 'Hide',
-                                color: Colors.black54,
-                                onTap: _toggleExpanded,
-                              ),
-                              const SizedBox(width: 8),
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _closeOverlay,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      color: Colors.redAccent,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -578,13 +601,20 @@ class _OverlayBubbleState extends State<OverlayBubble>
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+            color: color == Colors.black54
+                ? Colors.white.withValues(alpha: 0.7)
+                : color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: color == Colors.black54
+                  ? Colors.black.withValues(alpha: 0.05)
+                  : color.withValues(alpha: 0.3),
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
