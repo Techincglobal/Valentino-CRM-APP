@@ -327,23 +327,22 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
   Widget _buildCard() {
     final Color accentColor = _found
-        ? Colors.greenAccent.shade400
-        : Colors.indigoAccent.shade200;
+        ? Colors.green.shade600
+        : Colors.indigo.shade600;
 
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      height: 380,
       decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.85),
+        color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: Colors.black.withValues(alpha: 0.05),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -354,13 +353,14 @@ class _OverlayBubbleState extends State<OverlayBubble>
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Top Accent Bar
               Container(height: 4, color: accentColor),
 
               // Content Area
-              Expanded(
+              Flexible(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
@@ -391,7 +391,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                         ? _name
                                         : 'Unknown Caller',
                                     style: const TextStyle(
-                                      color: Colors.white,
+                                      color: Colors.black87,
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -414,7 +414,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                         const Text(
                                           '•',
                                           style: TextStyle(
-                                            color: Colors.white54,
+                                            color: Colors.black38,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -422,10 +422,8 @@ class _OverlayBubbleState extends State<OverlayBubble>
                                       ],
                                       Text(
                                         _phone,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.6,
-                                          ),
+                                        style: const TextStyle(
+                                          color: Colors.black54,
                                           fontSize: 12,
                                         ),
                                       ),
@@ -443,24 +441,22 @@ class _OverlayBubbleState extends State<OverlayBubble>
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.2),
+                              color: Colors.black.withValues(alpha: 0.04),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
                                 const Icon(
                                   Icons.notes,
-                                  color: Colors.white54,
+                                  color: Colors.black45,
                                   size: 14,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _latestNote,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.8,
-                                      ),
+                                    style: const TextStyle(
+                                      color: Colors.black87,
                                       fontSize: 12,
                                     ),
                                     maxLines: 2,
@@ -481,7 +477,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                               const SizedBox(width: 8),
                               Text(
                                 _successMessage!,
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: Colors.black87),
                               ),
                             ],
                           ),
@@ -492,18 +488,16 @@ class _OverlayBubbleState extends State<OverlayBubble>
                           TextField(
                             controller: _noteCtrl,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Colors.black87,
                               fontSize: 13,
                             ),
                             decoration: InputDecoration(
                               hintText: _found
                                   ? 'Add a quick note...'
                                   : 'Add note to create Lead...',
-                              hintStyle: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.4),
-                              ),
+                              hintStyle: const TextStyle(color: Colors.black38),
                               filled: true,
-                              fillColor: Colors.black.withValues(alpha: 0.2),
+                              fillColor: Colors.black.withValues(alpha: 0.04),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 10,
@@ -536,7 +530,7 @@ class _OverlayBubbleState extends State<OverlayBubble>
                               _buildActionButton(
                                 icon: Icons.compress,
                                 label: 'Hide',
-                                color: Colors.white24,
+                                color: Colors.black54,
                                 onTap: _toggleExpanded,
                               ),
                               const SizedBox(width: 8),
