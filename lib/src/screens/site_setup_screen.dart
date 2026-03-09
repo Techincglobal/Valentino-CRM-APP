@@ -165,7 +165,7 @@ class _SiteSetupScreenState extends State<SiteSetupScreen> {
                           await StorageService.saveBaseUrl(
                             'https://demo.frappe.cloud',
                           );
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(

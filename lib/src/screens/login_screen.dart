@@ -231,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onTap: () async {
                             await StorageService.saveSessionId('dev_dummy_sid');
                             await StorageService.saveFullName('Dev Test User');
-                            if (!mounted) return;
+                            if (!context.mounted) return;
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
