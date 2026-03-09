@@ -60,12 +60,14 @@ class GradientScaffold extends StatelessWidget {
   final Widget body;
   final PreferredSizeWidget? appBar;
   final Widget? floatingActionButton;
+  final bool extendBodyBehindAppBar;
 
   const GradientScaffold({
     super.key,
     required this.body,
     this.appBar,
     this.floatingActionButton,
+    this.extendBodyBehindAppBar = false,
   });
 
   @override
@@ -81,6 +83,7 @@ class GradientScaffold extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: extendBodyBehindAppBar,
         appBar: appBar,
         body: body,
         floatingActionButton: floatingActionButton,
