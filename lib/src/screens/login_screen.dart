@@ -130,10 +130,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 2,
                           ),
                         ),
-                        child: const Icon(
-                          Icons.hub_rounded,
-                          color: Colors.white,
-                          size: 38,
+                        child: Center(
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 48,
+                            height: 48,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.hub_rounded,
+                                color: Colors.white,
+                                size: 38,
+                              );
+                            },
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -211,6 +220,27 @@ class _LoginScreenState extends State<LoginScreen> {
                           icon: Icons.arrow_forward_rounded,
                           loading: _loading,
                           onTap: _loading ? null : _login,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: AppOutlineButton(
+                          label: 'Dev Skip Login',
+                          icon: Icons.developer_mode,
+                          onTap: () async {
+                            await StorageService.saveSessionId('dev_dummy_sid');
+                            await StorageService.saveFullName('Dev Test User');
+                            if (!mounted) return;
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => HomeScreen(
+                                  user: UserModel(username: 'Dev Test User'),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],

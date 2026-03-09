@@ -81,10 +81,19 @@ class _SiteSetupScreenState extends State<SiteSetupScreen> {
                           width: 2,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.dns_rounded,
-                        color: Colors.white,
-                        size: 38,
+                      child: Center(
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 48,
+                          height: 48,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(
+                              Icons.dns_rounded,
+                              color: Colors.white,
+                              size: 38,
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -144,6 +153,26 @@ class _SiteSetupScreenState extends State<SiteSetupScreen> {
                         icon: Icons.arrow_forward_rounded,
                         loading: _saving,
                         onTap: _saving ? null : _saveSite,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: AppOutlineButton(
+                        label: 'Dev Skip Site Setup',
+                        icon: Icons.developer_mode,
+                        onTap: () async {
+                          await StorageService.saveBaseUrl(
+                            'https://demo.frappe.cloud',
+                          );
+                          if (!mounted) return;
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
