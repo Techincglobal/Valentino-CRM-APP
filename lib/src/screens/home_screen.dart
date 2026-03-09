@@ -889,6 +889,11 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
   }
 
   Future<void> _check() async {
+    if (!Platform.isAndroid) {
+      if (mounted) setState(() => _granted = true);
+      return;
+    }
+
     try {
       final granted = await FlutterOverlayWindow.isPermissionGranted();
       if (mounted) setState(() => _granted = granted);

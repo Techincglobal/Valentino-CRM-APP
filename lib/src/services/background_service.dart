@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -114,50 +115,56 @@ void onStart(ServiceInstance service) async {
 
       debugPrint("🖥️ [BackgroundService] Attempting to show Overlay...");
 
-      final isActive = await FlutterOverlayWindow.isActive();
-      if (!isActive) {
-        await FlutterOverlayWindow.showOverlay(
-          enableDrag: true,
-          overlayTitle: "Incoming Call",
-          overlayContent: "$callerName is calling",
-          flag: OverlayFlag.defaultFlag,
-          visibility: NotificationVisibility.visibilityPublic,
-          positionGravity: PositionGravity.auto,
-          alignment: OverlayAlignment.center,
-          height: 220,
-          width: 340,
-        );
+      if (Platform.isAndroid) {
+        final isActive = await FlutterOverlayWindow.isActive();
+        if (!isActive) {
+          await FlutterOverlayWindow.showOverlay(
+            enableDrag: true,
+            overlayTitle: "Incoming Call",
+            overlayContent: "$callerName is calling",
+            flag: OverlayFlag.defaultFlag,
+            visibility: NotificationVisibility.visibilityPublic,
+            positionGravity: PositionGravity.auto,
+            alignment: OverlayAlignment.center,
+            height: 220,
+            width: 340,
+          );
 
-        // Wait for overlay to be ready
-        await Future.delayed(const Duration(milliseconds: 600));
+          // Wait for overlay to be ready
+          await Future.delayed(const Duration(milliseconds: 600));
 
-        final data = {
-          'phone': phone,
-          'name': callerName,
-          'type': callerType,
-          'docname': callerDocname,
-          'found': found,
-        };
-        await FlutterOverlayWindow.shareData(data);
-        debugPrint("✨ [BackgroundService] Overlay shown and data shared!");
-      } else {
-        debugPrint("ℹ️ [BackgroundService] Overlay active. Refreshing data...");
-        final data = {
-          'phone': phone,
-          'name': callerName,
-          'type': callerType,
-          'docname': callerDocname,
-          'found': found,
-        };
-        await FlutterOverlayWindow.shareData(data);
+          final data = {
+            'phone': phone,
+            'name': callerName,
+            'type': callerType,
+            'docname': callerDocname,
+            'found': found,
+          };
+          await FlutterOverlayWindow.shareData(data);
+          debugPrint("✨ [BackgroundService] Overlay shown and data shared!");
+        } else {
+          debugPrint(
+            "ℹ️ [BackgroundService] Overlay active. Refreshing data...",
+          );
+          final data = {
+            'phone': phone,
+            'name': callerName,
+            'type': callerType,
+            'docname': callerDocname,
+            'found': found,
+          };
+          await FlutterOverlayWindow.shareData(data);
+        }
       }
     } else if (event.status == PhoneStateStatus.CALL_ENDED ||
         event.status == PhoneStateStatus.CALL_STARTED) {
       debugPrint(
         "📱 [BackgroundService] Call Status Change: ${event.status}. Closing Overlay.",
       );
-      if (await FlutterOverlayWindow.isActive()) {
-        await FlutterOverlayWindow.closeOverlay();
+      if (Platform.isAndroid) {
+        if (await FlutterOverlayWindow.isActive()) {
+          await FlutterOverlayWindow.closeOverlay();
+        }
       }
     }
   });
