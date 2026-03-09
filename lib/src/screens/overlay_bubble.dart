@@ -701,26 +701,29 @@ class _OverlayBubbleState extends State<OverlayBubble>
           width: 1,
         ),
       ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Colors.white54, size: 20),
-          hintText: hint,
-          hintStyle: const TextStyle(
-            color: Colors.white38,
+      child: Material(
+        type: MaterialType.transparency,
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 14,
-            fontWeight: FontWeight.w400,
+            fontWeight: FontWeight.w500,
           ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: Colors.white54, size: 20),
+            hintText: hint,
+            hintStyle: const TextStyle(
+              color: Colors.white38,
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
         ),
       ),
