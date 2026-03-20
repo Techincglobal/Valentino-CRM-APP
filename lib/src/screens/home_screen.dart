@@ -469,83 +469,169 @@ class _DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        children: [
-          // Header row with Username and Active status
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome back,',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      username,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.15),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.9),
+                  Colors.white.withValues(alpha: 0.5),
+                ],
               ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.success.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: Row(
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.8),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: AppColors.success,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.success.withValues(alpha: 0.4),
-                            blurRadius: 6,
-                            spreadRadius: 2,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'OVERVIEW',
+                            style: TextStyle(
+                              color: AppColors.primary.withValues(alpha: 0.8),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Hello, $username',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Online',
-                      style: TextStyle(
-                        color: AppColors.success,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.success.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AppColors.success,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.success.withValues(alpha: 0.6),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Online',
+                            style: TextStyle(
+                              color: AppColors.success,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 28),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.phone_in_talk_rounded,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Calls Today',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '$callsToday',
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -565,64 +651,72 @@ class _ManualLookupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.2),
+                      AppColors.primary.withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.manage_search_rounded,
                   color: AppColors.primary,
-                  size: 18,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 14),
               const Text(
                 'Manual Lookup',
                 style: TextStyle(
                   color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
                   letterSpacing: -0.3,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           const Padding(
-            padding: EdgeInsets.only(left: 42),
+            padding: EdgeInsets.only(left: 54),
             child: Text(
-              'Search a phone number in your CRM',
-              style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+              'Search a phone number in your CRM database instantly.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
                 child: AppTextField(
                   controller: controller,
                   hint: '+91 98765 43210',
-                  icon: Icons.phone_outlined,
+                  icon: Icons.dialpad_rounded,
                   keyboardType: TextInputType.phone,
                   onSubmitted: (_) => onLookup(),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               GestureDetector(
                 onTap: loading ? null : onLookup,
                 child: Container(
-                  height: 50,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  height: 54,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                       colors: loading
                           ? [
                               AppColors.primary.withValues(alpha: 0.5),
@@ -630,22 +724,22 @@ class _ManualLookupCard extends StatelessWidget {
                             ]
                           : [AppColors.primary, AppColors.primaryDark],
                     ),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: loading
                         ? []
                         : [
                             BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
+                              color: AppColors.primary.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                   ),
                   child: Center(
                     child: loading
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 22,
+                            height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
                               color: Colors.white,
@@ -655,8 +749,8 @@ class _ManualLookupCard extends StatelessWidget {
                             'Lookup',
                             style: TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
                             ),
                           ),
                   ),
@@ -726,31 +820,37 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
     if (_granted) return const SizedBox.shrink();
 
     return GlassCard(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.warning.withValues(alpha: 0.2),
+                      AppColors.warning.withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.bubble_chart_outlined,
+                  Icons.bubble_chart_rounded,
                   color: AppColors.warning,
-                  size: 18,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 14),
               const Text(
                 'Background Bubble',
                 style: TextStyle(
                   color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -758,7 +858,7 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
           ),
           const SizedBox(height: 8),
           const Padding(
-            padding: EdgeInsets.only(left: 42),
+            padding: EdgeInsets.only(left: 54),
             child: Text(
               'Grant "Display over other apps" so the CRM bubble appears when a call ends, even when the app is closed.',
               style: TextStyle(
@@ -768,37 +868,39 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: GestureDetector(
               onTap: _request,
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 13),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: [AppColors.warning, Color(0xFFD97706)],
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.warning.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
+                      color: AppColors.warning.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.security_rounded, size: 17, color: Colors.white),
-                    SizedBox(width: 8),
+                    Icon(Icons.security_rounded, size: 18, color: Colors.white),
+                    SizedBox(width: 10),
                     Text(
                       'Grant Permission',
                       style: TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
                       ),
                     ),
                   ],
@@ -1247,31 +1349,37 @@ class _TestOverlayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.accent.withValues(alpha: 0.2),
+                      AppColors.accent.withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.terminal_rounded,
+                  Icons.code_rounded,
                   color: AppColors.accent,
-                  size: 18,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 14),
               const Text(
                 'Developer Tools',
                 style: TextStyle(
                   color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
                   letterSpacing: -0.3,
                 ),
               ),
@@ -1279,18 +1387,18 @@ class _TestOverlayCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Padding(
-            padding: EdgeInsets.only(left: 42),
+            padding: EdgeInsets.only(left: 54),
             child: Text(
               'Force show the overlay popup even if the app is open.',
-              style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: AppOutlineButton(
               label: 'Force Overlay Popup',
-              icon: Icons.flash_on,
+              icon: Icons.flash_on_rounded,
               onTap: onTest,
               color: AppColors.accent,
             ),

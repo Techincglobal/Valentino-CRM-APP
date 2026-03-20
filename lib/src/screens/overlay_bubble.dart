@@ -6,6 +6,7 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
 
 // ============================================================================
 // Overlay Bubble — Truecaller Style Floating Card
@@ -227,19 +228,29 @@ class _OverlayBubbleState extends State<OverlayBubble>
   }
 
   void _toggleExpanded() async {
-    setState(() => _isExpanded = !_isExpanded);
-    if (!Platform.isAndroid) return;
+    final becomingExpanded = !_isExpanded;
 
-    if (_isExpanded) {
+    if (Platform.isAndroid) {
+      if (becomingExpanded) {
+        // Expand to full height to avoid keyboard overflow
+        await FlutterOverlayWindow.resizeOverlay(
+          WindowSize.matchParent,
+          WindowSize.matchParent,
+          true,
+        );
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isExpanded = becomingExpanded);
+    }
+
+    if (Platform.isAndroid && !becomingExpanded) {
+      await Future.delayed(const Duration(milliseconds: 200));
       await FlutterOverlayWindow.resizeOverlay(
-        WindowSize.matchParent,
-        _found ? 380 : 520,
-        true,
-      );
-    } else {
-      await FlutterOverlayWindow.resizeOverlay(
-        _bubbleSize.toInt(),
-        _bubbleSize.toInt(),
+        (_bubbleSize + 40).toInt(),
+        (_bubbleSize + 48).toInt(),
         true,
       );
     }
@@ -262,26 +273,38 @@ class _OverlayBubbleState extends State<OverlayBubble>
     return Material(
       color: Colors.transparent,
       elevation: 0,
-      child: Center(
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: AnimatedCrossFade(
-            duration: const Duration(milliseconds: 250),
-            crossFadeState: _isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            firstChild: _buildBubble(),
-            secondChild: _buildCard(),
-            layoutBuilder: (topChild, topKey, bottomChild, bottomKey) {
-              return Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  Positioned(key: bottomKey, top: 0, child: bottomChild),
-                  Positioned(key: topKey, child: topChild),
-                ],
-              );
-            },
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: AnimatedCrossFade(
+              duration: const Duration(milliseconds: 300),
+              crossFadeState: _isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: _buildBubble(),
+              secondChild: _buildCard(),
+              layoutBuilder: (topChild, topKey, bottomChild, bottomKey) {
+                return Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    Align(
+                      key: bottomKey,
+                      alignment: Alignment.topCenter,
+                      child: bottomChild,
+                    ),
+                    Align(
+                      key: topKey,
+                      alignment: Alignment.topCenter,
+                      child: topChild,
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -338,28 +361,29 @@ class _OverlayBubbleState extends State<OverlayBubble>
   }
 
   Widget _buildCard() {
-    final Color accentColor = _found
-        ? const Color(0xFF32D74B) // iOS Green
-        : const Color(0xFF0A84FF); // iOS Blue
+    final Color accentColor = _found ? AppColors.success : AppColors.primary;
 
     return Container(
       width: MediaQuery.of(context).size.width,
       margin: const EdgeInsets.symmetric(horizontal: 16),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 40,
             spreadRadius: -4,
-            offset: const Offset(0, 24),
+            offset: const Offset(0, 20),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -367,268 +391,300 @@ class _OverlayBubbleState extends State<OverlayBubble>
                 end: Alignment.bottomRight,
                 colors: [
                   Colors.white.withValues(alpha: 0.95),
-                  Colors.white.withValues(alpha: 0.85),
+                  Colors.white.withValues(alpha: 0.8),
                 ],
               ),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.9),
+                color: Colors.white.withValues(alpha: 0.6),
                 width: 1.5,
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Minimal Top Handle
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 4),
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-
-                // Content Area
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Header Row
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: accentColor.withValues(alpha: 0.15),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(Icons.phone, color: accentColor),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _found && _name.isNotEmpty
-                                          ? _name
-                                          : 'Unknown Caller',
-                                      style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.5,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        if (_found && _type.isNotEmpty) ...[
-                                          Text(
-                                            _type,
-                                            style: TextStyle(
-                                              color: accentColor,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            '•',
-                                            style: TextStyle(
-                                              color: Colors.black38,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                        ],
-                                        Text(
-                                          _phone,
-                                          style: const TextStyle(
-                                            color: Colors.black54,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: 0.3,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          if (_latestNote.isNotEmpty &&
-                              _successMessage == null) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blueAccent.withValues(
-                                  alpha: 0.05,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.blueAccent.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.notes_rounded,
-                                    color: Colors.black54,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _latestNote,
-                                      style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 13,
-                                        height: 1.4,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-
-                          if (_successMessage != null) ...[
-                            const SizedBox(height: 24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.check_circle,
-                                  color: accentColor,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  _successMessage!,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                          ] else ...[
-                            const SizedBox(height: 16),
-                            if (!_found) ...[
-                              _buildInputField(
-                                controller: _nameCtrl,
-                                hint: 'Full Name...',
-                                icon: Icons.person_outline_rounded,
-                              ),
-                              const SizedBox(height: 12),
-                              _buildInputField(
-                                controller: _emailCtrl,
-                                hint: 'Email Address (Optional)...',
-                                icon: Icons.email_outlined,
-                                keyboardType: TextInputType.emailAddress,
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            // Note input
-                            _buildInputField(
-                              controller: _noteCtrl,
-                              hint: _found
-                                  ? 'Add a quick note...'
-                                  : 'Initial note (Optional)...',
-                              icon: Icons.edit_note_rounded,
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Action Buttons
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildActionButton(
-                                    icon: _found
-                                        ? Icons.save_rounded
-                                        : Icons.person_add_rounded,
-                                    label: _saving
-                                        ? 'Saving...'
-                                        : (_found
-                                              ? 'Save Note'
-                                              : 'Create Lead'),
-                                    color: Colors.white,
-                                    bgColor: accentColor,
-                                    onTap: _saving
-                                        ? () {}
-                                        : (_found ? _addNote : _createLead),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                _buildActionButton(
-                                  icon: Icons.keyboard_arrow_up_rounded,
-                                  label: 'Hide',
-                                  color: Colors.black87,
-                                  bgColor: Colors.black.withValues(alpha: 0.05),
-                                  onTap: _toggleExpanded,
-                                ),
-                                const SizedBox(width: 12),
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: _closeOverlay,
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFFFF453A,
-                                        ).withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: const Color(
-                                            0xFFFF453A,
-                                          ).withValues(alpha: 0.3),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.close_rounded,
-                                        color: Color(0xFFFF453A),
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Minimal Top Handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      width: 48,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
-                ),
-              ],
+
+                  // Header Row
+                  Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              accentColor,
+                              accentColor.withValues(alpha: 0.7),
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: accentColor.withValues(alpha: 0.3),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            _found && _name.isNotEmpty ? initials(_name) : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 20,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _found && _name.isNotEmpty
+                                        ? _name
+                                        : 'Unknown Caller',
+                                    style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.5,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                                if (_found) ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(
+                                    Icons.verified_rounded,
+                                    color: AppColors.success,
+                                    size: 18,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                if (_found && _type.isNotEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: accentColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      _type,
+                                      style: TextStyle(
+                                        color: accentColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    _phone,
+                                    style: const TextStyle(
+                                      color: Colors.black54,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (_latestNote.isNotEmpty && _successMessage == null) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blueAccent.withValues(alpha: 0.08),
+                            Colors.blueAccent.withValues(alpha: 0.03),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.blueAccent.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                                color: Colors.blueAccent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8)
+                            ),
+                            child: const Icon(
+                              Icons.sticky_note_2_rounded,
+                              color: Colors.blueAccent,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _latestNote,
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 13,
+                                height: 1.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  if (_successMessage != null) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: accentColor,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            _successMessage!,
+                            style: TextStyle(
+                              color: accentColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ] else ...[
+                    const SizedBox(height: 24),
+                    if (!_found) ...[
+                      _buildInputField(
+                        controller: _nameCtrl,
+                        hint: 'Full Name...',
+                        icon: Icons.person_outline_rounded,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildInputField(
+                        controller: _emailCtrl,
+                        hint: 'Email Address...',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    // Note input
+                    _buildInputField(
+                      controller: _noteCtrl,
+                      hint: _found ? 'Add a quick note...' : 'Initial note (Optional)...',
+                      icon: Icons.edit_note_rounded,
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildActionButton(
+                            icon: _found ? Icons.check_rounded : Icons.person_add_rounded,
+                            label: _saving ? 'Saving...' : (_found ? 'Save Note' : 'Create Lead'),
+                            color: Colors.white,
+                            bgColor: accentColor,
+                            onTap: _saving ? () {} : (_found ? _addNote : _createLead),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildActionButton(
+                          icon: Icons.keyboard_arrow_up_rounded,
+                          label: 'Hide',
+                          color: Colors.black87,
+                          bgColor: Colors.black.withValues(alpha: 0.05),
+                          onTap: _toggleExpanded,
+                        ),
+                        const SizedBox(width: 12),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _closeOverlay,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF453A).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFFF453A).withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                color: Color(0xFFFF453A),
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
