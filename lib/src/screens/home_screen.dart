@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:phone_state/phone_state.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool _loading = false;
   int _callsToday = 0;
+  List<String> _bgLogs = [];
 
   @override
   void initState() {
@@ -37,6 +39,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initializePhoneListener();
     _loadDailyCallCount();
+    _setupBackgroundServiceListener();
+    _loadLogs();
+  }
+
+  void _setupBackgroundServiceListener() {
+    try {
+      FlutterBackgroundService().on('update_call_count').listen((event) {
+        if (event != null && event['count'] != null) {
+          if (mounted) {
+            setState(() {
+              _callsToday = event['count'] as int;
+            });
+          }
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _loadLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _bgLogs = prefs.getStringList('bg_service_logs') ?? [];
+      });
+    }
   }
 
   Future<void> _loadDailyCallCount() async {
@@ -93,7 +120,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await [Permission.phone, Permission.notification].request();
 
     // 2. Battery Optimization (for reliable background execution)
-    // Most Chinese OEMs (Xiaomi, Oppo) kill background apps unless this is enabled.
     if (!await Permission.ignoreBatteryOptimizations.isGranted) {
       await Permission.ignoreBatteryOptimizations.request();
     }
@@ -102,14 +128,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!await FlutterOverlayWindow.isPermissionGranted()) {
       await FlutterOverlayWindow.requestPermission();
     }
-
-    _phoneSubscription = PhoneState.stream.listen((PhoneState event) {
-      if (event.status == PhoneStateStatus.CALL_INCOMING &&
-          event.number != null &&
-          event.number!.isNotEmpty) {
-        _handleIncomingNumber(event.number!);
-      }
-    });
+    
+    // Note: PhoneState listening moved strictly to BackgroundService 
+    // to avoid layout duplicates or collision on showOverlay trigger.
   }
 
   Future<void> _handleIncomingNumber(String phone) async {
@@ -281,6 +302,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _TestOverlayCard(
               onTest: () => _handleIncomingNumber('+91 99999 88888'),
             ),
+            if (_bgLogs.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _LogsCard(logs: _bgLogs, onRefresh: _loadLogs),
+            ],
           ],
         ),
       ),
@@ -1441,6 +1466,90 @@ class _DraggableOverlayWrapperState extends State<_DraggableOverlayWrapper> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LogsCard extends StatelessWidget {
+  final List<String> logs;
+  final VoidCallback onRefresh;
+
+  const _LogsCard({required this.logs, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Background Logs',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                color: AppColors.textSecondary,
+                tooltip: 'Refresh Logs',
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+            ),
+            child: ListView.separated(
+              itemCount: logs.length,
+              physics: const BouncingScrollPhysics(),
+              separatorBuilder: (_, _) => const Divider(height: 12, thickness: 0.5),
+              itemBuilder: (context, index) {
+                final log = logs[index];
+                final isError = log.contains('❌') || log.contains('⚠️');
+                return Text(
+                  log,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: isError ? AppColors.danger : AppColors.textPrimary,
+                    height: 1.4,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

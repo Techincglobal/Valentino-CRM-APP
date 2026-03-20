@@ -11,14 +11,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'caller_service.dart';
 
 class BackgroundService {
+  static Future<void> _log(String message) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final logs = prefs.getStringList('bg_service_logs') ?? [];
+      final timestamp = DateTime.now().toString().split('.')[0];
+      logs.insert(0, '[$timestamp] $message'); // Newest first
+      // Keep last 150 items
+      final trimmed = logs.take(150).toList();
+      await prefs.setStringList('bg_service_logs', trimmed);
+    } catch (_) {}
+  }
+
   static Future<void> initializeService() async {
     final service = FlutterBackgroundService();
+    await _log("Initializing BackgroundService");
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'my_foreground',
       'Caller App Service',
       description: 'Monitors incoming calls for CRM integration.',
-      importance: Importance.high, // Increased importance
+      importance: Importance.high,
     );
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -58,7 +71,8 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 void onStart(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
-  debugPrint("🚀 [BackgroundService] onStart initialized!");
+  
+  await BackgroundService._log("🚀 onStart initialized!");
 
   // Keep foreground notification alive
   Timer.periodic(const Duration(seconds: 30), (timer) async {
@@ -72,22 +86,21 @@ void onStart(ServiceInstance service) async {
     }
   });
 
-  service.on('stopService').listen((event) => service.stopSelf());
+  service.on('stopService').listen((event) {
+    BackgroundService._log("Stopping Service");
+    service.stopSelf();
+  });
 
   PhoneState.stream.listen((event) async {
-    debugPrint(
-      "📞 [BackgroundService] Phone Event: ${event.status} | Number: ${event.number}",
-    );
+    await BackgroundService._log("📞 Phone Event: ${event.status} | Number: ${event.number}");
 
     if (event.status == PhoneStateStatus.CALL_INCOMING) {
       if (event.number == null) {
-        debugPrint(
-          "⚠️ [BackgroundService] Incoming call detected but number is NULL!",
-        );
+        await BackgroundService._log("⚠️ Incoming call detected but number is NULL!");
         return;
       }
       final phone = event.number!;
-      debugPrint("🔍 [BackgroundService] Processing Incoming Call: $phone");
+      await BackgroundService._log("🔍 Processing Incoming Call: $phone");
 
       String callerName = 'Unknown Caller';
       String callerType = '';
@@ -95,15 +108,15 @@ void onStart(ServiceInstance service) async {
       bool found = false;
 
       try {
+        await BackgroundService._log("🌐 Fetching CRT Details for $phone");
         final details = await CallerService.getCallerDetails(phone);
         found = details['found'] == true;
-        callerName =
-            details['customer_name'] ?? details['name'] ?? 'Unknown Caller';
+        callerName = details['customer_name'] ?? details['name'] ?? 'Unknown Caller';
         callerType = details['type'] ?? '';
         callerDocname = details['name'] ?? '';
-        debugPrint("✅ [BackgroundService] Caller Identified: $callerName");
+        await BackgroundService._log("✅ Caller Identified: $callerName");
       } catch (e) {
-        debugPrint("❌ [BackgroundService] CRM Lookup Error: $e");
+        await BackgroundService._log("❌ CRM Lookup Error: $e");
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -113,10 +126,24 @@ void onStart(ServiceInstance service) async {
       await prefs.setString("crm_caller_docname", callerDocname);
       await prefs.setBool("crm_caller_found", found);
 
-      debugPrint("🖥️ [BackgroundService] Attempting to show Overlay...");
+      // Increment call count
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      final savedDate = prefs.getString('crm_call_date') ?? '';
+      int newCount = 1;
+      if (savedDate == today) {
+        newCount = (prefs.getInt('crm_call_count') ?? 0) + 1;
+      } else {
+        await prefs.setString('crm_call_date', today);
+      }
+      await prefs.setInt('crm_call_count', newCount);
+      service.invoke('update_call_count', {'count': newCount});
+      await BackgroundService._log("📈 Call Count Incremented: $newCount");
+
+      await BackgroundService._log("🖥️ Attempting to show Overlay...");
 
       if (Platform.isAndroid) {
         final isActive = await FlutterOverlayWindow.isActive();
+        await BackgroundService._log("Overlay Active State: $isActive");
         if (!isActive) {
           await FlutterOverlayWindow.showOverlay(
             enableDrag: true,
@@ -141,11 +168,9 @@ void onStart(ServiceInstance service) async {
             'found': found,
           };
           await FlutterOverlayWindow.shareData(data);
-          debugPrint("✨ [BackgroundService] Overlay shown and data shared!");
+          await BackgroundService._log("✨ Overlay shown and data shared!");
         } else {
-          debugPrint(
-            "ℹ️ [BackgroundService] Overlay active. Refreshing data...",
-          );
+          await BackgroundService._log("ℹ️ Overlay already active. Refreshing data...");
           final data = {
             'phone': phone,
             'name': callerName,
@@ -157,9 +182,7 @@ void onStart(ServiceInstance service) async {
         }
       }
     } else if (event.status == PhoneStateStatus.CALL_ENDED) {
-      debugPrint(
-        "📱 [BackgroundService] Call Status Change: ${event.status}. Closing Overlay.",
-      );
+      await BackgroundService._log("📱 Call Status: ${event.status}. Closing Overlay.");
       if (Platform.isAndroid) {
         if (await FlutterOverlayWindow.isActive()) {
           await FlutterOverlayWindow.closeOverlay();
