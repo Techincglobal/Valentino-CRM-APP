@@ -3,9 +3,8 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:flutter/services.dart';
 import 'package:phone_state/phone_state.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,6 +14,9 @@ import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'overlay_bubble.dart';
+
+const MethodChannel _nativeOverlayChannel =
+    MethodChannel('crm_caller_nxtgen/native_overlay');
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
@@ -32,6 +34,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _loading = false;
   int _callsToday = 0;
   List<String> _bgLogs = [];
+  String _lastHandledPhone = '';
+  DateTime? _lastHandledAt;
+  bool _workflowOpen = false;
 
   @override
   void initState() {
@@ -39,22 +44,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initializePhoneListener();
     _loadDailyCallCount();
-    _setupBackgroundServiceListener();
     _loadLogs();
-  }
-
-  void _setupBackgroundServiceListener() {
-    try {
-      FlutterBackgroundService().on('update_call_count').listen((event) {
-        if (event != null && event['count'] != null) {
-          if (mounted) {
-            setState(() {
-              _callsToday = event['count'] as int;
-            });
-          }
-        }
-      });
-    } catch (_) {}
+    unawaited(_consumeLaunchPhone());
   }
 
   Future<void> _loadLogs() async {
@@ -110,34 +101,148 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Left empty since we no longer track lifecycle manually for overlays
+    if (state != AppLifecycleState.resumed) {
+      _stopUiPhoneListener();
+    } else {
+      _startUiPhoneListener();
+      unawaited(_consumeLaunchPhone());
+    }
   }
 
   Future<void> _initializePhoneListener() async {
     if (!Platform.isAndroid) return;
 
-    // 1. Standard phone permissions
-    await [Permission.phone, Permission.notification].request();
+    final statuses = await [
+      Permission.phone,
+      Permission.notification,
+    ].request();
 
-    // 2. Battery Optimization (for reliable background execution)
-    if (!await Permission.ignoreBatteryOptimizations.isGranted) {
-      await Permission.ignoreBatteryOptimizations.request();
+    final phoneGranted = statuses[Permission.phone]?.isGranted ?? false;
+    final notificationsGranted =
+        statuses[Permission.notification]?.isGranted ?? false ||
+        !await Permission.notification.isDenied;
+
+    if (!phoneGranted) {
+      return;
     }
 
-    // 3. System Alert Window (Overlay)
-    if (!await FlutterOverlayWindow.isPermissionGranted()) {
-      await FlutterOverlayWindow.requestPermission();
+    if (!notificationsGranted) {
+      return;
     }
-    
-    // Note: PhoneState listening moved strictly to BackgroundService 
-    // to avoid layout duplicates or collision on showOverlay trigger.
+
+    _startUiPhoneListener();
   }
 
-  Future<void> _handleIncomingNumber(String phone) async {
+  Future<void> _consumeLaunchPhone() async {
+    if (!Platform.isAndroid) return;
+
+    try {
+      final phone =
+          await _nativeOverlayChannel.invokeMethod<String>('consumeLaunchPhone');
+      if (phone != null && phone.isNotEmpty && mounted) {
+        _phoneController.text = phone;
+        await _handleIncomingNumber(phone, incrementCount: false);
+      }
+    } catch (_) {}
+  }
+
+  void _startUiPhoneListener() {
+    if (_phoneSubscription != null) return;
+
+    _phoneSubscription = PhoneState.stream.listen((event) async {
+      if (!mounted) return;
+
+      if (event.status == PhoneStateStatus.CALL_INCOMING &&
+          event.number != null &&
+          _shouldHandleIncoming(event.number!)) {
+        await _handleIncomingNumber(event.number!);
+      } else if (event.status == PhoneStateStatus.CALL_ENDED) {
+        await _hideNativeOverlay();
+      }
+    });
+  }
+
+  void _stopUiPhoneListener() {
+    _phoneSubscription?.cancel();
+    _phoneSubscription = null;
+  }
+
+  bool _shouldHandleIncoming(String phone) {
+    final now = DateTime.now();
+    final duplicate = _lastHandledPhone == phone &&
+        _lastHandledAt != null &&
+        now.difference(_lastHandledAt!) < const Duration(seconds: 5);
+
+    if (duplicate) {
+      return false;
+    }
+
+    _lastHandledPhone = phone;
+    _lastHandledAt = now;
+    return true;
+  }
+
+  Future<void> _showInAppOverlay(Map<String, dynamic> data) async {
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      barrierColor: Colors.black26,
+      builder: (context) {
+        return _DraggableOverlayWrapper(
+          child: OverlayBubble(
+            initialPayload: data,
+            useSystemOverlay: false,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showNativeOverlay(Map<String, dynamic> data) async {
+    await _nativeOverlayChannel.invokeMethod('showNativeOverlay', data);
+  }
+
+  Future<void> _hideNativeOverlay() async {
+    try {
+      await _nativeOverlayChannel.invokeMethod('hideNativeOverlay');
+    } catch (_) {}
+  }
+
+  Future<void> _presentCallerWorkflow(
+    String phone,
+    Map<String, dynamic> response,
+  ) async {
+    if (!mounted || _workflowOpen) return;
+
+    _workflowOpen = true;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          if (response['found'] == true) {
+            return _KnownCallerSheet(phone: phone, result: response);
+          }
+          return _CreateLeadSheet(phone: phone);
+        },
+      );
+    } finally {
+      _workflowOpen = false;
+    }
+  }
+
+  Future<void> _handleIncomingNumber(
+    String phone, {
+    bool incrementCount = true,
+  }) async {
     if (!mounted) return;
     setState(() => _loading = true);
 
-    await _incrementCallCount();
+    if (incrementCount) {
+      await _incrementCallCount();
+    }
 
     Map<String, dynamic> response;
     try {
@@ -159,63 +264,48 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       await _saveCallerDataToPrefs(phone, response);
 
-      if (Platform.isAndroid) {
-        final isActive = await FlutterOverlayWindow.isActive();
-        if (!isActive) {
-          await FlutterOverlayWindow.showOverlay(
-            enableDrag: true,
-            overlayTitle: 'CRM Caller',
-            overlayContent: 'Looking up details...',
-            flag: OverlayFlag.defaultFlag,
-            visibility: NotificationVisibility.visibilityPublic,
-            positionGravity: PositionGravity.auto,
-            alignment: OverlayAlignment.topCenter,
-            height: (response['found'] == true) ? 380 : 520,
-            width: WindowSize.matchParent,
-          );
-
-          // Wait to be ready
-          await Future.delayed(const Duration(milliseconds: 600));
-
-          final data = {
-            'phone': phone,
-            'name':
-                response['customer_name'] ??
-                response['name'] ??
-                'Unknown Caller',
-            'type': response['type'] ?? '',
-            'docname': response['name'] ?? '',
-            'found': response['found'] == true,
-          };
-          await FlutterOverlayWindow.shareData(data);
-        } else {
-          final data = {
-            'phone': phone,
-            'name':
-                response['customer_name'] ??
-                response['name'] ??
-                'Unknown Caller',
-            'type': response['type'] ?? '',
-            'docname': response['name'] ?? '',
-            'found': response['found'] == true,
-          };
-          await FlutterOverlayWindow.shareData(data);
-        }
-      } else {
-        if (!mounted) return;
-        // Render fake overlay for iOS testing
-        showDialog(
-          context: context,
-          barrierColor: Colors.black26,
-          builder: (context) {
-            return const _DraggableOverlayWrapper(child: OverlayBubble());
-          },
-        );
-      }
+      await _presentCallerWorkflow(phone, response);
     } catch (e) {
       debugPrint("Overlay error: $e");
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _forceShowOverlay() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('crm_caller_phone', '+1 555 010 2026');
+      await prefs.setString('crm_caller_name', 'Test Caller');
+      await prefs.setString('crm_caller_type', 'Test Contact');
+      await prefs.setString('crm_caller_docname', 'TEST-CALLER');
+      await prefs.setBool('crm_caller_found', true);
+
+      final data = {
+        'phone': '+1 555 010 2026',
+        'name': 'Test Caller',
+        'type': 'Test Contact',
+        'docname': 'TEST-CALLER',
+        'found': true,
+        'event_id': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      if (Platform.isAndroid) {
+        var overlayGranted =
+            await _nativeOverlayChannel.invokeMethod<bool>('canDrawOverlays') ??
+            false;
+        if (!overlayGranted) {
+          await _nativeOverlayChannel.invokeMethod('openOverlaySettings');
+          return;
+        }
+
+        await _showNativeOverlay(data);
+        return;
+      }
+
+      await _showInAppOverlay(data);
+    } catch (e) {
+      _showError('Could not show overlay: $e');
     }
   }
 
@@ -262,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _phoneSubscription?.cancel();
+    _stopUiPhoneListener();
     _phoneController.dispose();
     super.dispose();
   }
@@ -300,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const _OverlayPermissionCard(),
             const SizedBox(height: 16),
             _TestOverlayCard(
-              onTest: () => _handleIncomingNumber('+91 99999 88888'),
+              onTest: _forceShowOverlay,
             ),
             if (_bgLogs.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -827,7 +917,9 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
     }
 
     try {
-      final granted = await FlutterOverlayWindow.isPermissionGranted();
+      final granted =
+          await _nativeOverlayChannel.invokeMethod<bool>('canDrawOverlays') ??
+          false;
       if (mounted) setState(() => _granted = granted);
     } catch (_) {
       if (mounted) setState(() => _granted = true);
@@ -836,7 +928,7 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
 
   Future<void> _request() async {
     try {
-      await FlutterOverlayWindow.requestPermission();
+      await _nativeOverlayChannel.invokeMethod('openOverlaySettings');
     } catch (_) {}
   }
 
