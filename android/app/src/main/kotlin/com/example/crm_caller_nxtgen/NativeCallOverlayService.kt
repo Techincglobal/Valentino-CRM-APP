@@ -58,7 +58,7 @@ class NativeCallOverlayService : Service() {
         private const val NOTIFICATION_ID = 2007
         private const val PREF_OVERLAY_X = "crm_native_overlay_x"
         private const val PREF_OVERLAY_Y = "crm_native_overlay_y"
-        private const val COMPACT_WIDTH_DP = 278
+        private const val COMPACT_WIDTH_DP = 224
         private const val EXPANDED_WIDTH_DP = 348
     }
 
@@ -83,9 +83,11 @@ class NativeCallOverlayService : Service() {
     private var avatarView: TextView? = null
     private var callStateView: TextView? = null
     private var durationView: TextView? = null
+    private var compactHintView: TextView? = null
     private var formStatusView: TextView? = null
     private var expandedContainer: View? = null
     private var expandButton: ImageView? = null
+    private var closeButtonView: ImageView? = null
     private var latestNoteCard: LinearLayout? = null
     private var latestNoteTextView: TextView? = null
     private var nameInput: EditText? = null
@@ -310,6 +312,12 @@ class NativeCallOverlayService : Service() {
         emailInput?.visibility = if (callerFound) View.GONE else View.VISIBLE
         noteInput?.hint = if (callerFound) "Add a live call note..." else "Lead note / call summary"
         latestNoteCard?.visibility = if (callerFound && isExpanded) View.VISIBLE else View.GONE
+        badgeView?.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        subtitleView?.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        callStateView?.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        expandButton?.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        closeButtonView?.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        compactHintView?.visibility = if (isExpanded) View.GONE else View.VISIBLE
         primaryActionButton?.text = if (isSubmitting) {
             "Saving..."
         } else if (callerFound) {
@@ -336,15 +344,21 @@ class NativeCallOverlayService : Service() {
             else -> 0L
         }
 
-        callStateView?.text = when {
+        val stateLabel = when {
             isCallActive -> "LIVE CALL"
             isCallEnded -> "CALL ENDED"
             else -> "INCOMING"
         }
+        callStateView?.text = stateLabel
         durationView?.text = if (isCallActive || isCallEnded) {
             formatDuration(duration)
         } else {
-            "Tap or drag"
+            "00:00"
+        }
+        compactHintView?.text = when {
+            isCallEnded -> "Tap for details"
+            isCallActive -> stateLabel
+            else -> "Tap for details"
         }
         val durationBg = when {
             isCallActive -> "#DCFCE7"
@@ -636,19 +650,19 @@ class NativeCallOverlayService : Service() {
     private fun buildOverlayView(): View {
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(24).toFloat()
+                cornerRadius = dp(22).toFloat()
                 colors = intArrayOf(
                     Color.parseColor("#F2FFFFFF"),
-                    Color.parseColor("#E6F0FF"),
-                    Color.parseColor("#EEFDF8"),
+                    Color.parseColor("#EAF2FF"),
+                    Color.parseColor("#F0FDFA"),
                 )
                 orientation = GradientDrawable.Orientation.TL_BR
                 setStroke(dp(1), Color.parseColor("#AAD9E8FF"))
             }
-            elevation = dp(14).toFloat()
+            elevation = dp(11).toFloat()
         }
 
         val headerRow = LinearLayout(this).apply {
@@ -662,9 +676,9 @@ class NativeCallOverlayService : Service() {
         attachDragBehavior(headerRow)
 
         avatarView = TextView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38))
             gravity = Gravity.CENTER
-            textSize = 16f
+            textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
             background = GradientDrawable(
@@ -679,7 +693,7 @@ class NativeCallOverlayService : Service() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dp(12)
-                marginEnd = dp(8)
+                marginEnd = dp(4)
             }
         }
 
@@ -692,14 +706,20 @@ class NativeCallOverlayService : Service() {
         titleView = TextView(this).apply {
             setTextColor(Color.parseColor("#0F172A"))
             setTypeface(typeface, Typeface.BOLD)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             maxLines = 1
         }
 
         subtitleView = TextView(this).apply {
             setTextColor(Color.parseColor("#64748B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             maxLines = 1
+        }
+
+        compactHintView = TextView(this).apply {
+            setTextColor(Color.parseColor("#64748B"))
+            setTypeface(typeface, Typeface.BOLD)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
         }
 
         textColumn.addView(callStateView)
@@ -707,6 +727,8 @@ class NativeCallOverlayService : Service() {
         textColumn.addView(titleView)
         textColumn.addView(space(4))
         textColumn.addView(subtitleView)
+        textColumn.addView(space(3))
+        textColumn.addView(compactHintView)
 
         val trailing = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -721,11 +743,11 @@ class NativeCallOverlayService : Service() {
 
         durationView = TextView(this).apply {
             setTextColor(Color.parseColor("#1E3A8A"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER_HORIZONTAL
             background = roundedFill("#DBEAFE", 14f)
-            setPadding(dp(10), dp(5), dp(10), dp(5))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
         }
 
         expandButton = ImageView(this).apply {
@@ -748,11 +770,12 @@ class NativeCallOverlayService : Service() {
                 })
             }
         }
+        closeButtonView = closeButton
 
         trailing.addView(badgeView)
-        trailing.addView(space(6))
-        trailing.addView(durationView)
         trailing.addView(space(4))
+        trailing.addView(durationView)
+        trailing.addView(space(2))
         trailing.addView(expandButton)
         trailing.addView(closeButton)
 
@@ -788,6 +811,33 @@ class NativeCallOverlayService : Service() {
             setPadding(0, dp(12), 0, 0)
         }
 
+        val heroCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(20).toFloat()
+                colors = intArrayOf(
+                    Color.parseColor("#E0ECFF"),
+                    Color.parseColor("#ECFEFF"),
+                )
+                orientation = GradientDrawable.Orientation.LEFT_RIGHT
+            }
+        }
+
+        val heroTitle = TextView(this).apply {
+            text = "Call Workspace"
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.parseColor("#0F172A"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+        }
+
+        val heroSubtitle = TextView(this).apply {
+            text = "Capture details while the conversation is fresh."
+            setTextColor(Color.parseColor("#475569"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        }
+
         val metaRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -796,6 +846,8 @@ class NativeCallOverlayService : Service() {
         metaRow.addView(buildMetaChip("Duration", true))
         metaRow.addView(spaceWidth(8))
         metaRow.addView(buildMetaChip("Drag to move", false))
+        metaRow.addView(spaceWidth(8))
+        metaRow.addView(buildMetaChip(if (callerFound) "CRM Match" else "New Lead", false))
 
         formStatusView = TextView(this).apply {
             visibility = View.GONE
@@ -916,9 +968,15 @@ class NativeCallOverlayService : Service() {
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
         )
 
+        heroCard.addView(heroTitle)
+        heroCard.addView(space(6))
+        heroCard.addView(heroSubtitle)
+        heroCard.addView(space(12))
+        heroCard.addView(metaRow)
+
+        container.addView(heroCard)
+        container.addView(space(12))
         container.addView(formStatusView)
-        container.addView(space(10))
-        container.addView(metaRow)
         container.addView(space(10))
         container.addView(latestNoteCard)
         container.addView(space(10))
