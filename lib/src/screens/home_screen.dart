@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,7 +19,6 @@ const MethodChannel _nativeOverlayChannel =
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
-
   const HomeScreen({super.key, required this.user});
 
   @override
@@ -61,21 +59,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     final today = DateTime.now().toIso8601String().split('T')[0];
     final savedDate = prefs.getString('crm_call_date') ?? '';
-
     if (savedDate == today) {
-      if (mounted) {
-        setState(() {
-          _callsToday = prefs.getInt('crm_call_count') ?? 0;
-        });
-      }
+      if (mounted) setState(() => _callsToday = prefs.getInt('crm_call_count') ?? 0);
     } else {
       await prefs.setString('crm_call_date', today);
       await prefs.setInt('crm_call_count', 0);
-      if (mounted) {
-        setState(() {
-          _callsToday = 0;
-        });
-      }
+      if (mounted) setState(() => _callsToday = 0);
     }
   }
 
@@ -83,20 +72,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     final today = DateTime.now().toIso8601String().split('T')[0];
     final savedDate = prefs.getString('crm_call_date') ?? '';
-
     int newCount = 1;
     if (savedDate == today) {
       newCount = (prefs.getInt('crm_call_count') ?? 0) + 1;
     } else {
       await prefs.setString('crm_call_date', today);
     }
-
     await prefs.setInt('crm_call_count', newCount);
-    if (mounted) {
-      setState(() {
-        _callsToday = newCount;
-      });
-    }
+    if (mounted) setState(() => _callsToday = newCount);
   }
 
   @override
@@ -111,31 +94,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _initializePhoneListener() async {
     if (!Platform.isAndroid) return;
-
     final statuses = await [
       Permission.phone,
       Permission.notification,
     ].request();
-
     final phoneGranted = statuses[Permission.phone]?.isGranted ?? false;
-    final notificationsGranted =
-        statuses[Permission.notification]?.isGranted ?? false ||
-        !await Permission.notification.isDenied;
-
-    if (!phoneGranted) {
-      return;
-    }
-
-    if (!notificationsGranted) {
-      return;
-    }
-
+    if (!phoneGranted) return;
     _startUiPhoneListener();
   }
 
   Future<void> _consumeLaunchPhone() async {
     if (!Platform.isAndroid) return;
-
     try {
       final phone =
           await _nativeOverlayChannel.invokeMethod<String>('consumeLaunchPhone');
@@ -148,10 +117,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _startUiPhoneListener() {
     if (_phoneSubscription != null) return;
-
     _phoneSubscription = PhoneState.stream.listen((event) async {
       if (!mounted) return;
-
       if (event.status == PhoneStateStatus.CALL_INCOMING &&
           event.number != null &&
           _shouldHandleIncoming(event.number!)) {
@@ -172,11 +139,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final duplicate = _lastHandledPhone == phone &&
         _lastHandledAt != null &&
         now.difference(_lastHandledAt!) < const Duration(seconds: 5);
-
-    if (duplicate) {
-      return false;
-    }
-
+    if (duplicate) return false;
     _lastHandledPhone = phone;
     _lastHandledAt = now;
     return true;
@@ -184,18 +147,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _showInAppOverlay(Map<String, dynamic> data) async {
     if (!mounted) return;
-
     await showDialog(
       context: context,
-      barrierColor: Colors.black26,
-      builder: (context) {
-        return _DraggableOverlayWrapper(
-          child: OverlayBubble(
-            initialPayload: data,
-            useSystemOverlay: false,
-          ),
-        );
-      },
+      barrierColor: Colors.black54,
+      builder: (context) => OverlayBubble(initialPayload: data, useSystemOverlay: false),
     );
   }
 
@@ -210,11 +165,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _presentCallerWorkflow(
-    String phone,
-    Map<String, dynamic> response,
-  ) async {
+      String phone, Map<String, dynamic> response) async {
     if (!mounted || _workflowOpen) return;
-
     _workflowOpen = true;
     try {
       await showModalBottomSheet<void>(
@@ -233,23 +185,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleIncomingNumber(
-    String phone, {
-    bool incrementCount = true,
-  }) async {
+  Future<void> _handleIncomingNumber(String phone,
+      {bool incrementCount = true}) async {
     if (!mounted) return;
     setState(() => _loading = true);
-
-    if (incrementCount) {
-      await _incrementCallCount();
-    }
-
+    if (incrementCount) await _incrementCallCount();
     Map<String, dynamic> response;
     try {
       response = await CallerService.getCallerDetails(phone);
     } catch (e) {
       if (!mounted) return;
-      // Show snackbar, but continue to show popup with fallback data
       _showError('Lookup failed (Using Fallback)');
       response = {
         'found': false,
@@ -258,38 +203,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'type': 'Network/API Error',
       };
     }
-
     if (!mounted) return;
-
     try {
       await _saveCallerDataToPrefs(phone, response);
-
       await _presentCallerWorkflow(phone, response);
     } catch (e) {
-      debugPrint("Overlay error: $e");
+      debugPrint('Overlay error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _forceShowOverlay() async {
+  Future<void> _forceShowOverlay(bool isKnown) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
+      final name = isKnown ? 'Test Caller' : 'Unknown Number';
+      final type = isKnown ? 'Test Contact' : '';
+      final docname = isKnown ? 'TEST-CALLER' : '';
+      
       await prefs.setString('crm_caller_phone', '+1 555 010 2026');
-      await prefs.setString('crm_caller_name', 'Test Caller');
-      await prefs.setString('crm_caller_type', 'Test Contact');
-      await prefs.setString('crm_caller_docname', 'TEST-CALLER');
-      await prefs.setBool('crm_caller_found', true);
-
+      await prefs.setString('crm_caller_name', name);
+      await prefs.setString('crm_caller_type', type);
+      await prefs.setString('crm_caller_docname', docname);
+      await prefs.setBool('crm_caller_found', isKnown);
+      
       final data = {
         'phone': '+1 555 010 2026',
-        'name': 'Test Caller',
-        'type': 'Test Contact',
-        'docname': 'TEST-CALLER',
-        'found': true,
+        'name': name,
+        'type': type,
+        'docname': docname,
+        'found': isKnown,
         'event_id': DateTime.now().millisecondsSinceEpoch,
       };
-
       if (Platform.isAndroid) {
         var overlayGranted =
             await _nativeOverlayChannel.invokeMethod<bool>('canDrawOverlays') ??
@@ -298,11 +244,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           await _nativeOverlayChannel.invokeMethod('openOverlaySettings');
           return;
         }
-
         await _showNativeOverlay(data);
         return;
       }
-
       await _showInAppOverlay(data);
     } catch (e) {
       _showError('Could not show overlay: $e');
@@ -310,37 +254,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _saveCallerDataToPrefs(
-    String phone,
-    Map<String, dynamic> result,
-  ) async {
+      String phone, Map<String, dynamic> result) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('crm_caller_phone', phone);
     await prefs.setString(
-      'crm_caller_name',
-      (result['customer_name'] as String?) ?? '',
-    );
+        'crm_caller_name', (result['customer_name'] as String?) ?? '');
     await prefs.setString('crm_caller_type', (result['type'] as String?) ?? '');
     await prefs.setString(
-      'crm_caller_docname',
-      (result['name'] as String?) ?? '',
-    );
+        'crm_caller_docname', (result['name'] as String?) ?? '');
     await prefs.setBool('crm_caller_found', result['found'] == true);
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              color: Colors.white,
-              size: 17,
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
+        content: Row(children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.white, size: 17),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message)),
+        ]),
         backgroundColor: AppColors.danger,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -359,21 +291,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return GradientScaffold(
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
+
+    return Scaffold(
+      backgroundColor: AppColors.bgBase,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           16,
-          MediaQuery.of(context).padding.top +
-              76, // accounts for floating app bar
+          MediaQuery.of(context).padding.top + 72,
           16,
           32,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _DashboardCard(
+            _DashboardHeader(
               username: widget.user.username,
               callsToday: _callsToday,
             ),
@@ -389,9 +327,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 16),
             const _OverlayPermissionCard(),
             const SizedBox(height: 16),
-            _TestOverlayCard(
-              onTest: _forceShowOverlay,
-            ),
+            _TestOverlayCard(onTest: _forceShowOverlay),
             if (_bgLogs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _LogsCard(logs: _bgLogs, onRefresh: _loadLogs),
@@ -404,27 +340,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white.withValues(alpha: 0.15),
+      backgroundColor: AppColors.bgBase.withValues(alpha: 0.92),
       elevation: 0,
       scrolledUnderElevation: 0,
-      flexibleSpace: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(color: Colors.transparent),
-        ),
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1.0),
-        child: Container(
-          color: Colors.white.withValues(alpha: 0.2),
-          height: 1.0,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          color: AppColors.bgBase.withValues(alpha: 0.92),
+          border: const Border(
+            bottom: BorderSide(color: AppColors.borderLight, width: 1),
+          ),
         ),
       ),
       title: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
@@ -434,19 +369,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.phone_in_talk_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
+            child: const Icon(Icons.phone_in_talk_rounded,
+                color: Colors.white, size: 18),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           const Text(
             'CRM Caller',
             style: TextStyle(
@@ -463,28 +395,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           padding: const EdgeInsets.only(right: 16),
           child: PopupMenuButton<String>(
             offset: const Offset(0, 52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            color: Colors.white,
-            elevation: 8,
-            shadowColor: Colors.black.withValues(alpha: 0.15),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: AppColors.bgCard,
+            elevation: 10,
+            shadowColor: Colors.black.withValues(alpha: 0.5),
             child: Container(
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.primary.withValues(alpha: 0.12),
-                    AppColors.accent.withValues(alpha: 0.08),
-                  ],
+                  colors: [AppColors.primary, AppColors.primaryDark],
                 ),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Center(
                 child: Text(
@@ -492,8 +423,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ? widget.user.username[0].toUpperCase()
                       : 'U',
                   style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
                     fontSize: 14,
                   ),
                 ),
@@ -502,57 +433,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             itemBuilder: (_) => [
               PopupMenuItem(
                 enabled: false,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       widget.user.username,
                       style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Signed in',
-                      style: TextStyle(
-                        color: AppColors.textTertiary,
-                        fontSize: 12,
-                      ),
-                    ),
+                    const Text('Signed in',
+                        style: TextStyle(
+                            color: AppColors.textTertiary, fontSize: 12)),
                   ],
                 ),
               ),
               const PopupMenuDivider(height: 1),
               PopupMenuItem(
                 value: 'logout',
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      size: 16,
-                      color: AppColors.danger,
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Sign out',
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: const Row(children: [
+                  Icon(Icons.logout_rounded, size: 16, color: AppColors.danger),
+                  SizedBox(width: 10),
+                  Text('Sign out',
                       style: TextStyle(
-                        color: AppColors.danger,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14)),
+                ]),
               ),
             ],
             onSelected: (value) async {
@@ -573,184 +484,181 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// HOME CARDS
-// ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// DASHBOARD HEADER
+// ════════════════════════════════════════════════════════════════════════════
 
-class _DashboardCard extends StatelessWidget {
+class _DashboardHeader extends StatelessWidget {
   final String username;
   final int callsToday;
-  const _DashboardCard({required this.username, required this.callsToday});
+
+  const _DashboardHeader({required this.username, required this.callsToday});
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.15),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1A1F36), Color(0xFF111827)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.borderLight),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.9),
-                  Colors.white.withValues(alpha: 0.5),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.8),
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'OVERVIEW',
-                            style: TextStyle(
-                              color: AppColors.primary.withValues(alpha: 0.8),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Hello, $username',
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      'OVERVIEW',
+                      style: TextStyle(
+                        color: AppColors.primary.withValues(alpha: 0.9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2.5,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppColors.success.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: AppColors.success,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.success.withValues(alpha: 0.6),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Online',
-                            style: TextStyle(
-                              color: AppColors.success,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 6),
+                    Text(
+                      'Hello, $username 👋',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 28),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.8),
+              ),
+              // Online badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: AppColors.success.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.success.withValues(alpha: 0.6),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Online',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Stats row
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.bgInput,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
+                  child: const Icon(Icons.phone_in_talk_rounded,
+                      color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.phone_in_talk_rounded,
-                          color: AppColors.primary,
-                          size: 24,
+                      const Text(
+                        'Calls Today',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Calls Today',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              '$callsToday',
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
+                      Text(
+                        '$callsToday',
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
+                // Gradient chip for activity indicator
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryDark],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'LIVE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// MANUAL LOOKUP CARD
+// ════════════════════════════════════════════════════════════════════════════
 
 class _ManualLookupCard extends StatelessWidget {
   final TextEditingController controller;
@@ -766,51 +674,49 @@ class _ManualLookupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.2),
-                      AppColors.primary.withValues(alpha: 0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.primarySurface,
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(
-                  Icons.manage_search_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
+                child: const Icon(Icons.manage_search_rounded,
+                    color: AppColors.primary, size: 20),
               ),
-              const SizedBox(width: 14),
-              const Text(
-                'Manual Lookup',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  letterSpacing: -0.3,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Manual Lookup',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    Text(
+                      'Search any number in your CRM',
+                      style: TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.only(left: 54),
-            child: Text(
-              'Search a phone number in your CRM database instantly.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
-            ),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          // Input row
           Row(
             children: [
               Expanded(
@@ -822,20 +728,21 @@ class _ManualLookupCard extends StatelessWidget {
                   onSubmitted: (_) => onLookup(),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               GestureDetector(
                 onTap: loading ? null : onLookup,
-                child: Container(
-                  height: 54,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 52,
+                  width: 52,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: loading
                           ? [
-                              AppColors.primary.withValues(alpha: 0.5),
-                              AppColors.primaryDark.withValues(alpha: 0.5),
+                              AppColors.primary.withValues(alpha: 0.4),
+                              AppColors.primaryDark.withValues(alpha: 0.4),
                             ]
                           : [AppColors.primary, AppColors.primaryDark],
                     ),
@@ -845,29 +752,21 @@ class _ManualLookupCard extends StatelessWidget {
                         : [
                             BoxShadow(
                               color: AppColors.primary.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
                             ),
                           ],
                   ),
                   child: Center(
                     child: loading
                         ? const SizedBox(
-                            width: 22,
-                            height: 22,
+                            width: 20,
+                            height: 20,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
+                                strokeWidth: 2.5, color: Colors.white),
                           )
-                        : const Text(
-                            'Lookup',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
-                          ),
+                        : const Icon(Icons.search_rounded,
+                            color: Colors.white, size: 22),
                   ),
                 ),
               ),
@@ -879,7 +778,9 @@ class _ManualLookupCard extends StatelessWidget {
   }
 }
 
-// ── Overlay Permission Card ─────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+// OVERLAY PERMISSION CARD
+// ════════════════════════════════════════════════════════════════════════════
 
 class _OverlayPermissionCard extends StatefulWidget {
   const _OverlayPermissionCard();
@@ -915,7 +816,6 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
       if (mounted) setState(() => _granted = true);
       return;
     }
-
     try {
       final granted =
           await _nativeOverlayChannel.invokeMethod<bool>('canDrawOverlays') ??
@@ -935,94 +835,56 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
   @override
   Widget build(BuildContext context) {
     if (_granted) return const SizedBox.shrink();
-
-    return GlassCard(
-      padding: const EdgeInsets.all(24),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.warning.withValues(alpha: 0.2),
-                      AppColors.warning.withValues(alpha: 0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(
-                  Icons.bubble_chart_rounded,
-                  color: AppColors.warning,
-                  size: 20,
-                ),
+                child: const Icon(Icons.warning_amber_rounded,
+                    color: AppColors.warning, size: 20),
               ),
-              const SizedBox(width: 14),
-              const Text(
-                'Background Bubble',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  letterSpacing: -0.3,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Permission Required',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.only(left: 54),
-            child: Text(
-              'Grant "Display over other apps" so the CRM bubble appears when a call ends, even when the app is closed.',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
+          const SizedBox(height: 12),
+          const Text(
+            'Grant "Display over other apps" so the CRM bubble appears during incoming calls, even when the app is in the background.',
+            style: TextStyle(
+                color: AppColors.textSecondary, fontSize: 13, height: 1.5),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: GestureDetector(
+            child: AppButton(
+              label: 'Grant Overlay Permission',
+              icon: Icons.security_rounded,
               onTap: _request,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.warning, Color(0xFFD97706)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.warning.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.security_rounded, size: 18, color: Colors.white),
-                    SizedBox(width: 10),
-                    Text(
-                      'Grant Permission',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              color: AppColors.warning,
+              colorEnd: const Color(0xFFD97706),
             ),
           ),
         ],
@@ -1031,9 +893,93 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// TEST OVERLAY CARD
+// ════════════════════════════════════════════════════════════════════════════
+
+class _TestOverlayCard extends StatelessWidget {
+  final Future<void> Function(bool isKnown) onTest;
+  const _TestOverlayCard({required this.onTest});
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(22),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(Icons.flash_on_rounded,
+                color: AppColors.accent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Test Overlay',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  'Trigger caller bubble',
+                  style:
+                      TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+               _buildBtn('Known Caller', () => onTest(true)),
+               const SizedBox(height: 6),
+               _buildBtn('Unknown Caller', () => onTest(false)),
+            ]
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBtn(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: AppColors.accent.withValues(alpha: 0.25)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.accentLight,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // BOTTOM SHEETS
-// ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
 
 class _CreateLeadSheet extends StatefulWidget {
   final String phone;
@@ -1063,9 +1009,7 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
       _showSnack('Lead name is required', AppColors.danger);
       return;
     }
-
     setState(() => _saving = true);
-
     try {
       await CallerService.createLead(
         firstName: name,
@@ -1073,14 +1017,10 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
         email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
         note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
       );
-
       if (!mounted) return;
       Navigator.pop(context);
-      _showSnack(
-        'Lead created successfully',
-        AppColors.success,
-        icon: Icons.check_circle_outline_rounded,
-      );
+      _showSnack('Lead created successfully', AppColors.success,
+          icon: Icons.check_circle_outline_rounded);
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -1091,15 +1031,13 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
   void _showSnack(String msg, Color bg, {IconData? icon}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, color: Colors.white, size: 17),
-              const SizedBox(width: 8),
-            ],
-            Expanded(child: Text(msg)),
+        content: Row(children: [
+          if (icon != null) ...[
+            Icon(icon, color: Colors.white, size: 17),
+            const SizedBox(width: 8),
           ],
-        ),
+          Expanded(child: Text(msg)),
+        ]),
         backgroundColor: bg,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1118,7 +1056,6 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppSheetHandle(),
-
           // Header
           Row(
             children: [
@@ -1126,37 +1063,26 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.warningSurface,
+                  color: AppColors.warning.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
-                  Icons.person_add_alt_1_rounded,
-                  color: AppColors.warning,
-                  size: 24,
-                ),
+                child: const Icon(Icons.person_add_alt_1_rounded,
+                    color: AppColors.warning, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Unknown Caller',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.phone,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
+                    const Text('Unknown Caller',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                        )),
+                    Text(widget.phone,
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),
@@ -1164,48 +1090,36 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
             ],
           ),
           const SizedBox(height: 20),
-          const Divider(color: AppColors.divider, height: 1),
+          Divider(color: AppColors.borderLight, height: 1),
           const SizedBox(height: 20),
-
-          // Name
           const AppFieldLabel(label: 'Lead Name', required: true),
           const SizedBox(height: 8),
           AppTextField(
-            controller: _nameCtrl,
-            hint: 'Enter full name',
-            icon: Icons.person_outline_rounded,
-          ),
-          const SizedBox(height: 16),
-
-          // Email
+              controller: _nameCtrl,
+              hint: 'Enter full name',
+              icon: Icons.person_outline_rounded),
+          const SizedBox(height: 14),
           const AppFieldLabel(label: 'Email (Optional)'),
           const SizedBox(height: 8),
           AppTextField(
-            controller: _emailCtrl,
-            hint: 'email@example.com',
-            icon: Icons.alternate_email_rounded,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 16),
-
-          // Note
+              controller: _emailCtrl,
+              hint: 'email@example.com',
+              icon: Icons.alternate_email_rounded,
+              keyboardType: TextInputType.emailAddress),
+          const SizedBox(height: 14),
           const AppFieldLabel(label: 'Call Note'),
           const SizedBox(height: 8),
           AppTextField(
-            controller: _noteCtrl,
-            hint: 'Briefly describe this call...',
-            maxLines: 3,
-          ),
-          const SizedBox(height: 24),
-
-          // Actions
+              controller: _noteCtrl,
+              hint: 'Briefly describe this call...',
+              maxLines: 3),
+          const SizedBox(height: 22),
           Row(
             children: [
               Expanded(
                 child: AppOutlineButton(
-                  label: 'Cancel',
-                  onTap: _saving ? null : () => Navigator.pop(context),
-                ),
+                    label: 'Cancel',
+                    onTap: _saving ? null : () => Navigator.pop(context)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1250,7 +1164,6 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
   Future<void> _saveNote() async {
     if (_noteCtrl.text.trim().isEmpty) return;
     setState(() => _saving = true);
-
     try {
       await CallerService.addNote(
         doctype: widget.result['type'] as String? ?? 'Lead',
@@ -1259,11 +1172,8 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
       );
       if (!mounted) return;
       Navigator.pop(context);
-      _showSnack(
-        'Note added successfully',
-        AppColors.success,
-        icon: Icons.check_circle_outline_rounded,
-      );
+      _showSnack('Note added successfully', AppColors.success,
+          icon: Icons.check_circle_outline_rounded);
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -1274,15 +1184,13 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
   void _showSnack(String msg, Color bg, {IconData? icon}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, color: Colors.white, size: 17),
-              const SizedBox(width: 8),
-            ],
-            Expanded(child: Text(msg)),
+        content: Row(children: [
+          if (icon != null) ...[
+            Icon(icon, color: Colors.white, size: 17),
+            const SizedBox(width: 8),
           ],
-        ),
+          Expanded(child: Text(msg)),
+        ]),
         backgroundColor: bg,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1304,7 +1212,6 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppSheetHandle(),
-
           // Caller info
           Row(
             children: [
@@ -1317,22 +1224,20 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      AppColors.primary.withValues(alpha: 0.12),
-                      AppColors.accent.withValues(alpha: 0.08),
+                      AppColors.primary.withValues(alpha: 0.25),
+                      AppColors.accent.withValues(alpha: 0.15),
                     ],
                   ),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                  ),
+                      color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
                 child: Center(
                   child: Text(
                     initials(name),
                     style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                    ),
+                        color: AppColors.primaryLight,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18),
                   ),
                 ),
               ),
@@ -1341,33 +1246,24 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
+                    Text(name,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          letterSpacing: -0.3,
+                        )),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         AppTypeChip(label: type, color: _typeColor),
                         const SizedBox(width: 8),
-                        const Icon(
-                          Icons.phone_outlined,
-                          size: 13,
-                          color: AppColors.textTertiary,
-                        ),
+                        const Icon(Icons.phone_outlined,
+                            size: 13, color: AppColors.textTertiary),
                         const SizedBox(width: 3),
-                        Text(
-                          widget.phone,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
+                        Text(widget.phone,
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, fontSize: 13)),
                       ],
                     ),
                   ],
@@ -1376,11 +1272,9 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
               _SheetCloseBtn(),
             ],
           ),
-
           const SizedBox(height: 20),
-          const Divider(color: AppColors.divider, height: 1),
+          Divider(color: AppColors.borderLight, height: 1),
           const SizedBox(height: 16),
-
           if (!_showNoteField)
             SizedBox(
               width: double.infinity,
@@ -1394,11 +1288,10 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
             const AppFieldLabel(label: 'Call Note'),
             const SizedBox(height: 8),
             AppTextField(
-              controller: _noteCtrl,
-              hint: 'Describe this call...',
-              maxLines: 3,
-              autofocus: true,
-            ),
+                controller: _noteCtrl,
+                hint: 'Describe this call...',
+                maxLines: 3,
+                autofocus: true),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -1408,9 +1301,9 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
                     onTap: _saving
                         ? null
                         : () => setState(() {
-                            _showNoteField = false;
-                            _noteCtrl.clear();
-                          }),
+                              _showNoteField = false;
+                              _noteCtrl.clear();
+                            }),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1432,9 +1325,9 @@ class _KnownCallerSheetState extends State<_KnownCallerSheet> {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
 // SHARED ATOMS
-// ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
 
 class _SheetCloseBtn extends StatelessWidget {
   @override
@@ -1445,82 +1338,12 @@ class _SheetCloseBtn extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: AppColors.inputBg,
+          color: AppColors.bgInput,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+          border: Border.all(color: AppColors.borderLight),
         ),
-        child: const Icon(
-          Icons.close_rounded,
-          color: AppColors.textSecondary,
-          size: 18,
-        ),
-      ),
-    );
-  }
-}
-
-class _TestOverlayCard extends StatelessWidget {
-  final VoidCallback onTest;
-  const _TestOverlayCard({required this.onTest});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.accent.withValues(alpha: 0.2),
-                      AppColors.accent.withValues(alpha: 0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.code_rounded,
-                  color: AppColors.accent,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Text(
-                'Developer Tools',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.only(left: 54),
-            child: Text(
-              'Force show the overlay popup even if the app is open.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: AppOutlineButton(
-              label: 'Force Overlay Popup',
-              icon: Icons.flash_on_rounded,
-              onTap: onTest,
-              color: AppColors.accent,
-            ),
-          ),
-        ],
+        child: const Icon(Icons.close_rounded,
+            color: AppColors.textSecondary, size: 18),
       ),
     );
   }
@@ -1545,13 +1368,10 @@ class _DraggableOverlayWrapperState extends State<_DraggableOverlayWrapper> {
         Positioned(
           left: _position.dx,
           top: _position.dy,
-          // Limit exactly to media query to ensure the inner constrained boxes don't overflow
           width: MediaQuery.of(context).size.width,
           child: GestureDetector(
             onPanUpdate: (details) {
-              setState(() {
-                _position += details.delta;
-              });
+              setState(() => _position += details.delta);
             },
             behavior: HitTestBehavior.deferToChild,
             child: widget.child,
@@ -1571,7 +1391,7 @@ class _LogsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1581,59 +1401,56 @@ class _LogsCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: AppColors.primarySurface,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
-                      Icons.receipt_long_rounded,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
+                    child: const Icon(Icons.receipt_long_rounded,
+                        color: AppColors.primary, size: 17),
                   ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Background Logs',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
+                  const SizedBox(width: 10),
+                  const Text('Background Logs',
+                      style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15)),
                 ],
               ),
-              IconButton(
-                onPressed: onRefresh,
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                color: AppColors.textSecondary,
-                tooltip: 'Refresh Logs',
+              GestureDetector(
+                onTap: onRefresh,
+                child: const Icon(Icons.refresh_rounded,
+                    size: 20, color: AppColors.textSecondary),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Container(
-            height: 200,
+            height: 180,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: AppColors.bgBase,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+              border: Border.all(color: AppColors.borderLight),
             ),
             child: ListView.separated(
               itemCount: logs.length,
               physics: const BouncingScrollPhysics(),
-              separatorBuilder: (_, _) => const Divider(height: 12, thickness: 0.5),
+              separatorBuilder: (_, _) => Divider(
+                  height: 12,
+                  thickness: 0.5,
+                  color: AppColors.divider),
               itemBuilder: (context, index) {
                 final log = logs[index];
-                final isError = log.contains('❌') || log.contains('⚠️');
+                final isError =
+                    log.contains('❌') || log.contains('⚠️');
                 return Text(
                   log,
                   style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 11,
-                    color: isError ? AppColors.danger : AppColors.textPrimary,
+                    color: isError ? AppColors.danger : AppColors.textSecondary,
                     height: 1.4,
                   ),
                 );

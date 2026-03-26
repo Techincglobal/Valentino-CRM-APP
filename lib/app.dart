@@ -46,31 +46,29 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.light,
+        brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
-          brightness: Brightness.light,
+          brightness: Brightness.dark,
           primary: AppColors.primary,
           onPrimary: Colors.white,
-          surface: AppColors.surface,
+          surface: AppColors.bgCard,
           onSurface: AppColors.textPrimary,
         ),
-        scaffoldBackgroundColor: Colors.transparent,
+        scaffoldBackgroundColor: AppColors.bgBase,
         splashFactory: NoSplash.splashFactory,
         highlightColor: Colors.transparent,
+        popupMenuTheme: const PopupMenuThemeData(
+          color: AppColors.bgCard,
+          textStyle: TextStyle(color: AppColors.textPrimary),
+        ),
       ),
       home: FutureBuilder(
         future: _resolveStartup(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.bgStart, AppColors.bgMid, AppColors.bgEnd],
-                ),
-              ),
+              color: AppColors.bgBase,
               child: Scaffold(
                 backgroundColor: Colors.transparent,
                 body: Center(

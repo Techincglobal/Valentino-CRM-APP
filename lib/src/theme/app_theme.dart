@@ -1,60 +1,72 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 // ============================================================================
-// CRM Caller — Frosted Glass iOS Design System
+// CRM Caller — Premium Dark Design System
 // ============================================================================
-
-// ── Color Palette ────────────────────────────────────────────────────────────
 
 class AppColors {
   AppColors._();
 
-  // Primary
-  static const primary = Color(0xFF2563EB); // Deep Blue
-  static const primaryDark = Color(0xFF1E40AF); // Deeper Blue
-  static const primaryLight = Color(0xFF60A5FA);
-  static const primarySurface = Color(0xFFEFF6FF);
+  // Brand
+  static const primary = Color(0xFF6366F1); // Indigo
+  static const primaryDark = Color(0xFF4F46E5);
+  static const primaryLight = Color(0xFF818CF8);
+  static const primaryGlow = Color(0x336366F1);
+  static const primarySurface = Color(0x1A6366F1);
 
   // Accent
-  static const accent = Color(0xFF8B5CF6);
-  static const accentLight = Color(0xFFEDE9FE);
+  static const accent = Color(0xFF8B5CF6); // Violet
+  static const accentLight = Color(0xFFA78BFA);
 
-  // Backgrounds (gradient stops)
-  static const bgStart = Color(0xFFF8FAFC);
-  static const bgMid = Color(0xFFEEF2FF);
-  static const bgEnd = Color(0xFFE0E7FF);
+  // Page background (dark)
+  static const bgBase = Color(0xFF0A0F1E); // Very dark navy
+  static const bgCard = Color(0xFF111827); // Card surface
+  static const bgCardAlt = Color(0xFF1A2235); // Slightly lighter card
+  static const bgInput = Color(0xFF1E293B); // Input background
+
+  // Borders
+  static const border = Color(0xFF1E293B);
+  static const borderLight = Color(0xFF2D3748);
+  static const divider = Color(0xFF1E293B);
 
   // Text
-  static const textPrimary = Color(0xFF0F172A);
-  static const textSecondary = Color(0xFF64748B);
-  static const textTertiary = Color(0xFF94A3B8);
+  static const textPrimary = Color(0xFFF8FAFC);
+  static const textSecondary = Color(0xFF94A3B8);
+  static const textTertiary = Color(0xFF475569);
+  static const textMuted = Color(0xFF334155);
 
   // Semantic
   static const success = Color(0xFF10B981);
-  static const successSurface = Color(0xFFD1FAE5);
+  static const successSurface = Color(0x1A10B981);
   static const danger = Color(0xFFEF4444);
-  static const dangerSurface = Color(0xFFFEE2E2);
+  static const dangerSurface = Color(0x1AEF4444);
   static const warning = Color(0xFFF59E0B);
-  static const warningSurface = Color(0xFFFEF3C7);
+  static const warningSurface = Color(0x1AF59E0B);
 
-  // CRM types
+  // Type chips
   static const lead = Color(0xFF8B5CF6);
   static const opportunity = Color(0xFF10B981);
-  static const customer = Color(0xFF3B82F6);
+  static const customer = Color(0xFF6366F1);
 
-  // Surface & borders
-  static const surface = Color(0xFFFFFFFF);
-  static const border = Color(0xFFE2E8F0);
-  static const divider = Color(0xFFF1F5F9);
-  static const inputBg = Color(0xFFF8FAFC);
-
-  // Glass
-  static const glassBg = Color(0xBFFFFFFF); // white 75%
-  static const glassBorder = Color(0x99FFFFFF); // white 60%
+  // Surfaces / Glass (kept for overlay_bubble compatibility)
+  static const surface = bgCard;
+  static const glassBg = Color(0x1AFFFFFF);
+  static const glassBorder = Color(0x26FFFFFF);
 }
 
-// ── Gradient Background ─────────────────────────────────────────────────────
+// ── System UI ----------------------------------------------------------------
+
+void setSystemUIOverlay() {
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: AppColors.bgBase,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
+}
+
+// ── Base Scaffold ────────────────────────────────────────────────────────────
 
 class GradientScaffold extends StatelessWidget {
   final Widget body;
@@ -72,139 +84,56 @@ class GradientScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    setSystemUIOverlay();
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6), // Base light grey
+      backgroundColor: AppColors.bgBase,
       extendBodyBehindAppBar: extendBodyBehindAppBar,
       appBar: appBar,
       floatingActionButton: floatingActionButton,
-      body: Stack(
-        children: [
-          // Ambient Blob 1 (Top Left)
-          Positioned(
-            top: -100,
-            left: -100,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primaryLight.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-          // Ambient Blob 2 (Bottom Right)
-          Positioned(
-            bottom: -50,
-            right: -100,
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accentLight.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-          // Ambient Blob 3 (Center Right)
-          Positioned(
-            top: 300,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFE0E7FF).withValues(alpha: 0.7),
-              ),
-            ),
-          ),
-          // The Ultimate Glass Blur Over the Blobs
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-              child: Container(
-                color: Colors.white.withValues(
-                  alpha: 0.2,
-                ), // Light frosted tint
-              ),
-            ),
-          ),
-          // The actual body
-          SafeArea(bottom: false, top: !extendBodyBehindAppBar, child: body),
-        ],
-      ),
+      body: body,
     );
   }
 }
 
-// ── Frosted Glass Card ──────────────────────────────────────────────────────
+// ── Card ─────────────────────────────────────────────────────────────────────
 
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
   final double borderRadius;
+  final Color? color;
 
   const GlassCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(20),
-    this.borderRadius = 22,
+    this.borderRadius = 20,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: padding,
       decoration: BoxDecoration(
+        color: color ?? AppColors.bgCard,
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.04),
-            blurRadius: 48,
-            offset: const Offset(0, 24),
-          ),
-        ],
+        border: Border.all(color: AppColors.borderLight, width: 1.0),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.85),
-                  Colors.white.withValues(alpha: 0.60),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.8),
-                width: 1.5,
-              ),
-            ),
-            child: child,
-          ),
-        ),
-      ),
+      child: child,
     );
   }
 }
 
-// ── Gradient Primary Button ─────────────────────────────────────────────────
+// ── Primary Button ────────────────────────────────────────────────────────────
 
 class AppButton extends StatefulWidget {
   final String label;
   final IconData? icon;
   final bool loading;
   final VoidCallback? onTap;
+  final Color? color;
+  final Color? colorEnd;
 
   const AppButton({
     super.key,
@@ -212,6 +141,8 @@ class AppButton extends StatefulWidget {
     this.icon,
     this.loading = false,
     this.onTap,
+    this.color,
+    this.colorEnd,
   });
 
   @override
@@ -219,43 +150,42 @@ class AppButton extends StatefulWidget {
 }
 
 class _AppButtonState extends State<AppButton> {
-  bool _isPressed = false;
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
+    final c1 = widget.color ?? AppColors.primary;
+    final c2 = widget.colorEnd ?? AppColors.primaryDark;
+    final isDisabled = widget.onTap == null && !widget.loading;
+
     return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
       onTap: widget.loading ? null : widget.onTap,
       child: AnimatedScale(
-        scale: _isPressed && !widget.loading ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeInOut,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+        scale: _pressed && !widget.loading ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 80),
+        child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: widget.onTap == null
-                  ? [
-                      AppColors.primary.withValues(alpha: 0.4),
-                      AppColors.primaryDark.withValues(alpha: 0.4),
-                    ]
-                  : [AppColors.primary, AppColors.primaryDark],
+              colors: isDisabled
+                  ? [c1.withValues(alpha: 0.35), c2.withValues(alpha: 0.35)]
+                  : [c1, c2],
             ),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: widget.onTap != null
-                ? [
+            boxShadow: isDisabled
+                ? []
+                : [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.4),
+                      color: c1.withValues(alpha: 0.35),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
-                  ]
-                : [],
+                  ],
           ),
           child: Center(
             child: widget.loading
@@ -293,7 +223,7 @@ class _AppButtonState extends State<AppButton> {
   }
 }
 
-// ── Glass Outline Button ────────────────────────────────────────────────────
+// ── Outline Button ────────────────────────────────────────────────────────────
 
 class AppOutlineButton extends StatelessWidget {
   final String label;
@@ -317,9 +247,9 @@ class AppOutlineButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          color: AppColors.bgInput,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderLight),
         ),
         child: Center(
           child: Row(
@@ -334,7 +264,7 @@ class AppOutlineButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: c,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
               ),
@@ -346,7 +276,7 @@ class AppOutlineButton extends StatelessWidget {
   }
 }
 
-// ── App Text Field ──────────────────────────────────────────────────────────
+// ── Text Field ────────────────────────────────────────────────────────────────
 
 class AppTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -386,6 +316,7 @@ class AppTextField extends StatelessWidget {
         fontSize: 15,
         letterSpacing: -0.2,
       ),
+      cursorColor: AppColors.primary,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
@@ -400,25 +331,25 @@ class AppTextField extends StatelessWidget {
             : null,
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: AppColors.inputBg,
+        fillColor: AppColors.bgInput,
         contentPadding: EdgeInsets.symmetric(
           horizontal: 18,
           vertical: maxLines > 1 ? 16 : 16,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.borderLight, width: 1.0),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
     );
   }
 }
 
-// ── Field Label ─────────────────────────────────────────────────────────────
+// ── Field Label ───────────────────────────────────────────────────────────────
 
 class AppFieldLabel extends StatelessWidget {
   final String label;
@@ -435,16 +366,13 @@ class AppFieldLabel extends StatelessWidget {
           color: AppColors.textSecondary,
           fontWeight: FontWeight.w600,
           fontSize: 13,
-          letterSpacing: -0.1,
+          letterSpacing: 0.2,
         ),
         children: required
             ? [
-                TextSpan(
+                const TextSpan(
                   text: ' *',
-                  style: TextStyle(
-                    color: AppColors.danger,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700),
                 ),
               ]
             : [],
@@ -453,7 +381,7 @@ class AppFieldLabel extends StatelessWidget {
   }
 }
 
-// ── Type Chip ───────────────────────────────────────────────────────────────
+// ── Type Chip ─────────────────────────────────────────────────────────────────
 
 class AppTypeChip extends StatelessWidget {
   final String label;
@@ -464,26 +392,26 @@ class AppTypeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        label,
+        label.toUpperCase(),
         style: TextStyle(
           color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
         ),
       ),
     );
   }
 }
 
-// ── Sheet Helpers ───────────────────────────────────────────────────────────
+// ── Sheet Container ───────────────────────────────────────────────────────────
 
 class AppSheetContainer extends StatelessWidget {
   final Widget child;
@@ -498,20 +426,10 @@ class AppSheetContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.white.withValues(alpha: 0.95), Colors.white],
-        ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, -4),
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
       ),
       padding: padding,
       child: child,
@@ -526,11 +444,11 @@ class AppSheetHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        margin: const EdgeInsets.only(top: 12, bottom: 16),
-        width: 40,
+        margin: const EdgeInsets.only(top: 12, bottom: 20),
+        width: 36,
         height: 4,
         decoration: BoxDecoration(
-          color: AppColors.border,
+          color: AppColors.textMuted,
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -538,7 +456,7 @@ class AppSheetHandle extends StatelessWidget {
   }
 }
 
-// ── Helper: Type color mapper ───────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 Color typeColor(String type) {
   switch (type.toLowerCase()) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/user_model.dart';
 import 'home_screen.dart';
 import 'site_setup_screen.dart';
@@ -13,48 +14,57 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
+  late AnimationController _animCtrl;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+            begin: const Offset(0, 0.06), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
+    _animCtrl.forward();
+  }
 
   @override
   void dispose() {
+    _animCtrl.dispose();
     _userCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _login() async {
-    final username = _userCtrl.text.trim();
-    final password = _passCtrl.text.trim();
-
-    if (username.isEmpty || password.isEmpty) return;
-
+    if (_userCtrl.text.trim().isEmpty || _passCtrl.text.trim().isEmpty) return;
     final baseUrl = await StorageService.getBaseUrl();
     if (baseUrl == null) {
       _showError('Site URL not configured');
       return;
     }
-
     setState(() => _loading = true);
-
     try {
       final result = await AuthService.login(
         baseUrl: baseUrl,
-        username: username,
-        password: password,
+        username: _userCtrl.text.trim(),
+        password: _passCtrl.text.trim(),
       );
-
       if (!mounted) return;
-
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => HomeScreen(
             user: UserModel(
-              username: result['full_name'] as String? ?? username,
+              username: result['full_name'] as String? ?? _userCtrl.text.trim(),
             ),
           ),
         ),
@@ -69,17 +79,11 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              color: Colors.white,
-              size: 17,
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
+        content: Row(children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.white, size: 17),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message)),
+        ]),
         backgroundColor: AppColors.danger,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -90,214 +94,207 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GradientScaffold(
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
+
+    return Scaffold(
+      backgroundColor: AppColors.bgBase,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Logo + branding
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.primaryLight,
-                              AppColors.primary,
-                              AppColors.primaryDark,
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 40),
+
+                  // ── Branding ──────────────────────────────────────────────
+                  Center(
+                    child: Column(
+                      children: [
+                        // Logo glow ring
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.primaryLight,
+                                AppColors.primary,
+                                AppColors.primaryDark,
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.45),
+                                blurRadius: 40,
+                                spreadRadius: 4,
+                                offset: const Offset(0, 12),
+                              ),
                             ],
                           ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.4),
-                              blurRadius: 32,
-                              offset: const Offset(0, 12),
-                              spreadRadius: 4,
-                            ),
-                          ],
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            width: 2,
-                          ),
-                        ),
-                        child: Center(
-                          child: Image.asset(
-                            'assets/images/logo.png',
-                            width: 48,
-                            height: 48,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
+                          child: Center(
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              width: 48,
+                              height: 48,
+                              errorBuilder: (_, __, ___) => const Icon(
                                 Icons.hub_rounded,
                                 color: Colors.white,
-                                size: 38,
+                                size: 42,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        const Text(
+                          'CRM Caller',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Welcome back. Sign in to continue.',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 15,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 48),
+
+                  // ── Login Card ────────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const AppFieldLabel(label: 'Email / Username'),
+                        const SizedBox(height: 8),
+                        AppTextField(
+                          controller: _userCtrl,
+                          hint: 'you@example.com',
+                          icon: Icons.person_outline_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                        ),
+                        const SizedBox(height: 18),
+                        const AppFieldLabel(label: 'Password'),
+                        const SizedBox(height: 8),
+                        AppTextField(
+                          controller: _passCtrl,
+                          hint: '••••••••',
+                          icon: Icons.lock_outline_rounded,
+                          obscureText: _obscure,
+                          onSubmitted: (_) => _login(),
+                          suffixIcon: IconButton(
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: AppColors.textTertiary,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          width: double.infinity,
+                          child: AppButton(
+                            label: 'Sign In',
+                            icon: Icons.arrow_forward_rounded,
+                            loading: _loading,
+                            onTap: _loading ? null : _login,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: AppOutlineButton(
+                            label: 'Dev Skip Login',
+                            icon: Icons.developer_mode,
+                            onTap: () async {
+                              await StorageService.saveSessionId('dev_dummy_sid');
+                              await StorageService.saveFullName('Dev Test User');
+                              if (!context.mounted) return;
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HomeScreen(
+                                    user: UserModel(username: 'Dev Test User'),
+                                  ),
+                                ),
                               );
                             },
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'CRM Caller',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Welcome back. Sign in to continue.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 40),
+                  const SizedBox(height: 28),
 
-                // Card
-                GlassCard(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Username
-                      const AppFieldLabel(label: 'Email / Username'),
-                      const SizedBox(height: 8),
-                      AppTextField(
-                        controller: _userCtrl,
-                        hint: 'you@example.com',
-                        icon: Icons.person_outline_rounded,
-                        keyboardType: TextInputType.emailAddress,
-                        onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                  // ── Change Site ───────────────────────────────────────────
+                  Center(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SiteSetupScreen()),
                       ),
-
-                      const SizedBox(height: 18),
-
-                      // Password
-                      const AppFieldLabel(label: 'Password'),
-                      const SizedBox(height: 8),
-                      AppTextField(
-                        controller: _passCtrl,
-                        hint:
-                            '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
-                        icon: Icons.lock_outline_rounded,
-                        obscureText: _obscure,
-                        onSubmitted: (_) => _login(),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                          icon: Icon(
-                            _obscure
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: AppColors.textTertiary,
-                            size: 20,
-                          ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
                         ),
-                      ),
-
-                      const SizedBox(height: 28),
-
-                      // Sign in button
-                      SizedBox(
-                        width: double.infinity,
-                        child: AppButton(
-                          label: 'Sign In',
-                          icon: Icons.arrow_forward_rounded,
-                          loading: _loading,
-                          onTap: _loading ? null : _login,
+                        decoration: BoxDecoration(
+                          color: AppColors.bgCard,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.borderLight),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: AppOutlineButton(
-                          label: 'Dev Skip Login',
-                          icon: Icons.developer_mode,
-                          onTap: () async {
-                            await StorageService.saveSessionId('dev_dummy_sid');
-                            await StorageService.saveFullName('Dev Test User');
-                            if (!context.mounted) return;
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => HomeScreen(
-                                  user: UserModel(username: 'Dev Test User'),
-                                ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.language_rounded,
+                                size: 16, color: AppColors.textSecondary),
+                            SizedBox(width: 8),
+                            Text(
+                              'Change Site Configuration',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Change site link
-                Center(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SiteSetupScreen(),
-                      ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.language_rounded,
-                            size: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Change Site Configuration',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
