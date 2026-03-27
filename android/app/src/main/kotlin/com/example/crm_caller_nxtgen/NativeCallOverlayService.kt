@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputType
 import android.util.TypedValue
@@ -135,10 +136,14 @@ class NativeCallOverlayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:call_overlay_wakelock")
         loadOverlayPosition()
         createChannel()
         startForegroundWithType("Waiting for calls")
@@ -158,6 +163,7 @@ class NativeCallOverlayService : Service() {
     }
 
     override fun onDestroy() {
+        if (wakeLock?.isHeld == true) wakeLock?.release()
         stopDurationTicker()
         removeOverlay()
         executor.shutdownNow()
@@ -165,7 +171,12 @@ class NativeCallOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        val action = intent?.action
+        
+        // Brief wakelock for Samsung stability
+        wakeLock?.acquire(8000)
+        
+        when (action) {
             ACTION_HIDE -> {
                 stopDurationTicker()
                 resetSessionState()
@@ -1282,8 +1293,12 @@ class NativeCallOverlayService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "CRM Caller Overlay",
-                NotificationManager.IMPORTANCE_LOW,
-            )
+                NotificationManager.IMPORTANCE_HIGH, // High priority for Samsung
+            ).apply {
+                description = "Shows caller information overlay"
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
             manager.createNotificationChannel(channel)
         }
     }
