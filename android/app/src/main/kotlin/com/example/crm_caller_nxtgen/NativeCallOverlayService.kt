@@ -24,6 +24,9 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.transition.AutoTransition
+import android.transition.TransitionManager
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -59,8 +62,9 @@ class NativeCallOverlayService : Service() {
         private const val NOTIFICATION_ID = 2007
         private const val PREF_OVERLAY_X = "crm_native_overlay_x"
         private const val PREF_OVERLAY_Y = "crm_native_overlay_y"
-        private const val COMPACT_WIDTH_DP = 224
-        private const val EXPANDED_WIDTH_DP = 340
+        private const val COMPACT_WIDTH_DP = 68
+        private const val EXPANDED_WIDTH_DP = 330
+        private const val BUBBLE_RADIUS_DP = 34
 
         // New Design Tokens
         private const val COLOR_BG = "#0F172A"
@@ -284,8 +288,9 @@ class NativeCallOverlayService : Service() {
     }
 
     private fun buildLayoutParams(): WindowManager.LayoutParams {
+        val widthMode = if (isExpanded) dp(EXPANDED_WIDTH_DP) else dp(COMPACT_WIDTH_DP)
         return WindowManager.LayoutParams(
-            dp(if (isExpanded) EXPANDED_WIDTH_DP else COMPACT_WIDTH_DP),
+            widthMode,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -295,9 +300,9 @@ class NativeCallOverlayService : Service() {
             currentWindowFlags(),
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = overlayX
-            y = overlayY
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            x = 0
+            y = if (isExpanded) overlayY else dp(20) // Floating at top center when compact
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
     }
@@ -421,7 +426,20 @@ class NativeCallOverlayService : Service() {
     private fun refreshWindowLayout() {
         val view = rootView ?: return
         val layoutParams = params ?: return
+
+        // Update Design State before updating layout
+        (view as? LinearLayout)?.let { shell ->
+            val mainBubble = shell.getChildAt(0)
+            val spacer = shell.getChildAt(1)
+            val textCol = (mainBubble as? ViewGroup)?.getChildAt(1)
+            val trailing = (mainBubble as? ViewGroup)?.getChildAt(2)
+            if (textCol != null && trailing != null && spacer != null) {
+                updateDesignState(shell, mainBubble, textCol, trailing, spacer)
+            }
+        }
+
         layoutParams.width = dp(if (isExpanded) EXPANDED_WIDTH_DP else COMPACT_WIDTH_DP)
+        layoutParams.y = if (isExpanded) overlayY else dp(20)
         layoutParams.flags = currentWindowFlags()
         layoutParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         expandedContainer?.visibility = if (isExpanded) View.VISIBLE else View.GONE
@@ -689,35 +707,30 @@ class NativeCallOverlayService : Service() {
     private fun buildOverlayView(): View {
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(24).toFloat()
-                setColor(Color.parseColor(COLOR_BG))
-                setStroke(dp(1), Color.parseColor(COLOR_BORDER))
-            }
-            elevation = dp(11).toFloat()
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            clipToPadding = false
         }
 
-        val headerRow = LinearLayout(this).apply {
+        val mainBubble = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setOnClickListener {
                 isExpanded = !isExpanded
+                applyDesignTransition()
                 refreshWindowLayout()
             }
         }
-        attachDragBehavior(headerRow)
+        attachDragBehavior(mainBubble)
 
         avatarView = TextView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38))
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
             gravity = Gravity.CENTER
-            textSize = 14f
+            textSize = 15f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.parseColor("#0F172A"), Color.parseColor("#2563EB")),
+                intArrayOf(Color.parseColor("#1E293B"), Color.parseColor("#3B82F6")),
             ).apply {
                 shape = GradientDrawable.OVAL
             }
@@ -726,8 +739,8 @@ class NativeCallOverlayService : Service() {
         val textColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginStart = dp(12)
-                marginEnd = dp(4)
+                marginStart = dp(14)
+                marginEnd = dp(6)
             }
         }
 
@@ -735,107 +748,152 @@ class NativeCallOverlayService : Service() {
             setTextColor(Color.parseColor(COLOR_ACCENT_MID))
             setTypeface(typeface, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            letterSpacing = 0.1f
         }
 
         titleView = TextView(this).apply {
             setTextColor(Color.parseColor(COLOR_TEXT_PRIM))
             setTypeface(typeface, Typeface.BOLD)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             maxLines = 1
         }
 
         subtitleView = TextView(this).apply {
-            setTextColor(Color.parseColor("#64748B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            setTextColor(Color.parseColor(COLOR_TEXT_SEC))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             maxLines = 1
         }
 
         compactHintView = TextView(this).apply {
-            setTextColor(Color.parseColor("#64748B"))
+            setTextColor(Color.parseColor(COLOR_ACCENT_MID))
             setTypeface(typeface, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            visibility = View.GONE
         }
 
         textColumn.addView(callStateView)
-        textColumn.addView(space(4))
         textColumn.addView(titleView)
-        textColumn.addView(space(4))
         textColumn.addView(subtitleView)
-        textColumn.addView(space(3))
         textColumn.addView(compactHintView)
 
-        val trailing = LinearLayout(this).apply {
+        val trailingContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
         badgeView = TextView(this).apply {
-            setPadding(dp(10), dp(5), dp(10), dp(5))
+            setPadding(dp(12), dp(5), dp(12), dp(5))
             setTypeface(typeface, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            setTextColor(Color.WHITE)
+            background = roundedFill(COLOR_ACCENT, 10f)
         }
 
         durationView = TextView(this).apply {
-            setTextColor(Color.parseColor("#1E3A8A"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(Color.parseColor("#BFDBFE"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER_HORIZONTAL
-            background = roundedFill("#DBEAFE", 14f)
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = roundedFill("#1E3A8A", 18f)
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(4) }
         }
 
         expandButton = ImageView(this).apply {
             setImageResource(android.R.drawable.arrow_down_float)
             setColorFilter(Color.parseColor(COLOR_TEXT_SEC))
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener {
                 isExpanded = !isExpanded
+                applyDesignTransition()
                 refreshWindowLayout()
             }
         }
 
-        val closeButton = ImageView(this).apply {
+        closeButtonView = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            setColorFilter(Color.parseColor("#64748B"))
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setColorFilter(Color.parseColor(COLOR_TEXT_SEC))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener {
                 startService(Intent(this@NativeCallOverlayService, NativeCallOverlayService::class.java).apply {
                     action = ACTION_HIDE
                 })
             }
         }
-        closeButtonView = closeButton
 
-        trailing.addView(badgeView)
-        trailing.addView(space(4))
-        trailing.addView(durationView)
-        trailing.addView(space(2))
-        trailing.addView(expandButton)
-        trailing.addView(closeButton)
+        trailingContainer.addView(badgeView)
+        trailingContainer.addView(durationView)
+        trailingContainer.addView(expandButton)
+        trailingContainer.addView(closeButtonView)
 
-        headerRow.addView(avatarView)
-        headerRow.addView(textColumn)
-        headerRow.addView(trailing)
+        mainBubble.addView(avatarView)
+        mainBubble.addView(textColumn)
+        mainBubble.addView(trailingContainer)
 
-        val divider = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(1),
-            ).apply { topMargin = dp(12) }
+        val spacerLine = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                topMargin = dp(14)
+                bottomMargin = dp(6)
+            }
             setBackgroundColor(Color.parseColor(COLOR_BORDER))
         }
 
-        expandedContainer = buildExpandedContent().apply {
-            visibility = View.GONE
-        }
+        expandedContainer = buildExpandedContent()
 
-        shell.addView(headerRow)
-        shell.addView(divider)
+        shell.addView(mainBubble)
+        shell.addView(spacerLine)
         shell.addView(expandedContainer)
 
-        return FrameLayout(this).apply {
-            setBackgroundColor(Color.TRANSPARENT)
-            addView(shell)
+        updateDesignState(shell, mainBubble, textColumn, trailingContainer, spacerLine)
+
+        return shell
+    }
+
+    private fun applyDesignTransition() {
+        (rootView as? ViewGroup)?.let {
+            TransitionManager.beginDelayedTransition(it, AutoTransition().apply {
+                duration = 250
+            })
+        }
+    }
+
+    private fun updateDesignState(
+        shell: LinearLayout,
+        mainBubble: View,
+        textColumn: View,
+        trailing: View,
+        spacer: View,
+    ) {
+        if (isExpanded) {
+            shell.background = GradientDrawable().apply {
+                setColor(Color.parseColor(COLOR_BG))
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), Color.parseColor(COLOR_BORDER))
+            }
+            shell.elevation = dp(12).toFloat()
+            textColumn.visibility = View.VISIBLE
+            trailing.visibility = View.VISIBLE
+            spacer.visibility = View.VISIBLE
+            expandedContainer?.visibility = View.VISIBLE
+            expandButton?.setImageResource(android.R.drawable.arrow_up_float)
+        } else {
+            shell.background = null
+            shell.elevation = 0f
+            textColumn.visibility = View.GONE
+            trailing.visibility = View.VISIBLE // Keep duration visible
+            badgeView?.visibility = View.GONE
+            expandButton?.visibility = View.GONE
+            closeButtonView?.visibility = View.GONE
+            spacer.visibility = View.GONE
+            expandedContainer?.visibility = View.GONE
+            
+            // Re-order for bubble look
+            (trailing as ViewGroup).let { vg ->
+                // Ensure duration is always there
+            }
         }
     }
 
