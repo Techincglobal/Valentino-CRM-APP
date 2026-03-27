@@ -59,7 +59,17 @@ class NativeCallOverlayService : Service() {
         private const val PREF_OVERLAY_X = "crm_native_overlay_x"
         private const val PREF_OVERLAY_Y = "crm_native_overlay_y"
         private const val COMPACT_WIDTH_DP = 224
-        private const val EXPANDED_WIDTH_DP = 348
+        private const val EXPANDED_WIDTH_DP = 340
+
+        // New Design Tokens
+        private const val COLOR_BG = "#0F172A"
+        private const val COLOR_CARD = "#1E293B"
+        private const val COLOR_BORDER = "#334155"
+        private const val COLOR_ACCENT = "#6366F1"
+        private const val COLOR_ACCENT_MID = "#818CF8"
+        private const val COLOR_ACCENT_DARK = "#4338CA"
+        private const val COLOR_TEXT_PRIM = "#FFFFFF"
+        private const val COLOR_TEXT_SEC = "#94A3B8"
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -293,17 +303,13 @@ class NativeCallOverlayService : Service() {
             "Unknown"
         }
         badgeView?.background = roundedFill(
-            if (callerFound) "#DDFBF1" else "#E0E7FF",
+            if (callerFound) "#1E3A8A" else "#334155",
             14f,
         )
-        badgeView?.setTextColor(Color.parseColor(if (callerFound) "#047857" else "#3730A3"))
+        badgeView?.setTextColor(Color.parseColor(if (callerFound) "#DBEAFE" else "#CBD5E1"))
         avatarView?.background = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            if (callerFound) {
-                intArrayOf(Color.parseColor("#0F766E"), Color.parseColor("#14B8A6"))
-            } else {
-                intArrayOf(Color.parseColor("#0F172A"), Color.parseColor("#2563EB"))
-            },
+            intArrayOf(Color.parseColor(COLOR_ACCENT_MID), Color.parseColor(COLOR_ACCENT), Color.parseColor(COLOR_ACCENT_DARK)),
         ).apply {
             shape = GradientDrawable.OVAL
         }
@@ -361,14 +367,14 @@ class NativeCallOverlayService : Service() {
             else -> "Tap for details"
         }
         val durationBg = when {
+            isCallActive -> "#166534"
+            isCallEnded -> "#334155"
+            else -> "#1E3A8A"
+        }
+        val durationFg = when {
             isCallActive -> "#DCFCE7"
             isCallEnded -> "#E2E8F0"
             else -> "#DBEAFE"
-        }
-        val durationFg = when {
-            isCallActive -> "#166534"
-            isCallEnded -> "#334155"
-            else -> "#1D4ED8"
         }
         durationView?.background = roundedFill(durationBg, 14f)
         durationView?.setTextColor(Color.parseColor(durationFg))
@@ -653,14 +659,9 @@ class NativeCallOverlayService : Service() {
             setPadding(dp(10), dp(10), dp(10), dp(10))
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(22).toFloat()
-                colors = intArrayOf(
-                    Color.parseColor("#F2FFFFFF"),
-                    Color.parseColor("#EAF2FF"),
-                    Color.parseColor("#F0FDFA"),
-                )
-                orientation = GradientDrawable.Orientation.TL_BR
-                setStroke(dp(1), Color.parseColor("#AAD9E8FF"))
+                cornerRadius = dp(24).toFloat()
+                setColor(Color.parseColor(COLOR_BG))
+                setStroke(dp(1), Color.parseColor(COLOR_BORDER))
             }
             elevation = dp(11).toFloat()
         }
@@ -698,15 +699,15 @@ class NativeCallOverlayService : Service() {
         }
 
         callStateView = TextView(this).apply {
-            setTextColor(Color.parseColor("#1D4ED8"))
+            setTextColor(Color.parseColor(COLOR_ACCENT_MID))
             setTypeface(typeface, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
         }
 
         titleView = TextView(this).apply {
-            setTextColor(Color.parseColor("#0F172A"))
+            setTextColor(Color.parseColor(COLOR_TEXT_PRIM))
             setTypeface(typeface, Typeface.BOLD)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             maxLines = 1
         }
 
@@ -752,7 +753,7 @@ class NativeCallOverlayService : Service() {
 
         expandButton = ImageView(this).apply {
             setImageResource(android.R.drawable.arrow_down_float)
-            setColorFilter(Color.parseColor("#1E293B"))
+            setColorFilter(Color.parseColor(COLOR_TEXT_SEC))
             setPadding(dp(8), dp(8), dp(8), dp(8))
             setOnClickListener {
                 isExpanded = !isExpanded
@@ -788,7 +789,7 @@ class NativeCallOverlayService : Service() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(1),
             ).apply { topMargin = dp(12) }
-            setBackgroundColor(Color.parseColor("#DCE7F7"))
+            setBackgroundColor(Color.parseColor(COLOR_BORDER))
         }
 
         expandedContainer = buildExpandedContent().apply {
@@ -818,8 +819,8 @@ class NativeCallOverlayService : Service() {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(20).toFloat()
                 colors = intArrayOf(
-                    Color.parseColor("#E0ECFF"),
-                    Color.parseColor("#ECFEFF"),
+                    Color.parseColor(COLOR_ACCENT_DARK),
+                    Color.parseColor(COLOR_ACCENT),
                 )
                 orientation = GradientDrawable.Orientation.LEFT_RIGHT
             }
@@ -828,14 +829,14 @@ class NativeCallOverlayService : Service() {
         val heroTitle = TextView(this).apply {
             text = "Call Workspace"
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.parseColor("#0F172A"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
         }
 
         val heroSubtitle = TextView(this).apply {
-            text = "Capture details while the conversation is fresh."
-            setTextColor(Color.parseColor("#475569"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            text = "Capture details while fresh."
+            setTextColor(Color.parseColor("#CBD5E1"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
         }
 
         val metaRow = LinearLayout(this).apply {
@@ -899,7 +900,7 @@ class NativeCallOverlayService : Service() {
             setPadding(dp(14), dp(12), dp(14), dp(12))
             setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
-            background = roundedFill("#2563EB", 16f)
+            background = roundedFill(COLOR_ACCENT, 16f)
             setOnClickListener { submitPrimaryAction() }
         }
         primaryActionButton = primaryButton
@@ -909,8 +910,8 @@ class NativeCallOverlayService : Service() {
             gravity = Gravity.CENTER
             setPadding(dp(14), dp(12), dp(14), dp(12))
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.parseColor("#0F172A"))
-            background = roundedFill("#E2E8F0", 16f)
+            setTextColor(Color.parseColor(COLOR_TEXT_PRIM))
+            background = roundedFill(COLOR_CARD, 16f)
             setOnClickListener { openApp() }
         }
 
@@ -919,8 +920,8 @@ class NativeCallOverlayService : Service() {
             gravity = Gravity.CENTER
             setPadding(dp(14), dp(12), dp(14), dp(12))
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.parseColor("#0F172A"))
-            background = roundedFill("#E2E8F0", 16f)
+            setTextColor(Color.parseColor(COLOR_TEXT_PRIM))
+            background = roundedFill(COLOR_CARD, 16f)
             setOnClickListener {
                 isExpanded = false
                 refreshWindowLayout()
@@ -1002,14 +1003,14 @@ class NativeCallOverlayService : Service() {
             this.inputType = inputType
             minLines = lines
             maxLines = lines
-            setTextColor(Color.parseColor("#0F172A"))
-            setHintTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.parseColor(COLOR_TEXT_PRIM))
+            setHintTextColor(Color.parseColor(COLOR_TEXT_SEC))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(16).toFloat()
-                setColor(Color.WHITE)
-                setStroke(dp(1), Color.parseColor("#CBD5E1"))
+                setColor(Color.parseColor(COLOR_CARD))
+                setStroke(dp(1), Color.parseColor(COLOR_BORDER))
             }
             setPadding(dp(14), dp(12), dp(14), dp(12))
         }
@@ -1032,11 +1033,11 @@ class NativeCallOverlayService : Service() {
     private fun buildMetaChip(label: String, emphasized: Boolean): TextView {
         return TextView(this).apply {
             text = label
-            setTextColor(Color.parseColor(if (emphasized) "#1D4ED8" else "#475569"))
+            setTextColor(Color.parseColor(if (emphasized) COLOR_ACCENT_MID else COLOR_TEXT_SEC))
             setTypeface(typeface, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             setPadding(dp(10), dp(7), dp(10), dp(7))
-            background = roundedFill(if (emphasized) "#DBEAFE" else "#F1F5F9", 14f)
+            background = roundedFill(if (emphasized) "#1E293B" else "#1E293B", 14f)
         }
     }
 
