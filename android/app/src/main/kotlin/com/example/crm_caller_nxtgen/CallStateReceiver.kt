@@ -36,8 +36,11 @@ class CallStateReceiver : BroadcastReceiver() {
 
         when (state) {
             TelephonyManager.EXTRA_STATE_RINGING -> {
+                // Mark this as an incoming session
+                val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                prefs.edit().putBoolean("crm_is_incoming_call", true).apply()
+
                 // On Android 10+, the phone number might be null in this broadcast for privacy.
-                // We should still show the overlay with a placeholder rather than silent failure.
                 val safePhone = if (phone.isNullOrBlank()) "Hidden" else phone
 
                 val overlayIntent = Intent(context, NativeCallOverlayService::class.java).apply {
@@ -48,28 +51,37 @@ class CallStateReceiver : BroadcastReceiver() {
             }
 
             TelephonyManager.EXTRA_STATE_OFFHOOK -> {
-                val overlayIntent = Intent(context, NativeCallOverlayService::class.java).apply {
-                    action = NativeCallOverlayService.ACTION_CALL_ACTIVE
-                    if (!phone.isNullOrBlank()) {
-                        putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
+                val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                val isIncoming = prefs.getBoolean("crm_is_incoming_call", false)
+
+                // Only show overlay for incoming (receiving) calls per user request
+                if (isIncoming) {
+                    val overlayIntent = Intent(context, NativeCallOverlayService::class.java).apply {
+                        action = NativeCallOverlayService.ACTION_CALL_ACTIVE
+                        if (!phone.isNullOrBlank()) {
+                            putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
+                        }
                     }
+                    ContextCompat.startForegroundService(context, overlayIntent)
                 }
-                ContextCompat.startForegroundService(context, overlayIntent)
             }
 
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 // Also reset any stored state
                 val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                prefs.edit().remove(KEY_LAST_PHONE_STATE).apply()
+                val wasIncoming = prefs.getBoolean("crm_is_incoming_call", false)
+                prefs.edit().remove(KEY_LAST_PHONE_STATE).remove("crm_is_incoming_call").apply()
 
-                context.startService(
-                    Intent(context, NativeCallOverlayService::class.java).apply {
-                        action = NativeCallOverlayService.ACTION_CALL_ENDED
-                        if (!phone.isNullOrBlank()) {
-                            putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
-                        }
-                    },
-                )
+                if (wasIncoming) {
+                    context.startService(
+                        Intent(context, NativeCallOverlayService::class.java).apply {
+                            action = NativeCallOverlayService.ACTION_CALL_ENDED
+                            if (!phone.isNullOrBlank()) {
+                                putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
