@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phone_state/phone_state.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -144,24 +143,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await prefs.setString('crm_caller_type', data['type'] ?? '');
       await prefs.setString('crm_caller_docname', data['docname'] ?? '');
       await prefs.setBool('crm_caller_found', data['found'] == true);
-
-      // Check permission first
-      bool? isGranted = await FlutterOverlayWindow.isPermissionGranted();
-      if (isGranted != true) {
-        await FlutterOverlayWindow.requestPermission();
-      }
-
-      // Show the NEW Flutter overlay
-      await FlutterOverlayWindow.showOverlay(
-        enableDrag: true,
-        overlayTitle: "Call Context",
-        overlayContent: data['name'] ?? "Incoming Call",
-        flag: OverlayFlag.focusPointer,
-        visibility: NotificationVisibility.visibilityPublic,
-        positionGravity: PositionGravity.right,
-        height: WindowSize.matchParent,
-        width: WindowSize.matchParent,
-      );
+      await _nativeOverlayChannel.invokeMethod('showNativeOverlay', data);
     } catch (e) {
       if (mounted) await _showInAppOverlay(data);
     }

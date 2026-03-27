@@ -30,6 +30,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -135,7 +136,20 @@ class NativeCallOverlayService : Service() {
         touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         loadOverlayPosition()
         createChannel()
-        startForeground(NOTIFICATION_ID, buildNotification("Waiting for calls"))
+        startForegroundWithType("Waiting for calls")
+    }
+
+    private fun startForegroundWithType(content: String) {
+        val notification = buildNotification(content)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, 
+                notification, 
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onDestroy() {
