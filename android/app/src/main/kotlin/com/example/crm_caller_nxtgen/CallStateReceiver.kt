@@ -36,11 +36,13 @@ class CallStateReceiver : BroadcastReceiver() {
 
         when (state) {
             TelephonyManager.EXTRA_STATE_RINGING -> {
-                if (phone.isNullOrBlank()) return
+                // On Android 10+, the phone number might be null in this broadcast for privacy.
+                // We should still show the overlay with a placeholder rather than silent failure.
+                val safePhone = if (phone.isNullOrBlank()) "Hidden" else phone
 
                 val overlayIntent = Intent(context, NativeCallOverlayService::class.java).apply {
                     action = NativeCallOverlayService.ACTION_SHOW
-                    putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
+                    putExtra(NativeCallOverlayService.EXTRA_PHONE, safePhone)
                 }
                 ContextCompat.startForegroundService(context, overlayIntent)
             }
@@ -56,6 +58,10 @@ class CallStateReceiver : BroadcastReceiver() {
             }
 
             TelephonyManager.EXTRA_STATE_IDLE -> {
+                // Also reset any stored state
+                val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                prefs.edit().remove(KEY_LAST_PHONE_STATE).apply()
+
                 context.startService(
                     Intent(context, NativeCallOverlayService::class.java).apply {
                         action = NativeCallOverlayService.ACTION_CALL_ENDED

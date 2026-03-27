@@ -378,6 +378,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const _OverlayPermissionCard(),
             const SizedBox(height: 16),
             _TestOverlayCard(onTest: _forceShowOverlay),
+            const SizedBox(height: 16),
+            const _QuickActionCard(),
             if (_bgLogs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _LogsCard(logs: _bgLogs, onRefresh: _loadLogs),
@@ -879,7 +881,8 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
           false;
       if (mounted) setState(() => _granted = granted);
     } catch (_) {
-      if (mounted) setState(() => _granted = true);
+      // If we can't check, assume not granted so user can try to open settings
+      if (mounted) setState(() => _granted = false);
     }
   }
 
@@ -1038,6 +1041,84 @@ class _TestOverlayCard extends StatelessWidget {
             fontWeight: FontWeight.w700,
             fontSize: 11,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// QUICK ACTION CARD
+// ════════════════════════════════════════════════════════════════════════════
+
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final ac = context.ac;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: context.isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ac.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.bolt_rounded,
+                    color: AppColors.primary, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Text('Quick Actions',
+                  style: TextStyle(
+                    color: ac.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  )),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildActionItem(context, 'Sync Dashboard', Icons.sync_rounded, () {}),
+          _buildActionItem(
+              context, 'Recent Calls', Icons.history_rounded, () {}),
+          _buildActionItem(
+              context, 'Profile Settings', Icons.person_outline_rounded, () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionItem(
+      BuildContext context, String title, IconData icon, VoidCallback onTap) {
+    final ac = context.ac;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: ac.textSecondary),
+            const SizedBox(width: 14),
+            Text(title,
+                style: TextStyle(
+                    color: ac.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500)),
+            const Spacer(),
+            Icon(Icons.chevron_right_rounded, size: 16, color: ac.border),
+          ],
         ),
       ),
     );
