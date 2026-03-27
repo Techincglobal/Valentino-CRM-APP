@@ -114,6 +114,7 @@ class NativeCallOverlayService : Service() {
     private var isExpanded: Boolean = false
     private var isCallActive: Boolean = false
     private var isCallEnded: Boolean = false
+    private var isPostCallMode: Boolean = false  // overlay stays open for notes
     private var callStartedAtMillis: Long? = null
     private var lastCallDurationMillis: Long = 0L
     private var isSubmitting: Boolean = false
@@ -199,8 +200,13 @@ class NativeCallOverlayService : Service() {
                 }
                 isCallActive = false
                 isCallEnded = true
+                isPostCallMode = true  // Keep overlay open; user must dismiss manually
                 callStartedAtMillis = null
                 stopDurationTicker()
+                // Auto-expand so the note field is immediately visible
+                if (!isExpanded) {
+                    isExpanded = true
+                }
                 showOverlay()
                 updateCallStateUi()
             }
@@ -297,12 +303,15 @@ class NativeCallOverlayService : Service() {
     }
 
     private fun currentWindowFlags(): Int {
-        val baseFlags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        // Always show above other apps including games and full-screen content
+        val base = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
         return if (isExpanded) {
-            baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            base or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
         } else {
-            baseFlags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            base or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         }
     }
 
@@ -555,8 +564,18 @@ class NativeCallOverlayService : Service() {
                     noteInput?.text?.clear()
                     latestNote = note
                     setSubmitting(false)
-                    showStatus("Note saved")
-                    bindLatestNote()
+                    if (isPostCallMode) {
+                        // Auto-dismiss after successful save in post-call mode
+                        showStatus("Note saved! Closing...")
+                        handler.postDelayed({
+                            startService(Intent(this, NativeCallOverlayService::class.java).apply {
+                                action = ACTION_HIDE
+                            })
+                        }, 1200)
+                    } else {
+                        showStatus("Note saved")
+                        bindLatestNote()
+                    }
                 }
             } catch (e: Exception) {
                 handler.post {
@@ -1111,6 +1130,7 @@ class NativeCallOverlayService : Service() {
         callerFound = false
         isCallActive = false
         isCallEnded = false
+        isPostCallMode = false
         callStartedAtMillis = null
         lastCallDurationMillis = 0L
     }

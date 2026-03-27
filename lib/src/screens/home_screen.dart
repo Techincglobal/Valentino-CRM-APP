@@ -44,6 +44,60 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadDailyCallCount();
     _loadLogs();
     unawaited(_consumeLaunchPhone());
+    if (Platform.isAndroid) {
+      unawaited(_startWatchdog());
+      // Delay so the first frame is rendered before showing a dialog
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) unawaited(_requestBatteryExemption());
+      });
+    }
+  }
+
+  Future<void> _startWatchdog() async {
+    try {
+      await _nativeOverlayChannel.invokeMethod('startWatchdog');
+    } catch (_) {}
+  }
+
+  Future<void> _requestBatteryExemption() async {
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final prompted = prefs.getBool('crm_battery_exemption_prompted') ?? false;
+    if (prompted) return;
+
+    await prefs.setBool('crm_battery_exemption_prompted', true);
+
+    if (!mounted) return;
+    final ac = context.ac;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ac.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Keep overlay active?', style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w700)),
+        content: Text(
+          'For the call overlay to appear even when this app is closed, please disable battery optimization for CRM Caller.\n\nTap OK to open the setting.',
+          style: TextStyle(color: ac.textSecondary, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Later', style: TextStyle(color: ac.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _nativeOverlayChannel.invokeMethod('openBatterySettings');
+            },
+            child: const Text('Open Setting', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadLogs() async {
