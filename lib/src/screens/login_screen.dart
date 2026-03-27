@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/user_model.dart';
 import 'home_screen.dart';
 import 'site_setup_screen.dart';
@@ -45,18 +44,25 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _login() async {
-    if (_userCtrl.text.trim().isEmpty || _passCtrl.text.trim().isEmpty) return;
+    final usr = _userCtrl.text.trim();
+    final pwd = _passCtrl.text.trim();
+    if (usr.isEmpty || pwd.isEmpty) {
+      _showError(usr.isEmpty
+          ? 'Please enter your username or email.'
+          : 'Please enter your password.');
+      return;
+    }
     final baseUrl = await StorageService.getBaseUrl();
     if (baseUrl == null) {
-      _showError('Site URL not configured');
+      _showError('Site URL not configured. Tap "Change Site Configuration" below.');
       return;
     }
     setState(() => _loading = true);
     try {
       final result = await AuthService.login(
         baseUrl: baseUrl,
-        username: _userCtrl.text.trim(),
-        password: _passCtrl.text.trim(),
+        username: usr,
+        password: pwd,
       );
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -64,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen>
         MaterialPageRoute(
           builder: (_) => HomeScreen(
             user: UserModel(
-              username: result['full_name'] as String? ?? _userCtrl.text.trim(),
+              username: result['full_name'] as String? ?? usr,
             ),
           ),
         ),
@@ -94,13 +100,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ));
-
+    setSystemUIOverlay(context);
+    final ac = context.ac;
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
+      backgroundColor: ac.bgBase,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnim,
@@ -154,21 +157,21 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(height: 28),
-                        const Text(
+                         const SizedBox(height: 28),
+                        Text(
                           'CRM Caller',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: ac.textPrimary,
                             fontSize: 32,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -1.2,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'Welcome back. Sign in to continue.',
                           style: TextStyle(
-                            color: AppColors.textSecondary,
+                            color: ac.textSecondary,
                             fontSize: 15,
                             letterSpacing: -0.1,
                           ),
@@ -183,9 +186,9 @@ class _LoginScreenState extends State<LoginScreen>
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: AppColors.bgCard,
+                      color: ac.bgCard,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.borderLight),
+                      border: Border.all(color: ac.borderLight),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +218,7 @@ class _LoginScreenState extends State<LoginScreen>
                               _obscure
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: AppColors.textTertiary,
+                              color: ac.textTertiary,
                               size: 20,
                             ),
                           ),
@@ -270,20 +273,20 @@ class _LoginScreenState extends State<LoginScreen>
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.bgCard,
+                          color: ac.bgCard,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.borderLight),
+                          border: Border.all(color: ac.borderLight),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.language_rounded,
-                                size: 16, color: AppColors.textSecondary),
-                            SizedBox(width: 8),
+                                size: 16, color: ac.textSecondary),
+                            const SizedBox(width: 8),
                             Text(
                               'Change Site Configuration',
                               style: TextStyle(
-                                color: AppColors.textSecondary,
+                                color: ac.textSecondary,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),

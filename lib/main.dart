@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'src/screens/overlay_bubble.dart';
+import 'src/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,12 +16,9 @@ void overlayMain() {
   runApp(
     MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        splashFactory: NoSplash.splashFactory,
-        highlightColor: Colors.transparent,
-      ),
+      theme: CrmTheme.light(),
+      darkTheme: CrmTheme.dark(),
+      themeMode: ThemeMode.system,
       home: const OverlayBubble(),
     ),
   );

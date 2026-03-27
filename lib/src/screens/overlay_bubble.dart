@@ -310,6 +310,13 @@ class _OverlayBubbleState extends State<OverlayBubble>
 
     final size = MediaQuery.of(context).size;
 
+    // Eagerly initialize position if didChangeDependencies hasn't run yet
+    // (e.g. when the overlay is shown inside a Dialog).
+    if (!_posInitialized || _pos.dx.isInfinite) {
+      _pos = Offset(size.width - _kBubbleSize - 20, 100);
+      _posInitialized = true;
+    }
+
     return Material(
       color: Colors.transparent,
       child: SizedBox(
