@@ -44,25 +44,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          brightness: Brightness.dark,
-          primary: AppColors.primary,
-          onPrimary: Colors.white,
-          surface: AppColors.bgCard,
-          onSurface: AppColors.textPrimary,
-        ),
-        scaffoldBackgroundColor: AppColors.bgBase,
-        splashFactory: NoSplash.splashFactory,
-        highlightColor: Colors.transparent,
-        popupMenuTheme: const PopupMenuThemeData(
-          color: AppColors.bgCard,
-          textStyle: TextStyle(color: AppColors.textPrimary),
-        ),
-      ),
+      theme: CrmTheme.light(),
+      darkTheme: CrmTheme.dark(),
+      themeMode: ThemeMode.system,
       home: FutureBuilder(
         future: _resolveStartup(),
         builder: (context, snapshot) {

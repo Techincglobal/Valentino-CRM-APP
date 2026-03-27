@@ -98,33 +98,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       Permission.phone,
       Permission.notification,
     ].request();
-    final phoneGranted = statuses[Permission.phone]?.isGranted ?? false;
-    if (!phoneGranted) return;
-    _startUiPhoneListener();
-  }
-
-  Future<void> _consumeLaunchPhone() async {
-    if (!Platform.isAndroid) return;
-    try {
-      final phone =
-          await _nativeOverlayChannel.invokeMethod<String>('consumeLaunchPhone');
-      if (phone != null && phone.isNotEmpty && mounted) {
-        _phoneController.text = phone;
-        await _handleIncomingNumber(phone, incrementCount: false);
-      }
-    } catch (_) {}
+    if (statuses[Permission.phone] == PermissionStatus.granted) {
+      _startUiPhoneListener();
+    }
   }
 
   void _startUiPhoneListener() {
-    if (_phoneSubscription != null) return;
-    _phoneSubscription = PhoneState.stream.listen((event) async {
-      if (!mounted) return;
-      if (event.status == PhoneStateStatus.CALL_INCOMING &&
-          event.number != null &&
-          _shouldHandleIncoming(event.number!)) {
-        await _handleIncomingNumber(event.number!);
-      } else if (event.status == PhoneStateStatus.CALL_ENDED) {
-        await _hideNativeOverlay();
+    _phoneSubscription?.cancel();
+    _phoneSubscription = PhoneState.stream.listen((event) {
+      if (event.status == PhoneStateStatus.CALL_INCOMING ||
+          event.status == PhoneStateStatus.CALL_STARTED) {
+        final phone = event.number ?? '';
+        if (phone.isEmpty) return;
+        final now = DateTime.now();
+        if (phone == _lastHandledPhone &&
+            _lastHandledAt != null &&
+            now.difference(_lastHandledAt!).inSeconds < 5) return;
+        _lastHandledPhone = phone;
+        _lastHandledAt = now;
+        unawaited(_handleIncomingNumber(phone));
       }
     });
   }
@@ -134,15 +126,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _phoneSubscription = null;
   }
 
-  bool _shouldHandleIncoming(String phone) {
-    final now = DateTime.now();
-    final duplicate = _lastHandledPhone == phone &&
-        _lastHandledAt != null &&
-        now.difference(_lastHandledAt!) < const Duration(seconds: 5);
-    if (duplicate) return false;
-    _lastHandledPhone = phone;
-    _lastHandledAt = now;
-    return true;
+  Future<void> _consumeLaunchPhone() async {
+    final prefs = await SharedPreferences.getInstance();
+    final launchPhone = prefs.getString('crm_launch_phone') ?? '';
+    if (launchPhone.isNotEmpty && mounted) {
+      await prefs.remove('crm_launch_phone');
+      unawaited(_handleIncomingNumber(launchPhone));
+    }
+  }
+
+  Future<void> _showNativeOverlay(Map<String, dynamic> data) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('crm_caller_phone', data['phone'] ?? '');
+      await prefs.setString('crm_caller_name', data['name'] ?? '');
+      await prefs.setString('crm_caller_type', data['type'] ?? '');
+      await prefs.setString('crm_caller_docname', data['docname'] ?? '');
+      await prefs.setBool('crm_caller_found', data['found'] == true);
+      await _nativeOverlayChannel.invokeMethod('showNativeOverlay', data);
+    } catch (e) {
+      if (mounted) await _showInAppOverlay(data);
+    }
   }
 
   Future<void> _showInAppOverlay(Map<String, dynamic> data) async {
@@ -154,42 +158,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _showNativeOverlay(Map<String, dynamic> data) async {
-    await _nativeOverlayChannel.invokeMethod('showNativeOverlay', data);
-  }
-
-  Future<void> _hideNativeOverlay() async {
-    try {
-      await _nativeOverlayChannel.invokeMethod('hideNativeOverlay');
-    } catch (_) {}
-  }
-
-  Future<void> _presentCallerWorkflow(
-      String phone, Map<String, dynamic> response) async {
-    if (!mounted || _workflowOpen) return;
+  Future<void> _handleIncomingNumber(String phone) async {
+    if (_workflowOpen) return;
     _workflowOpen = true;
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          if (response['found'] == true) {
-            return _KnownCallerSheet(phone: phone, result: response);
-          }
-          return _CreateLeadSheet(phone: phone);
-        },
-      );
-    } finally {
-      _workflowOpen = false;
-    }
-  }
-
-  Future<void> _handleIncomingNumber(String phone,
-      {bool incrementCount = true}) async {
-    if (!mounted) return;
-    setState(() => _loading = true);
-    if (incrementCount) await _incrementCallCount();
+    if (mounted) setState(() => _loading = true);
+    unawaited(_incrementCallCount());
     Map<String, dynamic> response;
     try {
       response = await CallerService.getCallerDetails(phone);
@@ -209,6 +182,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _presentCallerWorkflow(phone, response);
     } catch (e) {
       debugPrint('Overlay error: $e');
+      if (mounted) setState(() => _loading = false);
+      return;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -217,23 +192,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _forceShowOverlay(bool isKnown) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      final name = isKnown ? 'Test Caller' : 'Unknown Number';
-      final type = isKnown ? 'Test Contact' : '';
+
+      final name    = isKnown ? 'Test Caller' : 'Unknown Number';
+      final type    = isKnown ? 'Test Contact' : '';
       final docname = isKnown ? 'TEST-CALLER' : '';
-      
+
       await prefs.setString('crm_caller_phone', '+1 555 010 2026');
       await prefs.setString('crm_caller_name', name);
       await prefs.setString('crm_caller_type', type);
       await prefs.setString('crm_caller_docname', docname);
       await prefs.setBool('crm_caller_found', isKnown);
-      
+
       final data = {
-        'phone': '+1 555 010 2026',
-        'name': name,
-        'type': type,
-        'docname': docname,
-        'found': isKnown,
+        'phone':    '+1 555 010 2026',
+        'name':     name,
+        'type':     type,
+        'docname':  docname,
+        'found':    isKnown,
         'event_id': DateTime.now().millisecondsSinceEpoch,
       };
       if (Platform.isAndroid) {
@@ -254,29 +229,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _saveCallerDataToPrefs(
-      String phone, Map<String, dynamic> result) async {
+      String phone, Map<String, dynamic> response) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('crm_caller_phone', phone);
     await prefs.setString(
-        'crm_caller_name', (result['customer_name'] as String?) ?? '');
-    await prefs.setString('crm_caller_type', (result['type'] as String?) ?? '');
+        'crm_caller_name', response['name'] as String? ?? '');
     await prefs.setString(
-        'crm_caller_docname', (result['name'] as String?) ?? '');
-    await prefs.setBool('crm_caller_found', result['found'] == true);
+        'crm_caller_type', response['type'] as String? ?? '');
+    await prefs.setString(
+        'crm_caller_docname', response['docname'] as String? ?? '');
+    await prefs.setBool('crm_caller_found', response['found'] == true);
   }
 
-  void _showError(String message) {
+  Future<void> _presentCallerWorkflow(
+      String phone, Map<String, dynamic> response) async {
+    if (!mounted) { _workflowOpen = false; return; }
+    final data = {
+      'phone':    phone,
+      'name':     response['name'] ?? '',
+      'type':     response['type'] ?? '',
+      'docname':  response['docname'] ?? '',
+      'found':    response['found'] == true,
+      'event_id': DateTime.now().millisecondsSinceEpoch,
+    };
+    if (Platform.isAndroid) {
+      var overlayGranted =
+          await _nativeOverlayChannel.invokeMethod<bool>('canDrawOverlays') ??
+          false;
+      if (overlayGranted) {
+        await _showNativeOverlay(data);
+        _workflowOpen = false;
+        return;
+      }
+    }
+    await _showInAppOverlay(data);
+    _workflowOpen = false;
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.white, size: 17),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message)),
-        ]),
-        backgroundColor: AppColors.danger,
+        content: Text(msg),
+        backgroundColor: const Color(0xFFEF4444),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -291,15 +288,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ));
+    setSystemUIOverlay(context);
+    final ac = context.ac;
+    final isDark = context.isDark;
 
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
+      backgroundColor: ac.bgBase,
       extendBodyBehindAppBar: true,
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(context, ac, isDark),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
@@ -338,20 +334,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context, AdaptiveColors ac, bool isDark) {
+    final username = widget.user.username;
     return AppBar(
-      backgroundColor: AppColors.bgBase.withValues(alpha: 0.92),
+      backgroundColor: ac.bgBase.withValues(alpha: 0.94),
       elevation: 0,
       scrolledUnderElevation: 0,
-      systemOverlayStyle: const SystemUiOverlayStyle(
+      systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       ),
       flexibleSpace: Container(
         decoration: BoxDecoration(
-          color: AppColors.bgBase.withValues(alpha: 0.92),
-          border: const Border(
-            bottom: BorderSide(color: AppColors.borderLight, width: 1),
+          color: ac.bgBase.withValues(alpha: 0.94),
+          border: Border(
+            bottom: BorderSide(color: ac.border, width: 0.8),
           ),
         ),
       ),
@@ -379,10 +376,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 color: Colors.white, size: 18),
           ),
           const SizedBox(width: 10),
-          const Text(
+          Text(
             'CRM Caller',
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: ac.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.5,
@@ -395,10 +392,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           padding: const EdgeInsets.only(right: 16),
           child: PopupMenuButton<String>(
             offset: const Offset(0, 52),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            color: AppColors.bgCard,
+            color: ac.bgCard,
             elevation: 10,
-            shadowColor: Colors.black.withValues(alpha: 0.5),
+            shadowColor: Colors.black.withValues(alpha: 0.2),
             child: Container(
               width: 36,
               height: 36,
@@ -419,9 +415,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               child: Center(
                 child: Text(
-                  widget.user.username.isNotEmpty
-                      ? widget.user.username[0].toUpperCase()
-                      : 'U',
+                  username.isNotEmpty ? username[0].toUpperCase() : 'U',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -438,16 +432,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.user.username,
-                      style: const TextStyle(
-                          color: AppColors.textPrimary,
+                      username,
+                      style: TextStyle(
+                          color: ac.textPrimary,
                           fontWeight: FontWeight.w700,
                           fontSize: 14),
                     ),
                     const SizedBox(height: 2),
-                    const Text('Signed in',
-                        style: TextStyle(
-                            color: AppColors.textTertiary, fontSize: 12)),
+                    Text('Signed in',
+                        style: TextStyle(color: ac.textTertiary, fontSize: 12)),
                   ],
                 ),
               ),
@@ -496,21 +489,29 @@ class _DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ac = context.ac;
+    final isDark = context.isDark;
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1A1F36), Color(0xFF111827)],
-        ),
+        color: isDark ? const Color(0xFF111827) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: ac.border),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.07),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row
+          // Greeting row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -521,21 +522,21 @@ class _DashboardHeader extends StatelessWidget {
                     Text(
                       'OVERVIEW',
                       style: TextStyle(
-                        color: AppColors.primary.withValues(alpha: 0.9),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary.withValues(alpha: 0.85),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
                         letterSpacing: 2.5,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       'Hello, $username 👋',
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 24,
+                      style: TextStyle(
+                        color: ac.textPrimary,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: -0.8,
+                        letterSpacing: -0.6,
                       ),
                     ),
                   ],
@@ -545,10 +546,9 @@ class _DashboardHeader extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.12),
+                  color: AppColors.success.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: AppColors.success.withValues(alpha: 0.25)),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.22)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -561,9 +561,8 @@ class _DashboardHeader extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.success.withValues(alpha: 0.6),
-                            blurRadius: 6,
-                            spreadRadius: 1,
+                            color: AppColors.success.withValues(alpha: 0.55),
+                            blurRadius: 5,
                           ),
                         ],
                       ),
@@ -582,15 +581,15 @@ class _DashboardHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
-          // Stats row
+          // Stats pill
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: AppColors.bgInput,
+              color: ac.bgInput,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderLight),
+              border: Border.all(color: ac.border),
             ),
             child: Row(
               children: [
@@ -601,25 +600,22 @@ class _DashboardHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.phone_in_talk_rounded,
-                      color: AppColors.primary, size: 22),
+                      color: AppColors.primary, size: 20),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Calls Today',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      Text('Calls Today',
+                          style: TextStyle(
+                              color: ac.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500)),
                       Text(
                         '$callsToday',
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: ac.textPrimary,
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.5,
@@ -628,14 +624,12 @@ class _DashboardHeader extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Gradient chip for activity indicator
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryDark],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
+                        colors: [AppColors.primary, AppColors.primaryDark]),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
                     'LIVE',
@@ -673,50 +667,59 @@ class _ManualLookupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(22),
+    final ac = context.ac;
+    final isDark = context.isDark;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: ac.border),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: AppColors.primarySurface,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Icon(Icons.manage_search_rounded,
-                    color: AppColors.primary, size: 20),
+                    color: AppColors.primary, size: 18),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Manual Lookup',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    Text(
-                      'Search any number in your CRM',
-                      style: TextStyle(
-                          color: AppColors.textSecondary, fontSize: 12),
-                    ),
+                    Text('Manual Lookup',
+                        style: TextStyle(
+                            color: ac.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            letterSpacing: -0.2)),
+                    Text('Search any number in your CRM',
+                        style: TextStyle(color: ac.textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Input row
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -751,7 +754,7 @@ class _ManualLookupCard extends StatelessWidget {
                         ? []
                         : [
                             BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.4),
+                              color: AppColors.primary.withValues(alpha: 0.38),
                               blurRadius: 14,
                               offset: const Offset(0, 5),
                             ),
@@ -836,11 +839,11 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
   Widget build(BuildContext context) {
     if (_granted) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.08),
+        color: AppColors.warning.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -848,39 +851,37 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(11),
+                  color: AppColors.warning.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.warning_amber_rounded,
-                    color: AppColors.warning, size: 20),
+                    color: AppColors.warning, size: 18),
               ),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Permission Required',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
+              Text(
+                'Permission Required',
+                style: TextStyle(
+                  color: context.ac.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'Grant "Display over other apps" so the CRM bubble appears during incoming calls, even when the app is in the background.',
+          const SizedBox(height: 10),
+          Text(
+            'Grant "Display over other apps" so the CRM bubble appears during incoming calls.',
             style: TextStyle(
-                color: AppColors.textSecondary, fontSize: 13, height: 1.5),
+                color: context.ac.textSecondary, fontSize: 13, height: 1.5),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: AppButton(
-              label: 'Grant Overlay Permission',
+              label: 'Grant Permission',
               icon: Icons.security_rounded,
               onTap: _request,
               color: AppColors.warning,
@@ -903,38 +904,51 @@ class _TestOverlayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(22),
+    final ac = context.ac;
+    final isDark = context.isDark;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ac.border),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.flash_on_rounded,
-                color: AppColors.accent, size: 20),
+                color: AppColors.accent, size: 18),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Test Overlay',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-                Text(
-                  'Trigger caller bubble',
-                  style:
-                      TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                ),
+                Text('Test Overlay',
+                    style: TextStyle(
+                      color: ac.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    )),
+                Text('Trigger the caller bubble',
+                    style:
+                        TextStyle(color: ac.textSecondary, fontSize: 12)),
               ],
             ),
           ),
@@ -943,26 +957,25 @@ class _TestOverlayCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-               _buildBtn('Known Caller', () => onTest(true)),
-               const SizedBox(height: 6),
-               _buildBtn('Unknown Caller', () => onTest(false)),
-            ]
+              _buildBtn(context, 'Known', () => onTest(true)),
+              const SizedBox(height: 6),
+              _buildBtn(context, 'Unknown', () => onTest(false)),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBtn(String label, VoidCallback onTap) {
+  Widget _buildBtn(BuildContext context, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: AppColors.accent.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: AppColors.accent.withValues(alpha: 0.25)),
+          color: AppColors.accent.withValues(alpha: 0.11),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: AppColors.accent.withValues(alpha: 0.22)),
         ),
         child: Text(
           label,
@@ -978,487 +991,119 @@ class _TestOverlayCard extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// BOTTOM SHEETS
+// BACKGROUND LOGS CARD
 // ════════════════════════════════════════════════════════════════════════════
 
-class _CreateLeadSheet extends StatefulWidget {
-  final String phone;
-  const _CreateLeadSheet({required this.phone});
-
-  @override
-  State<_CreateLeadSheet> createState() => _CreateLeadSheetState();
-}
-
-class _CreateLeadSheetState extends State<_CreateLeadSheet> {
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _noteCtrl = TextEditingController();
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      _showSnack('Lead name is required', AppColors.danger);
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      await CallerService.createLead(
-        firstName: name,
-        mobile: widget.phone,
-        email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-      );
-      if (!mounted) return;
-      Navigator.pop(context);
-      _showSnack('Lead created successfully', AppColors.success,
-          icon: Icons.check_circle_outline_rounded);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      _showSnack('Error: $e', AppColors.danger);
-    }
-  }
-
-  void _showSnack(String msg, Color bg, {IconData? icon}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.white, size: 17),
-            const SizedBox(width: 8),
-          ],
-          Expanded(child: Text(msg)),
-        ]),
-        backgroundColor: bg,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return AppSheetContainer(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottomInset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppSheetHandle(),
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.person_add_alt_1_rounded,
-                    color: AppColors.warning, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Unknown Caller',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                        )),
-                    Text(widget.phone,
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 13)),
-                  ],
-                ),
-              ),
-              _SheetCloseBtn(),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Divider(color: AppColors.borderLight, height: 1),
-          const SizedBox(height: 20),
-          const AppFieldLabel(label: 'Lead Name', required: true),
-          const SizedBox(height: 8),
-          AppTextField(
-              controller: _nameCtrl,
-              hint: 'Enter full name',
-              icon: Icons.person_outline_rounded),
-          const SizedBox(height: 14),
-          const AppFieldLabel(label: 'Email (Optional)'),
-          const SizedBox(height: 8),
-          AppTextField(
-              controller: _emailCtrl,
-              hint: 'email@example.com',
-              icon: Icons.alternate_email_rounded,
-              keyboardType: TextInputType.emailAddress),
-          const SizedBox(height: 14),
-          const AppFieldLabel(label: 'Call Note'),
-          const SizedBox(height: 8),
-          AppTextField(
-              controller: _noteCtrl,
-              hint: 'Briefly describe this call...',
-              maxLines: 3),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              Expanded(
-                child: AppOutlineButton(
-                    label: 'Cancel',
-                    onTap: _saving ? null : () => Navigator.pop(context)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: AppButton(
-                  label: 'Create Lead',
-                  icon: Icons.add_rounded,
-                  loading: _saving,
-                  onTap: _saving ? null : _submit,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _KnownCallerSheet extends StatefulWidget {
-  final String phone;
-  final Map<String, dynamic> result;
-  const _KnownCallerSheet({required this.phone, required this.result});
-
-  @override
-  State<_KnownCallerSheet> createState() => _KnownCallerSheetState();
-}
-
-class _KnownCallerSheetState extends State<_KnownCallerSheet> {
-  final _noteCtrl = TextEditingController();
-  bool _showNoteField = false;
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
-  Color get _typeColor => typeColor(widget.result['type'] as String? ?? '');
-
-  Future<void> _saveNote() async {
-    if (_noteCtrl.text.trim().isEmpty) return;
-    setState(() => _saving = true);
-    try {
-      await CallerService.addNote(
-        doctype: widget.result['type'] as String? ?? 'Lead',
-        docname: widget.result['name'] as String? ?? '',
-        note: _noteCtrl.text.trim(),
-      );
-      if (!mounted) return;
-      Navigator.pop(context);
-      _showSnack('Note added successfully', AppColors.success,
-          icon: Icons.check_circle_outline_rounded);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      _showSnack('Error: $e', AppColors.danger);
-    }
-  }
-
-  void _showSnack(String msg, Color bg, {IconData? icon}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.white, size: 17),
-            const SizedBox(width: 8),
-          ],
-          Expanded(child: Text(msg)),
-        ]),
-        backgroundColor: bg,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final name = widget.result['customer_name'] as String? ?? 'Unknown';
-    final type = widget.result['type'] as String? ?? '-';
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return AppSheetContainer(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottomInset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppSheetHandle(),
-          // Caller info
-          Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.25),
-                      AppColors.accent.withValues(alpha: 0.15),
-                    ],
-                  ),
-                  border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.3)),
-                ),
-                child: Center(
-                  child: Text(
-                    initials(name),
-                    style: const TextStyle(
-                        color: AppColors.primaryLight,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          letterSpacing: -0.3,
-                        )),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        AppTypeChip(label: type, color: _typeColor),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.phone_outlined,
-                            size: 13, color: AppColors.textTertiary),
-                        const SizedBox(width: 3),
-                        Text(widget.phone,
-                            style: const TextStyle(
-                                color: AppColors.textSecondary, fontSize: 13)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              _SheetCloseBtn(),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Divider(color: AppColors.borderLight, height: 1),
-          const SizedBox(height: 16),
-          if (!_showNoteField)
-            SizedBox(
-              width: double.infinity,
-              child: AppButton(
-                label: 'Add Call Note',
-                icon: Icons.edit_note_rounded,
-                onTap: () => setState(() => _showNoteField = true),
-              ),
-            )
-          else ...[
-            const AppFieldLabel(label: 'Call Note'),
-            const SizedBox(height: 8),
-            AppTextField(
-                controller: _noteCtrl,
-                hint: 'Describe this call...',
-                maxLines: 3,
-                autofocus: true),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: AppOutlineButton(
-                    label: 'Cancel',
-                    onTap: _saving
-                        ? null
-                        : () => setState(() {
-                              _showNoteField = false;
-                              _noteCtrl.clear();
-                            }),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: AppButton(
-                    label: 'Save Note',
-                    icon: Icons.check_rounded,
-                    loading: _saving,
-                    onTap: _saving ? null : _saveNote,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// SHARED ATOMS
-// ════════════════════════════════════════════════════════════════════════════
-
-class _SheetCloseBtn extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppColors.bgInput,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: const Icon(Icons.close_rounded,
-            color: AppColors.textSecondary, size: 18),
-      ),
-    );
-  }
-}
-
-class _DraggableOverlayWrapper extends StatefulWidget {
-  final Widget child;
-  const _DraggableOverlayWrapper({required this.child});
-
-  @override
-  State<_DraggableOverlayWrapper> createState() =>
-      _DraggableOverlayWrapperState();
-}
-
-class _DraggableOverlayWrapperState extends State<_DraggableOverlayWrapper> {
-  Offset _position = const Offset(0, 100);
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          left: _position.dx,
-          top: _position.dy,
-          width: MediaQuery.of(context).size.width,
-          child: GestureDetector(
-            onPanUpdate: (details) {
-              setState(() => _position += details.delta);
-            },
-            behavior: HitTestBehavior.deferToChild,
-            child: widget.child,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LogsCard extends StatelessWidget {
+class _LogsCard extends StatefulWidget {
   final List<String> logs;
   final VoidCallback onRefresh;
 
   const _LogsCard({required this.logs, required this.onRefresh});
 
   @override
+  State<_LogsCard> createState() => _LogsCardState();
+}
+
+class _LogsCardState extends State<_LogsCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(18),
+    final ac = context.ac;
+    final isDark = context.isDark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ac.border),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+          // Header (always visible)
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: AppColors.primarySurface,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.receipt_long_rounded,
-                        color: AppColors.primary, size: 17),
+                    child: const Icon(Icons.terminal_rounded,
+                        color: AppColors.primary, size: 18),
                   ),
-                  const SizedBox(width: 10),
-                  const Text('Background Logs',
-                      style: TextStyle(
-                          color: AppColors.textPrimary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Background Logs',
+                        style: TextStyle(
+                          color: ac.textPrimary,
                           fontWeight: FontWeight.w700,
-                          fontSize: 15)),
+                          fontSize: 14,
+                        )),
+                  ),
+                  GestureDetector(
+                    onTap: widget.onRefresh,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(Icons.refresh_rounded,
+                          size: 18, color: ac.textSecondary),
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: ac.textSecondary,
+                    size: 20,
+                  ),
                 ],
               ),
-              GestureDetector(
-                onTap: onRefresh,
-                child: const Icon(Icons.refresh_rounded,
-                    size: 20, color: AppColors.textSecondary),
+            ),
+          ),
+          // Expandable Logs
+          if (_expanded) ...[
+            Divider(height: 1, color: ac.border),
+            Container(
+              height: 200,
+              padding: const EdgeInsets.all(12),
+              child: ListView.separated(
+                itemCount: widget.logs.length,
+                physics: const BouncingScrollPhysics(),
+                separatorBuilder: (_, _) => Divider(
+                    height: 10,
+                    thickness: 0.5,
+                    color: ac.border),
+                itemBuilder: (context, index) {
+                  final log = widget.logs[index];
+                  final isError =
+                      log.contains('❌') || log.contains('⚠️');
+                  return Text(
+                    log,
+                    style: TextStyle(
+                      color: isError
+                          ? AppColors.danger
+                          : ac.textSecondary,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      height: 1.4,
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: 180,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.bgBase,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderLight),
             ),
-            child: ListView.separated(
-              itemCount: logs.length,
-              physics: const BouncingScrollPhysics(),
-              separatorBuilder: (_, _) => Divider(
-                  height: 12,
-                  thickness: 0.5,
-                  color: AppColors.divider),
-              itemBuilder: (context, index) {
-                final log = logs[index];
-                final isError =
-                    log.contains('❌') || log.contains('⚠️');
-                return Text(
-                  log,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: isError ? AppColors.danger : AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                );
-              },
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
+
+
+
+
