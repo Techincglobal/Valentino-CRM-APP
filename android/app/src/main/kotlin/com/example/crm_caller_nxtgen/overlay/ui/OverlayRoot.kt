@@ -6,8 +6,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -64,9 +68,11 @@ fun OverlayRoot(
         AnimatedContent(
             targetState = state,
             transitionSpec = {
-                (fadeIn(tween(220)) + scaleIn(tween(240), initialScale = 0.96f)) togetherWith
-                (fadeOut(tween(170)) + scaleOut(tween(170), targetScale = 0.96f))
+                (fadeIn(animationSpec = tween(220, delayMillis = 90)) +
+                 scaleIn(initialScale = 0.92f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))) togetherWith
+                (fadeOut(animationSpec = tween(90)))
             },
+            modifier = Modifier.animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)),
             label = "OverlayRoot",
         ) { currentState ->
             when (currentState) {
