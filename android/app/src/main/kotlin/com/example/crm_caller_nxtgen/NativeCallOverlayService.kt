@@ -73,8 +73,8 @@ class NativeCallOverlayService : Service() {
     private var lifecycleOwner: WindowLifecycleOwner? = null
     private var params: WindowManager.LayoutParams?   = null
 
-    private var windowX = 24
-    private var windowY = 200
+    private var windowX = 0
+    private var windowY = 120 // Fixed margin from the top edge
 
     // ── Complaint popup window (second overlay) ───────────────────────────────
     private var complaintView: ComposeView?           = null
@@ -200,44 +200,11 @@ class NativeCallOverlayService : Service() {
     }
 
     private fun handleDrag(dx: Float, dy: Float) {
-        params?.let { p ->
-            windowX = (windowX + dx.toInt()).coerceAtLeast(0)
-            windowY = (windowY + dy.toInt()).coerceAtLeast(0)
-            p.x = windowX
-            p.y = windowY
-            try { windowManager?.updateViewLayout(composeView, p) } catch (_: Exception) {}
-        }
+        // Disabled for Dynamic Banner UI — fixed top anchor
     }
 
     private fun snapToEdge() {
-        val displayMetrics = resources.displayMetrics
-        val screenWidth    = displayMetrics.widthPixels
-        val density        = displayMetrics.density
-        val edgeMargin     = (EDGE_MARGIN_DP * density).toInt()
-
-        val snapToRight = windowX > screenWidth / 2
-        val targetX     = if (snapToRight) screenWidth - edgeMargin - (composeView?.width ?: 200)
-                          else edgeMargin
-
-        val steps  = 8
-        val deltaX = (targetX - windowX) / steps
-        var step   = 0
-
-        handler.post(object : Runnable {
-            override fun run() {
-                if (step >= steps) {
-                    windowX = targetX
-                    params?.x = windowX
-                    try { windowManager?.updateViewLayout(composeView, params) } catch (_: Exception) {}
-                    return
-                }
-                windowX += deltaX
-                params?.x = windowX
-                try { windowManager?.updateViewLayout(composeView, params) } catch (_: Exception) {}
-                step++
-                handler.postDelayed(this, 16)
-            }
-        })
+        // Disabled for Dynamic Banner UI — fixed top anchor
     }
 
     private fun setWindowFocusable(focusable: Boolean) {
@@ -265,7 +232,7 @@ class NativeCallOverlayService : Service() {
             baseFlags,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             x = windowX
             y = windowY
         }

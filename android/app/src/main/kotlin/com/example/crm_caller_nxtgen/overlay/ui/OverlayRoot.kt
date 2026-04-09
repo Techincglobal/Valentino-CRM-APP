@@ -29,7 +29,7 @@ import com.example.crm_caller_nxtgen.overlay.domain.ActiveSheet
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.state.OverlayStateMachine
-import com.example.crm_caller_nxtgen.overlay.ui.components.CircularBubble
+import com.example.crm_caller_nxtgen.overlay.ui.components.MinimizedTopPill
 import com.example.crm_caller_nxtgen.overlay.ui.components.ExpandedOverlayCard
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,7 +61,15 @@ fun OverlayRoot(
     MaterialTheme(colorScheme = OverlayTheme) {
         AnimatedContent(
             targetState = state,
-            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
+            transitionSpec = {
+                androidx.compose.animation.slideInVertically(
+                    animationSpec = tween(300),
+                    initialOffsetY = { -it }
+                ) + fadeIn(tween(200)) togetherWith androidx.compose.animation.slideOutVertically(
+                    animationSpec = tween(250),
+                    targetOffsetY = { -it }
+                ) + fadeOut(tween(150))
+            },
             label = "OverlayRoot",
         ) { currentState ->
             when (currentState) {
@@ -84,14 +92,11 @@ fun OverlayRoot(
                             onEvent      = { stateMachine.handleEvent(it) },
                         )
                     } else {
-                        CircularBubble(
+                        MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
                             isRecording  = currentState.isRecording,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
-                            onDrag       = onDrag,
-                            onDragEnd    = onDragEnd,
-                            onClose      = onClose,
                         )
                     }
                 }
@@ -111,14 +116,11 @@ fun OverlayRoot(
                             onEvent      = { stateMachine.handleEvent(it) },
                         )
                     } else {
-                        CircularBubble(
+                        MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
                             isRecording  = currentState.isRecording,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
-                            onDrag       = onDrag,
-                            onDragEnd    = onDragEnd,
-                            onClose      = onClose,
                         )
                     }
                 }
@@ -146,14 +148,11 @@ fun OverlayRoot(
                             onEvent      = { stateMachine.handleEvent(it) },
                         )
                     } else {
-                        CircularBubble(
+                        MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
                             isRecording  = false,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
-                            onDrag       = onDrag,
-                            onDragEnd    = onDragEnd,
-                            onClose      = onClose,
                         )
                     }
                 }
