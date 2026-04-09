@@ -188,14 +188,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final type    = isKnown ? 'Test Contact' : '';
       final docname = isKnown ? 'TEST-CALLER' : '';
 
-      await prefs.setString('crm_caller_phone', '+1 555 010 2026');
+      final testPhone = isKnown ? '555-KNOWN' : '555-UNKNOWN';
+
+      await prefs.setString('crm_caller_phone', testPhone);
       await prefs.setString('crm_caller_name', name);
       await prefs.setString('crm_caller_type', type);
       await prefs.setString('crm_caller_docname', docname);
       await prefs.setBool('crm_caller_found', isKnown);
 
       final data = {
-        'phone':    '+1 555 010 2026',
+        'phone':    testPhone,
         'name':     name,
         'type':     type,
         'docname':  docname,
