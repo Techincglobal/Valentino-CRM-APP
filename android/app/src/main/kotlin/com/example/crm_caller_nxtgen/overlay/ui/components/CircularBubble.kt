@@ -5,7 +5,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.InfiniteRepeatableSpec
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -14,10 +13,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,11 +32,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.data.SessionTimerManager
@@ -39,14 +45,8 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
 /**
- * iOS Assistive Touch-style circular floating bubble.
- *
- * - Draggable: service handles drag callbacks and snaps to edge.
- * - Tap: expands to the full overlay card.
- * - Shows initials (or "?") of the caller.
- * - Ringing pulse: animated expanding ring.
- * - Recording dot: small pulsing red dot at top-right.
- * - Post-call label: "ENDED" text below the circle.
+ * A beautiful, true floating notification banner (iOS/Truecaller style).
+ * Replaces the old "Circular Bubble" for a vastly superior modern pop-up feel.
  */
 @Composable
 fun CircularBubble(
@@ -72,17 +72,27 @@ fun CircularBubble(
     }
     val isPostCall = state is OverlayState.PostCall
 
+    val phoneOrTitle = when (state) {
+        is OverlayState.UnknownCaller -> state.phoneNumber
+        is OverlayState.KnownCaller -> {
+            val i = state.identity
+            if (i is CallerIdentity.Lead) i.company.ifBlank { i.phone }
+            else if (i is CallerIdentity.Customer) i.company.ifBlank { i.phone }
+            else "Known Caller"
+        }
+        else -> ""
+    }
+
     val accentColor by animateColorAsState(
         targetValue = when (identity) {
             is CallerIdentity.Unknown  -> Color(0xFF38BDF8) // Light Blue
-            is CallerIdentity.Customer -> Color(0xFF34D399) // Emerald
+            is CallerIdentity.Customer -> Color(0xFF10B981) // Emerald
             is CallerIdentity.Lead     -> Color(0xFF6366F1) // Indigo
         },
         animationSpec = tween(300),
-        label = "bubbleAccent",
+        label = "bannerAccent",
     )
 
-    // Initials: first letter of display name, or "?" for unknown
     val initials = when (identity) {
         is CallerIdentity.Unknown  -> "?"
         is CallerIdentity.Lead     -> identity.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
@@ -90,142 +100,148 @@ fun CircularBubble(
     }
 
     // Ringing pulse animation
-    val infiniteTransition = rememberInfiniteTransition(label = "bubblePulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "bannerPulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue  = 1.35f,
+        targetValue  = 1.5f,
         animationSpec = InfiniteRepeatableSpec(
-            animation  = tween(900, easing = FastOutSlowInEasing),
+            animation  = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "pulseScale",
     )
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.45f,
+        initialValue = 0.5f,
         targetValue  = 0f,
         animationSpec = InfiniteRepeatableSpec(
-            animation  = tween(900, easing = FastOutSlowInEasing),
+            animation  = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "pulseAlpha",
     )
 
-    // Recording dot pulse
-    val recAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue  = 1f,
-        animationSpec = InfiniteRepeatableSpec(
-            animation  = tween(600),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "recDotAlpha",
-    )
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(12.dp),
+    // A sleek, horizontal floating banner
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 24.dp) // Allows edge breathing room
+            .shadow(
+                elevation = 20.dp, 
+                shape = RoundedCornerShape(24.dp), 
+                spotColor = Color.Black.copy(alpha = 0.15f), 
+                clip = false
+            )
+            .width(300.dp) // Wide true notification size
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White)
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(24.dp))
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd    = { onDragEnd() },
+                    onDragCancel = { onDragEnd() },
+                    onDrag       = { change, amount ->
+                        change.consume()
+                        onDrag(amount.x, amount.y)
+                    },
+                )
+            }
+            .clickable { onExpand() }
+            .padding(12.dp)
+            .padding(end = 4.dp), // Extra padding for the close button
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        // 1. Caller Avatar with pulse
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragEnd    = { onDragEnd() },
-                        onDragCancel = { onDragEnd() },
-                        onDrag       = { change, amount ->
-                            change.consume()
-                            onDrag(amount.x, amount.y)
-                        },
-                    )
-                }
-                .clickable { onExpand() },
+            modifier = Modifier.size(48.dp)
         ) {
-            // Ringing pulse ring (behind the circle)
             if (callPhase == CallPhase.RINGING) {
                 Box(
                     modifier = Modifier
-                        .size((60 * pulseScale).dp)
+                        .size((40 * pulseScale).dp)
                         .clip(CircleShape)
-                        .background(accentColor.copy(alpha = pulseAlpha)),
+                        .background(accentColor.copy(alpha = pulseAlpha))
                 )
             }
-
-            // Main circle - Clean White Glass
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .shadow(elevation = 16.dp, shape = CircleShape, spotColor = Color.Black.copy(alpha = 0.15f), clip = false)
-                    .size(64.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.White,
-                                Color(0xFFF8FAFC)
-                            )
-                        )
-                    )
-                    .border(
-                        width = 1.dp, 
-                        color = Color(0xFFE2E8F0),
-                        shape = CircleShape
-                    ),
+                    .background(accentColor.copy(alpha = 0.15f))
+                    .border(1.dp, accentColor.copy(alpha = 0.4f), CircleShape)
             ) {
                 Text(
-                    text       = initials,
-                    color      = accentColor,
-                    fontSize   = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign  = TextAlign.Center,
-                )
-            }
-
-            // Recording dot (top-right corner)
-            if (isRecording) {
-                Box(
-                    modifier = Modifier
-                        .offset(x = (-2).dp, y = 2.dp)
-                        .align(Alignment.TopEnd)
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .padding(2.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFEF4444).copy(alpha = recAlpha)),
-                )
-            }
-
-            // Close button (top-left corner)
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .offset(x = 2.dp, y = (-2).dp)
-                    .align(Alignment.TopStart)
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFE2E8F0), CircleShape)
-                    .clickable { onClose() }
-            ) {
-                Text(
-                    text = "✕",
-                    color = Color(0xFF475569),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 1.dp)
+                    text = initials,
+                    color = accentColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold
                 )
             }
         }
 
-        // Post-call label below circle
-        if (isPostCall) {
+        Spacer(modifier = Modifier.width(14.dp))
+
+        // 2. Caller Info
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.Start
+        ) {
             Text(
-                text      = "ENDED · ${SessionTimerManager.formatDuration(durationSecs)}",
-                color     = Color(0xFF94A3B8),
-                fontSize  = 9.sp,
+                text = identity.displayName,
+                color = Color(0xFF0F172A),
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-                modifier  = Modifier.padding(top = 4.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            
+            // Subtitle logic
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isPostCall) {
+                    Text(
+                        text = "Call Ended · ${SessionTimerManager.formatDuration(durationSecs)}",
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                } else {
+                    // Ringing or Active indicator dot
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(if (callPhase == CallPhase.RINGING) accentColor else Color(0xFF10B981))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (callPhase == CallPhase.RINGING) "Incoming Call..." else "Call Active · ${SessionTimerManager.formatDuration(durationSecs)}",
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // 3. Compact Dismiss Button
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFF1F5F9))
+                .clickable { onClose() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Dismiss",
+                tint = Color(0xFF475569),
+                modifier = Modifier.size(16.dp)
             )
         }
     }
