@@ -96,7 +96,7 @@ fun ExpandedOverlayCard(
 
     Surface(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         shape          = RoundedCornerShape(24.dp),
         color          = Color.White,
         tonalElevation = 0.dp,
