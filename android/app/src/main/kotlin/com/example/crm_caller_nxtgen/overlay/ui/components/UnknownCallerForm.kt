@@ -1,14 +1,6 @@
 package com.example.crm_caller_nxtgen.overlay.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -89,8 +81,9 @@ fun UnknownCallerForm(
         androidx.compose.material3.HorizontalDivider(
             color = SurfaceDark,
             thickness = 1.dp,
-            modifier = Modifier.padding(bottom = 4.dp)
         )
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Phone — auto-filled from call, locked
         OutlinedTextField(
