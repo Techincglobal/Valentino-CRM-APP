@@ -100,7 +100,7 @@ fun ExpandedOverlayCard(
             .shadow(24.dp, RoundedCornerShape(20.dp), spotColor = Color.Black.copy(alpha = 0.2f)),
         shape          = RoundedCornerShape(20.dp),
         color          = Color.White,
-        tonalElevation = 8.dp,
+        tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.heightIn(max = 560.dp)) {
 

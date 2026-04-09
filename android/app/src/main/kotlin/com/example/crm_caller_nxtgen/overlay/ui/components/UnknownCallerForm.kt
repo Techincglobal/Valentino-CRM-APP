@@ -75,26 +75,31 @@ fun UnknownCallerForm(
         cursorColor          = AccentIndigo,
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 
         // Section label
         Text(
             text       = "New Lead",
-            color      = TextMuted,
-            fontSize   = 11.sp,
+            color      = TextPrimary,
+            fontSize   = 15.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
+        )
+
+        androidx.compose.material3.HorizontalDivider(
+            color = SurfaceDark,
+            thickness = 1.dp,
+            modifier = Modifier.padding(bottom = 4.dp)
         )
 
         // Phone — auto-filled from call, locked
         OutlinedTextField(
             value         = phone,
             onValueChange = {},
-            label         = { Text("Phone number") },
+            label         = { Text("Phone number", fontSize = 13.sp) },
             enabled       = false,
-            modifier      = Modifier.fillMaxWidth(),
+            modifier      = Modifier.fillMaxWidth().height(56.dp),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(10.dp),
+            shape         = RoundedCornerShape(6.dp),
             singleLine    = true,
         )
 
@@ -102,10 +107,10 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = name,
             onValueChange = { name = it },
-            label         = { Text("Full name *") },
-            modifier      = Modifier.fillMaxWidth(),
+            label         = { Text("Full name *", fontSize = 13.sp) },
+            modifier      = Modifier.fillMaxWidth().height(56.dp),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(10.dp),
+            shape         = RoundedCornerShape(6.dp),
             singleLine    = true,
         )
 
@@ -113,10 +118,10 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = email,
             onValueChange = { email = it },
-            label         = { Text("Email") },
-            modifier      = Modifier.fillMaxWidth(),
+            label         = { Text("Email", fontSize = 13.sp) },
+            modifier      = Modifier.fillMaxWidth().height(56.dp),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(10.dp),
+            shape         = RoundedCornerShape(6.dp),
             singleLine    = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
@@ -125,10 +130,10 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = company,
             onValueChange = { company = it },
-            label         = { Text("Company") },
-            modifier      = Modifier.fillMaxWidth(),
+            label         = { Text("Company", fontSize = 13.sp) },
+            modifier      = Modifier.fillMaxWidth().height(56.dp),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(10.dp),
+            shape         = RoundedCornerShape(6.dp),
             singleLine    = true,
         )
 
@@ -136,10 +141,10 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
-            label         = { Text("Quick note") },
+            label         = { Text("Quick note", fontSize = 13.sp) },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(10.dp),
+            shape         = RoundedCornerShape(6.dp),
             maxLines      = 3,
             minLines      = 2,
         )
@@ -155,9 +160,9 @@ fun UnknownCallerForm(
         // Complaint button — can now be logged directly even if caller is unknown
         OutlinedButton(
             onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
-            modifier = Modifier.fillMaxWidth().height(44.dp),
+            modifier = Modifier.fillMaxWidth().height(42.dp),
             colors   = ButtonDefaults.outlinedButtonColors(contentColor = AccentRed),
-            shape    = RoundedCornerShape(10.dp),
+            shape    = RoundedCornerShape(6.dp),
         ) {
             Row {
                 Icon(
@@ -186,10 +191,10 @@ fun UnknownCallerForm(
                 .height(48.dp),
             enabled  = name.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
-                containerColor         = AccentIndigo,
-                disabledContainerColor = AccentIndigo.copy(alpha = 0.4f),
+                containerColor         = Color(0xFF2490EF), // Frappe standard blue
+                disabledContainerColor = Color(0xFF2490EF).copy(alpha = 0.5f),
             ),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(6.dp),
         ) {
             Text("Create Lead & Save", fontWeight = FontWeight.Bold, color = Color.White)
         }
