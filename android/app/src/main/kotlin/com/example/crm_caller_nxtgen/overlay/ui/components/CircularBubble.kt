@@ -54,6 +54,7 @@ fun CircularBubble(
     onExpand: () -> Unit,
     onDrag: (dx: Float, dy: Float) -> Unit,
     onDragEnd: () -> Unit,
+    onClose: () -> Unit,
 ) {
     val identity = when (state) {
         is OverlayState.KnownCaller   -> state.identity
@@ -71,7 +72,7 @@ fun CircularBubble(
 
     val accentColor by animateColorAsState(
         targetValue = when (identity) {
-            is CallerIdentity.Unknown  -> Color(0xFFFBBF24) // Amber
+            is CallerIdentity.Unknown  -> Color(0xFF38BDF8) // Light Blue
             is CallerIdentity.Customer -> Color(0xFF34D399) // Emerald
             is CallerIdentity.Lead     -> Color(0xFF6366F1) // Indigo
         },
@@ -174,6 +175,26 @@ fun CircularBubble(
                         .size(12.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFF87171).copy(alpha = recAlpha)),
+                )
+            }
+
+            // Close button (top-left corner)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xE61E293B))
+                    .border(1.dp, Color(0xFF475569), CircleShape)
+                    .clickable { onClose() }
+            ) {
+                Text(
+                    text = "×",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
         }

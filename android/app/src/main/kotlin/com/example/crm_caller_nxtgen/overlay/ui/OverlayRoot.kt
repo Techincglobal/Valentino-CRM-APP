@@ -91,6 +91,7 @@ fun OverlayRoot(
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onDrag       = onDrag,
                             onDragEnd    = onDragEnd,
+                            onClose      = onClose,
                         )
                     }
                 }
@@ -117,6 +118,7 @@ fun OverlayRoot(
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onDrag       = onDrag,
                             onDragEnd    = onDragEnd,
+                            onClose      = onClose,
                         )
                     }
                 }
@@ -151,6 +153,7 @@ fun OverlayRoot(
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onDrag       = onDrag,
                             onDragEnd    = onDragEnd,
+                            onClose      = onClose,
                         )
                     }
                 }
