@@ -61,8 +61,10 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
       statusBarIconBrightness: Brightness.light,
     ));
 
+    final ac = context.ac;
+    
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
+      backgroundColor: ac.bgBase,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnim,
@@ -116,21 +118,21 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
                           ),
                         ),
                         const SizedBox(height: 28),
-                        const Text(
+                        Text(
                           'Connect Your Site',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: ac.textPrimary,
                             fontSize: 32,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -1.2,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'Enter your Frappe CRM site URL\nto get started.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: AppColors.textSecondary,
+                            color: ac.textSecondary,
                             fontSize: 15,
                             height: 1.5,
                           ),
@@ -142,13 +144,8 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
                   const SizedBox(height: 48),
 
                   // ── Card ──────────────────────────────────────────────────
-                  Container(
+                  GlassCard(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.borderLight),
-                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -166,10 +163,10 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
                                   color: AppColors.primary, size: 20),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
+                            Text(
                               'Site Configuration',
                               style: TextStyle(
-                                color: AppColors.textPrimary,
+                                color: ac.textPrimary,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
                               ),
@@ -187,10 +184,10 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
                           onSubmitted: (_) => _saveSite(),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'e.g. https://demo.frappe.cloud',
                           style: TextStyle(
-                            color: AppColors.textTertiary,
+                            color: ac.textTertiary,
                             fontSize: 12,
                           ),
                         ),

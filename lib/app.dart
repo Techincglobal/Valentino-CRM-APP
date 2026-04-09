@@ -50,16 +50,17 @@ class MyApp extends StatelessWidget {
       home: FutureBuilder(
         future: _resolveStartup(),
         builder: (context, snapshot) {
+          final ac = context.ac;
           if (!snapshot.hasData) {
             return Container(
-              color: AppColors.bgBase,
+              color: ac.bgBase,
               child: Scaffold(
                 backgroundColor: Colors.transparent,
                 body: Center(
                   child: snapshot.hasError
-                      ? const Text(
+                      ? Text(
                           'Failed to load. Please restart the app.',
-                          style: TextStyle(color: AppColors.textSecondary),
+                          style: TextStyle(color: ac.textSecondary),
                         )
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -118,10 +119,10 @@ class MyApp extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            const Text(
+                            Text(
                               'Starting CRM Caller...',
                               style: TextStyle(
-                                color: AppColors.textSecondary,
+                                color: ac.textSecondary,
                                 fontSize: 13,
                                 letterSpacing: 0.2,
                               ),

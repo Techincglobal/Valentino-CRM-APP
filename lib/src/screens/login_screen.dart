@@ -183,13 +183,8 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 48),
 
                   // ── Login Card ────────────────────────────────────────────
-                  Container(
+                  GlassCard(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: ac.bgCard,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: ac.borderLight),
-                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -267,16 +262,12 @@ class _LoginScreenState extends State<LoginScreen>
                         context,
                         MaterialPageRoute(builder: (_) => const SiteSetupScreen()),
                       ),
-                      child: Container(
+                      child: GlassCard(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 18,
                           vertical: 12,
                         ),
-                        decoration: BoxDecoration(
-                          color: ac.bgCard,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: ac.borderLight),
-                        ),
+                        borderRadius: 20,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
