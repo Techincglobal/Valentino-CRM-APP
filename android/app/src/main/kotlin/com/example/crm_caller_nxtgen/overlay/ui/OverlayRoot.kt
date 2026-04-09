@@ -69,11 +69,8 @@ fun OverlayRoot(
         AnimatedContent(
             targetState = state,
             transitionSpec = {
-                (fadeIn(animationSpec = tween(220, delayMillis = 90)) +
-                 scaleIn(initialScale = 0.92f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))) togetherWith
-                (fadeOut(animationSpec = tween(90)))
+                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
             },
-            modifier = Modifier.animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)),
             label = "OverlayRoot",
         ) { currentState ->
             when (currentState) {
