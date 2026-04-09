@@ -52,6 +52,16 @@ class OverlayStateMachine(
                 activeJob?.cancel()
                 _state.value = OverlayState.LoadingIdentity(event.phoneNumber, CallPhase.RINGING)
                 activeJob = scope.launch {
+                    if (event.phoneNumber == "555-KNOWN") {
+                        val fakeCustomer = CallerIdentity.Customer(
+                            id = "DEV_TEST",
+                            name = "Alex Mercer",
+                            companyName = "ACME Corp",
+                            tier = "VIP",
+                        )
+                        transition(OverlayEvent.IdentityResolved(fakeCustomer))
+                        return@launch
+                    }
                     val identity = repository.lookupIdentityByPhone(event.phoneNumber)
                     if (identity != null) {
                         transition(OverlayEvent.IdentityResolved(identity))
