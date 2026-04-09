@@ -233,22 +233,20 @@ private fun CardHeader(
                         modifier           = Modifier.size(18.dp),
                     )
                 }
-                // X — full dismiss, only in PostCall
-                if (isPostCall) {
-                    IconButton(
-                        onClick  = onClose,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF334155)),
-                    ) {
-                        Icon(
-                            imageVector        = Icons.Default.Close,
-                            contentDescription = "Close overlay",
-                            tint               = Color(0xFF94A3B8),
-                            modifier           = Modifier.size(16.dp),
-                        )
-                    }
+                // X — full dismiss, available anytime
+                IconButton(
+                    onClick  = onClose,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF334155)),
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.Close,
+                        contentDescription = "Close overlay",
+                        tint               = Color(0xFFF87171), // Make it a subtle red to indicate destructive action
+                        modifier           = Modifier.size(16.dp),
+                    )
                 }
             }
 

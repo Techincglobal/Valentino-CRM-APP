@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -148,20 +150,36 @@ fun CircularBubble(
                 )
             }
 
-            // Main circle
+            // Main circle - Modern glossy gradient
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .shadow(elevation = 14.dp, shape = CircleShape, clip = false)
-                    .size(60.dp)
+                    .shadow(elevation = 16.dp, shape = CircleShape, spotColor = accentColor.copy(alpha = 0.5f), clip = false)
+                    .size(64.dp)
                     .clip(CircleShape)
-                    .background(Color(0xCC1E293B))  // 80% slate 800
-                    .border(2.dp, accentColor, CircleShape),
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF1E293B),
+                                Color(0xFF0F172A)
+                            )
+                        )
+                    )
+                    .border(
+                        width = 1.5.dp, 
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = 0.8f),
+                                accentColor.copy(alpha = 0.2f)
+                            )
+                        ),
+                        shape = CircleShape
+                    ),
             ) {
                 Text(
                     text       = initials,
                     color      = accentColor,
-                    fontSize   = 22.sp,
+                    fontSize   = 24.sp,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign  = TextAlign.Center,
                 )
@@ -171,10 +189,14 @@ fun CircularBubble(
             if (isRecording) {
                 Box(
                     modifier = Modifier
+                        .offset(x = (-2).dp, y = 2.dp)
                         .align(Alignment.TopEnd)
-                        .size(12.dp)
+                        .size(14.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF87171).copy(alpha = recAlpha)),
+                        .background(Color(0xFF0F172A))
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEF4444).copy(alpha = recAlpha)),
                 )
             }
 
@@ -182,19 +204,20 @@ fun CircularBubble(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
+                    .offset(x = 2.dp, y = (-2).dp)
                     .align(Alignment.TopStart)
-                    .size(18.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
-                    .background(Color(0xE61E293B))
-                    .border(1.dp, Color(0xFF475569), CircleShape)
+                    .background(Color(0xFF1E293B))
+                    .border(1.dp, Color(0xFF334155), CircleShape)
                     .clickable { onClose() }
             ) {
                 Text(
-                    text = "×",
+                    text = "✕",
                     color = Color(0xFF94A3B8),
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    modifier = Modifier.padding(bottom = 1.dp)
                 )
             }
         }
