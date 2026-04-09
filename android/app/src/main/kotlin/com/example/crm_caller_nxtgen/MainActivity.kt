@@ -93,32 +93,13 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                "startWatchdog" -> {
-                    ContextCompat.startForegroundService(
-                        this,
-                        Intent(this, WatchdogService::class.java),
-                    )
-                    result.success(true)
-                }
-
-                "openBatterySettings" -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        val pm = getSystemService(POWER_SERVICE) as PowerManager
-                        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                            startActivity(
-                                Intent(
-                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                    Uri.parse("package:$packageName"),
-                                ),
-                            )
-                        }
-                    }
-                    result.success(true)
-                }
-
                 "consumeLaunchPhone" -> {
                     result.success(pendingOpenPhone)
                     pendingOpenPhone = null
+                }
+
+                "getDatabasePath" -> {
+                    result.success(getDatabasePath("crm_caller_database").absolutePath)
                 }
 
                 else -> result.notImplemented()

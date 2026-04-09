@@ -19,7 +19,9 @@
     <!-- Boot auto-start -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
-    <!-- Battery optimization exemption — lets user whitelist the app on MIUI/One UI -->
+    <!-- ⚠️ PLAY STORE POLICY RISK: requesting REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 
+         is heavily restricted. In V2, we will remove this and use in-app guides 
+         for manual whitelisting to avoid immediate rejection. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
@@ -28,6 +30,17 @@
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Call recording (microphone) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <!-- External storage for recordings (only needed below API 29) -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
 
     <application
         android:label="crm_caller_nxtgen"
@@ -61,26 +74,18 @@
             android:name="flutterEmbedding"
             android:value="2"/>
 
-        <!-- Overlay service — shows caller card on system level -->
+        <!-- ⚠️ V2 REFACTOR: Switched to 'specialUse' for CRM Context.
+             Target SDK 34+ requires 'phoneCall' FGS to be the default Dialer,
+             which this app is not. 'specialUse' allows overlay display with justification. -->
         <service
             android:name=".NativeCallOverlayService"
             android:exported="false"
-            android:foregroundServiceType="phoneCall|specialUse">
+            android:foregroundServiceType="specialUse|microphone">
             <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Incoming CRM caller overlay" />
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
+                android:value="CRM Contextual Overlay: Displays lead and opportunity data from the CRM during active phone calls to assist sales agents." />
         </service>
 
-        <!-- Watchdog — keeps the process alive for background call detection -->
-        <service
-            android:name=".WatchdogService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse"
-            android:stopWithTask="false">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="CRM Caller background watchdog" />
-        </service>
 
         <!-- Phone state BroadcastReceiver -->
         <receiver
@@ -93,17 +98,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Boot receiver — auto-starts the watchdog after reboot -->
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter android:priority="1000">
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </receiver>
 
     </application>
 

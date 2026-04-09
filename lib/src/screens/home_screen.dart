@@ -12,7 +12,7 @@ import '../services/caller_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
-import 'overlay_bubble.dart';
+import '../features/notes/notes_repository.dart';
 
 const MethodChannel _nativeOverlayChannel =
     MethodChannel('crm_caller_nxtgen/native_overlay');
@@ -44,60 +44,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadDailyCallCount();
     _loadLogs();
     unawaited(_consumeLaunchPhone());
-    if (Platform.isAndroid) {
-      unawaited(_startWatchdog());
-      // Delay so the first frame is rendered before showing a dialog
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) unawaited(_requestBatteryExemption());
-      });
-    }
-  }
-
-  Future<void> _startWatchdog() async {
-    try {
-      await _nativeOverlayChannel.invokeMethod('startWatchdog');
-    } catch (_) {}
-  }
-
-  Future<void> _requestBatteryExemption() async {
-    if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    final prompted = prefs.getBool('crm_battery_exemption_prompted') ?? false;
-    if (prompted) return;
-
-    await prefs.setBool('crm_battery_exemption_prompted', true);
-
-    if (!mounted) return;
-    final ac = context.ac;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ac.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Keep overlay active?', style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w700)),
-        content: Text(
-          'For the call overlay to appear even when this app is closed, please disable battery optimization for CRM Caller.\n\nTap OK to open the setting.',
-          style: TextStyle(color: ac.textSecondary, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Later', style: TextStyle(color: ac.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _nativeOverlayChannel.invokeMethod('openBatterySettings');
-            },
-            child: const Text('Open Setting', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _loadLogs() async {
@@ -160,8 +106,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _startUiPhoneListener() {
     _phoneSubscription?.cancel();
     _phoneSubscription = PhoneState.stream.listen((event) {
-      if (event.status == PhoneStateStatus.CALL_INCOMING ||
-          event.status == PhoneStateStatus.CALL_STARTED) {
+      if (event.status == PhoneStateStatus.CALL_INCOMING) {
         final phone = event.number ?? '';
         if (phone.isEmpty) return;
         final now = DateTime.now();
@@ -199,18 +144,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await prefs.setBool('crm_caller_found', data['found'] == true);
       await _nativeOverlayChannel.invokeMethod('showNativeOverlay', data);
     } catch (e) {
-      if (mounted) await _showInAppOverlay(data);
+      debugPrint('Native overlay failed: $e');
     }
   }
 
-  Future<void> _showInAppOverlay(Map<String, dynamic> data) async {
-    if (!mounted) return;
-    await showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (context) => OverlayBubble(initialPayload: data, useSystemOverlay: false),
-    );
-  }
 
   Future<void> _handleIncomingNumber(String phone) async {
     if (_workflowOpen) return;
@@ -276,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         await _showNativeOverlay(data);
         return;
       }
-      await _showInAppOverlay(data);
+      await _showNativeOverlay(data);
     } catch (e) {
       _showError('Could not show overlay: $e');
     }
@@ -316,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         return;
       }
     }
-    await _showInAppOverlay(data);
+    await _showNativeOverlay(data);
     _workflowOpen = false;
   }
 
@@ -378,8 +315,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const _OverlayPermissionCard(),
             const SizedBox(height: 16),
             _TestOverlayCard(onTest: _forceShowOverlay),
-            const SizedBox(height: 16),
             const _QuickActionCard(),
+            const SizedBox(height: 16),
+            const _RecentNotesWidget(),
             if (_bgLogs.isNotEmpty) ...[
               const SizedBox(height: 16),
               _LogsCard(logs: _bgLogs, onRefresh: _loadLogs),
@@ -838,6 +776,87 @@ class _ManualLookupCard extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// RECENT NOTES WIDGET
+// ════════════════════════════════════════════════════════════════════════════
+
+class _RecentNotesWidget extends StatefulWidget {
+  const _RecentNotesWidget();
+
+  @override
+  State<_RecentNotesWidget> createState() => _RecentNotesWidgetState();
+}
+
+class _RecentNotesWidgetState extends State<_RecentNotesWidget> {
+  final NotesRepository _notesRepo = NotesRepository();
+  List<Map<String, dynamic>> _notes = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
+  }
+
+  Future<void> _loadNotes() async {
+    try {
+      final notes = await _notesRepo.getLatestNotes();
+      if (mounted) setState(() { _notes = notes; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ac = context.ac;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: context.isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: ac.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Recent Call Notes', style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+              IconButton(icon: Icon(Icons.refresh, color: AppColors.primary, size: 20), onPressed: _loadNotes),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_notes.isEmpty)
+            Text('No recent notes.', style: TextStyle(color: ac.textSecondary, fontStyle: FontStyle.italic))
+          else
+            ..._notes.map((note) => Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ac.bgInput,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(note['phoneNumber'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold, color: ac.textPrimary)),
+                    const SizedBox(height: 4),
+                    Text(note['content'] ?? '', style: TextStyle(color: ac.textSecondary)),
+                  ],
+                ),
+              ),
+            )),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // OVERLAY PERMISSION CARD
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -980,43 +999,45 @@ class _TestOverlayCard extends StatelessWidget {
                 ),
               ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.flash_on_rounded,
-                color: AppColors.accent, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Test Overlay',
-                    style: TextStyle(
-                      color: ac.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    )),
-                Text('Trigger the caller bubble',
-                    style:
-                        TextStyle(color: ac.textSecondary, fontSize: 12)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
+          Row(
             children: [
-              _buildBtn(context, 'Known', () => onTest(true)),
-              const SizedBox(height: 6),
-              _buildBtn(context, 'Unknown', () => onTest(false)),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.flash_on_rounded,
+                    color: AppColors.accent, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Test Native Overlay',
+                        style: TextStyle(
+                          color: ac.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        )),
+                    Text('Preview the new UI architecture',
+                        style:
+                            TextStyle(color: ac.textSecondary, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _buildBtn(context, 'Test Unknown', () => onTest(false))),
+              const SizedBox(width: 8),
+              Expanded(child: _buildBtn(context, 'Test Known', () => onTest(true))),
             ],
           ),
         ],
@@ -1028,7 +1049,8 @@ class _TestOverlayCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.accent.withValues(alpha: 0.11),
           borderRadius: BorderRadius.circular(9),
