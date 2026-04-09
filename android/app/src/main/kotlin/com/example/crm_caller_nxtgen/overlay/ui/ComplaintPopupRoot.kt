@@ -107,7 +107,8 @@ private fun ComplaintCard(
 
     Surface(
         modifier = Modifier
-            .width(320.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .shadow(32.dp, RoundedCornerShape(12.dp), spotColor = Color.Black.copy(alpha = 0.25f)),
         shape         = RoundedCornerShape(12.dp),
         color         = Slate800,
