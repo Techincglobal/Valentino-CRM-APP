@@ -65,49 +65,17 @@ class MyApp extends StatelessWidget {
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
+                            Image.asset(
+                              'assets/images/logo.png',
                               width: 80,
                               height: 80,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    AppColors.primaryLight,
-                                    AppColors.primary,
-                                    AppColors.primaryDark,
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.4,
-                                    ),
-                                    blurRadius: 32,
-                                    offset: const Offset(0, 12),
-                                    spreadRadius: 4,
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                  width: 2,
-                                ),
-                              ),
-                              child: Center(
-                                child: Image.asset(
-                                  'assets/images/logo.png',
-                                  width: 48,
-                                  height: 48,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(
-                                      Icons.hub_rounded,
-                                      color: Colors.white,
-                                      size: 38,
-                                    );
-                                  },
-                                ),
-                              ),
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.hub_rounded,
+                                  color: AppColors.primary,
+                                  size: 64,
+                                );
+                              },
                             ),
                             const SizedBox(height: 32),
                             SizedBox(

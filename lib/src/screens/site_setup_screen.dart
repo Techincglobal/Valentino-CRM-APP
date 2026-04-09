@@ -81,40 +81,14 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
                   Center(
                     child: Column(
                       children: [
-                        Container(
+                        Image.asset(
+                          'assets/images/logo.png',
                           width: 88,
                           height: 88,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.primaryLight,
-                                AppColors.primary,
-                                AppColors.primaryDark,
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.45),
-                                blurRadius: 40,
-                                spreadRadius: 4,
-                                offset: const Offset(0, 12),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              width: 48,
-                              height: 48,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.dns_rounded,
-                                color: Colors.white,
-                                size: 42,
-                              ),
-                            ),
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.dns_rounded,
+                            color: AppColors.primary,
+                            size: 64,
                           ),
                         ),
                         const SizedBox(height: 28),
