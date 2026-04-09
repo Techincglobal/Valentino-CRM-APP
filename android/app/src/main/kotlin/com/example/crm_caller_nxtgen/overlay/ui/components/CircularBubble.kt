@@ -150,29 +150,24 @@ fun CircularBubble(
                 )
             }
 
-            // Main circle - Modern glossy gradient
+            // Main circle - Clean White Glass
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .shadow(elevation = 16.dp, shape = CircleShape, spotColor = accentColor.copy(alpha = 0.5f), clip = false)
+                    .shadow(elevation = 16.dp, shape = CircleShape, spotColor = Color.Black.copy(alpha = 0.15f), clip = false)
                     .size(64.dp)
                     .clip(CircleShape)
                     .background(
                         brush = Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF1E293B),
-                                Color(0xFF0F172A)
+                                Color.White,
+                                Color(0xFFF8FAFC)
                             )
                         )
                     )
                     .border(
-                        width = 1.5.dp, 
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                accentColor.copy(alpha = 0.8f),
-                                accentColor.copy(alpha = 0.2f)
-                            )
-                        ),
+                        width = 1.dp, 
+                        color = Color(0xFFE2E8F0),
                         shape = CircleShape
                     ),
             ) {
@@ -193,7 +188,7 @@ fun CircularBubble(
                         .align(Alignment.TopEnd)
                         .size(14.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF0F172A))
+                        .background(Color.White)
                         .padding(2.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFEF4444).copy(alpha = recAlpha)),
@@ -208,13 +203,13 @@ fun CircularBubble(
                     .align(Alignment.TopStart)
                     .size(20.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF1E293B))
-                    .border(1.dp, Color(0xFF334155), CircleShape)
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFE2E8F0), CircleShape)
                     .clickable { onClose() }
             ) {
                 Text(
                     text = "✕",
-                    color = Color(0xFF94A3B8),
+                    color = Color(0xFF475569),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 1.dp)

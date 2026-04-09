@@ -29,8 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val RecRed   = Color(0xFFF87171) // Red 400
-private val Slate400 = Color(0xFF94A3B8)
+private val RecRed   = Color(0xFFEF4444) // Red 500
+private val Slate400 = Color(0xFF64748B) // Slate 500
 
 /**
  * Toggle button for call recording.

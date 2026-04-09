@@ -15,7 +15,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,16 +35,16 @@ import com.example.crm_caller_nxtgen.overlay.ui.components.ExpandedOverlayCard
 // ─────────────────────────────────────────────────────────────────────────────
 // Premium dark colour scheme — used consistently across all overlay surfaces
 // ─────────────────────────────────────────────────────────────────────────────
-val OverlayTheme = darkColorScheme(
+val OverlayTheme = lightColorScheme(
     primary          = Color(0xFF6366F1), // Indigo 500
-    secondary        = Color(0xFF60A5FA), // Blue 400
-    tertiary         = Color(0xFF34D399), // Emerald 400
-    error            = Color(0xFFF87171), // Red 400
-    background       = Color(0xFF0F172A), // Slate 900
-    surface          = Color(0xFF1E293B), // Slate 800
-    surfaceVariant   = Color(0xFF334155), // Slate 700
-    onSurface        = Color(0xFFF8FAFC), // Slate 50
-    onSurfaceVariant = Color(0xFF94A3B8), // Slate 400
+    secondary        = Color(0xFF38BDF8), // Light Blue
+    tertiary         = Color(0xFF10B981), // Emerald 500
+    error            = Color(0xFFEF4444), // Red 500
+    background       = Color.Transparent, 
+    surface          = Color(0xFFFFFFFF), // White
+    surfaceVariant   = Color(0xFFF8FAFC), // Slight off-white
+    onSurface        = Color(0xFF0F172A), // Dark text (Slate 900)
+    onSurfaceVariant = Color(0xFF475569), // Slate 600
 )
 
 @Composable
@@ -171,8 +171,9 @@ private fun LoadingBubble() {
     Surface(
         modifier       = Modifier.padding(16.dp),
         shape          = RoundedCornerShape(28.dp),
-        color          = Color(0xE61E293B),
+        color          = Color.White,
         tonalElevation = 6.dp,
+        shadowElevation = 12.dp,
     ) {
         Row(
             modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -184,7 +185,7 @@ private fun LoadingBubble() {
                 strokeWidth = 2.dp,
             )
             Spacer(Modifier.width(12.dp))
-            Text("Looking up caller…", color = Color(0xFFF8FAFC), fontWeight = FontWeight.SemiBold)
+            Text("Looking up caller…", color = Color(0xFF0F172A), fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -194,8 +195,9 @@ private fun SubmittingBubble(label: String) {
     Surface(
         modifier       = Modifier.padding(16.dp),
         shape          = RoundedCornerShape(28.dp),
-        color          = Color(0xE61E293B),
+        color          = Color.White,
         tonalElevation = 6.dp,
+        shadowElevation = 12.dp,
     ) {
         Row(
             modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -207,7 +209,7 @@ private fun SubmittingBubble(label: String) {
                 strokeWidth = 2.dp,
             )
             Spacer(Modifier.width(12.dp))
-            Text(label, color = Color(0xFFF8FAFC), fontWeight = FontWeight.SemiBold)
+            Text(label, color = Color(0xFF0F172A), fontWeight = FontWeight.SemiBold)
         }
     }
 }

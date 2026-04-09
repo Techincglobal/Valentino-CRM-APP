@@ -97,9 +97,9 @@ fun ExpandedOverlayCard(
     Surface(
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 12.dp)
-            .shadow(24.dp, RoundedCornerShape(20.dp)),
+            .shadow(24.dp, RoundedCornerShape(20.dp), spotColor = Color.Black.copy(alpha = 0.2f)),
         shape          = RoundedCornerShape(20.dp),
-        color          = Color(0xF01E293B),
+        color          = Color.White,
         tonalElevation = 8.dp,
     ) {
         Column(modifier = Modifier.heightIn(max = 560.dp)) {
@@ -115,7 +115,7 @@ fun ExpandedOverlayCard(
                 onClose      = onClose,
             )
 
-            HorizontalDivider(color = Color(0xFF334155), thickness = 0.5.dp)
+            HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.5.dp)
 
             Column(
                 modifier = Modifier
@@ -166,8 +166,8 @@ private fun CardHeader(
     onClose: () -> Unit,
 ) {
     val accentColor = when (identity) {
-        is CallerIdentity.Unknown  -> Color(0xFFFBBF24)
-        is CallerIdentity.Customer -> Color(0xFF34D399)
+        is CallerIdentity.Unknown  -> Color(0xFF38BDF8)
+        is CallerIdentity.Customer -> Color(0xFF10B981)
         is CallerIdentity.Lead     -> Color(0xFF6366F1)
     }
 
@@ -202,12 +202,12 @@ private fun CardHeader(
             Spacer(Modifier.height(4.dp))
             Text(
                 text       = if (identity is CallerIdentity.Unknown) phone else identity.displayName,
-                color      = Color(0xFFF8FAFC),
+                color      = Color(0xFF0F172A),
                 fontSize   = 17.sp,
                 fontWeight = FontWeight.Bold,
             )
             if (identity.displayCompany.isNotBlank()) {
-                Text(text = identity.displayCompany, color = Color(0xFF94A3B8), fontSize = 12.sp)
+                Text(text = identity.displayCompany, color = Color(0xFF64748B), fontSize = 12.sp)
             }
         }
 
@@ -216,7 +216,7 @@ private fun CardHeader(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // Button row: chevron-down + (X only in post-call)
+            // Button row: chevron-down + X
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 // Chevron — minimise to bubble
                 IconButton(
@@ -224,12 +224,12 @@ private fun CardHeader(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF334155)),
+                        .background(Color(0xFFF1F5F9)),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.KeyboardArrowDown,
                         contentDescription = "Minimise",
-                        tint               = Color(0xFF94A3B8),
+                        tint               = Color(0xFF475569),
                         modifier           = Modifier.size(18.dp),
                     )
                 }
@@ -239,12 +239,12 @@ private fun CardHeader(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF334155)),
+                        .background(Color(0xFFF1F5F9)),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.Close,
                         contentDescription = "Close overlay",
-                        tint               = Color(0xFFF87171), // Make it a subtle red to indicate destructive action
+                        tint               = Color(0xFFEF4444), // Make it a subtle red to indicate destructive action
                         modifier           = Modifier.size(16.dp),
                     )
                 }

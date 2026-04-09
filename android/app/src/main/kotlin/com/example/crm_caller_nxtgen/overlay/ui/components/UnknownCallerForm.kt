@@ -45,10 +45,10 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 // ─────────────────────────────────────────────────────────────────────────────
 
 private val AccentIndigo = Color(0xFF6366F1)
-private val AccentRed    = Color(0xFFF87171)
-private val SurfaceDark  = Color(0xFF334155)
-private val TextPrimary  = Color(0xFFF8FAFC)
-private val TextMuted    = Color(0xFF94A3B8)
+private val AccentRed    = Color(0xFFEF4444)
+private val SurfaceDark  = Color(0xFFE2E8F0) // Gray 200
+private val TextPrimary  = Color(0xFF0F172A) // Slate 900
+private val TextMuted    = Color(0xFF64748B) // Slate 500
 
 @Composable
 fun UnknownCallerForm(

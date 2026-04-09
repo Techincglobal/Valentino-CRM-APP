@@ -58,13 +58,13 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 // ─────────────────────────────────────────────────────────────────────────────
 
 private val Indigo500  = Color(0xFF6366F1)
-private val Blue400    = Color(0xFF60A5FA)
-private val Emerald400 = Color(0xFF34D399)
-private val Red400     = Color(0xFFF87171)
+private val Blue400    = Color(0xFF38BDF8)
+private val Emerald400 = Color(0xFF10B981)
+private val Red400     = Color(0xFFEF4444)
 private val Amber400   = Color(0xFFFBBF24)
-private val Slate700   = Color(0xFF334155)
-private val Slate400   = Color(0xFF94A3B8)
-private val SlateText  = Color(0xFFF8FAFC)
+private val Slate700   = Color(0xFFF1F5F9) // Slate 100
+private val Slate400   = Color(0xFF64748B) // Slate 500
+private val SlateText  = Color(0xFF0F172A) // Slate 900
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KnownContactDashboard
