@@ -97,8 +97,7 @@ fun ExpandedOverlayCard(
     Surface(
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 12.dp)
-            .shadow(24.dp, RoundedCornerShape(20.dp), spotColor = Color.Black.copy(alpha = 0.2f)),
-        shape          = RoundedCornerShape(20.dp),
+        shape          = RoundedCornerShape(24.dp),
         color          = Color.White,
         tonalElevation = 0.dp,
     ) {
@@ -115,7 +114,7 @@ fun ExpandedOverlayCard(
                 onClose      = onClose,
             )
 
-            HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.5.dp)
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
 
             Column(
                 modifier = Modifier
@@ -174,7 +173,7 @@ private fun CardHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment     = Alignment.CenterVertically,
     ) {
@@ -184,27 +183,28 @@ private fun CardHeader(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(accentColor.copy(alpha = 0.15f))
+                    .background(accentColor.copy(alpha = 0.1f))
                     .padding(horizontal = 8.dp, vertical = 3.dp),
             ) {
                 Text(
                     text = when (identity) {
-                        is CallerIdentity.Unknown  -> if (isPostCall) "Post Call" else "Unknown Caller"
-                        is CallerIdentity.Customer -> if (isPostCall) "Post Call" else "Customer"
-                        is CallerIdentity.Lead     -> if (isPostCall) "Post Call" else identity.status.ifBlank { "Lead" }
+                        is CallerIdentity.Unknown  -> if (isPostCall) "CLOSED" else "UNKNOWN"
+                        is CallerIdentity.Customer -> if (isPostCall) "CLOSED" else "CUSTOMER"
+                        is CallerIdentity.Lead     -> if (isPostCall) "CLOSED" else identity.status.uppercase().ifBlank { "LEAD" }
                     },
                     color      = accentColor,
-                    fontSize   = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
+                    fontSize   = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp,
                 )
             }
             Spacer(Modifier.height(4.dp))
             Text(
                 text       = if (identity is CallerIdentity.Unknown) phone else identity.displayName,
-                color      = Color(0xFF0F172A),
-                fontSize   = 17.sp,
-                fontWeight = FontWeight.Bold,
+                color      = Color(0xFF1E293B),
+                fontSize   = 19.sp,
+                fontWeight = FontWeight.W800,
+                letterSpacing = -0.5.sp,
             )
             if (identity.displayCompany.isNotBlank()) {
                 Text(text = identity.displayCompany, color = Color(0xFF64748B), fontSize = 12.sp)
@@ -217,35 +217,35 @@ private fun CardHeader(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             // Button row: chevron-down + X
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Chevron — minimise to bubble
                 IconButton(
                     onClick  = onCollapse,
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF1F5F9)),
+                        .background(Color(0xFFF8FAFC)),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.KeyboardArrowDown,
                         contentDescription = "Minimise",
-                        tint               = Color(0xFF475569),
-                        modifier           = Modifier.size(18.dp),
+                        tint               = Color(0xFF64748B),
+                        modifier           = Modifier.size(20.dp),
                     )
                 }
                 // X — full dismiss, available anytime
                 IconButton(
                     onClick  = onClose,
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF1F5F9)),
+                        .background(Color(0xFFFEF2F2)),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.Close,
                         contentDescription = "Close overlay",
-                        tint               = Color(0xFFEF4444), // Make it a subtle red to indicate destructive action
-                        modifier           = Modifier.size(16.dp),
+                        tint               = Color(0xFFEF4444),
+                        modifier           = Modifier.size(17.dp),
                     )
                 }
             }

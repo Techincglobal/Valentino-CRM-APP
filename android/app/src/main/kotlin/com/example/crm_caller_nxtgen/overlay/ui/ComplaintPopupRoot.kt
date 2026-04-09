@@ -53,6 +53,7 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 private val Red400     = Color(0xFFEF4444)
 private val Emerald400 = Color(0xFF10B981)
 private val Amber400   = Color(0xFFFBBF24)
+private val BlueFrappe = Color(0xFF2490EF)
 private val Slate900   = Color(0xFF0F172A)
 private val Slate800   = Color(0xFFFFFFFF)
 private val Slate700   = Color(0xFFE2E8F0)
@@ -95,22 +96,22 @@ private fun ComplaintCard(
     var priority by remember { mutableStateOf("Medium") }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor   = Red400,
+        focusedBorderColor   = BlueFrappe,
         unfocusedBorderColor = Slate700,
         focusedTextColor     = SlateText,
         unfocusedTextColor   = SlateText,
-        focusedLabelColor    = Red400,
+        focusedLabelColor    = BlueFrappe,
         unfocusedLabelColor  = Slate400,
-        cursorColor          = Red400,
+        cursorColor          = BlueFrappe,
     )
 
     Surface(
         modifier = Modifier
             .width(320.dp)
-            .shadow(20.dp, RoundedCornerShape(20.dp)),
-        shape         = RoundedCornerShape(20.dp),
+            .shadow(32.dp, RoundedCornerShape(12.dp), spotColor = Color.Black.copy(alpha = 0.25f)),
+        shape         = RoundedCornerShape(12.dp),
         color         = Slate800,
-        tonalElevation = 12.dp,
+        tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
 
@@ -149,10 +150,10 @@ private fun ComplaintCard(
                 }
             }
 
-            HorizontalDivider(
-                modifier  = Modifier.padding(vertical = 14.dp),
+            androidx.compose.material3.HorizontalDivider(
+                modifier  = Modifier.padding(vertical = 12.dp),
                 color     = Slate700,
-                thickness = 0.5.dp,
+                thickness = 1.dp,
             )
 
             // ── Priority chips ────────────────────────────────────────────────
@@ -177,10 +178,10 @@ private fun ComplaintCard(
             OutlinedTextField(
                 value         = category,
                 onValueChange = { category = it },
-                label         = { Text("Category / Reason") },
-                modifier      = Modifier.fillMaxWidth(),
+                label         = { Text("Category / Reason", fontSize = 13.sp) },
+                modifier      = Modifier.fillMaxWidth().height(56.dp),
                 colors        = fieldColors,
-                shape         = RoundedCornerShape(10.dp),
+                shape         = RoundedCornerShape(6.dp),
                 singleLine    = true,
             )
 
@@ -190,10 +191,10 @@ private fun ComplaintCard(
             OutlinedTextField(
                 value         = details,
                 onValueChange = { details = it },
-                label         = { Text("Details") },
+                label         = { Text("Details", fontSize = 13.sp) },
                 modifier      = Modifier.fillMaxWidth(),
                 colors        = fieldColors,
-                shape         = RoundedCornerShape(10.dp),
+                shape         = RoundedCornerShape(6.dp),
                 maxLines      = 3,
                 minLines      = 3,
             )
@@ -207,7 +208,7 @@ private fun ComplaintCard(
             ) {
                 TextButton(
                     onClick  = { onEvent(OverlayEvent.CloseComplaintPopup) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(46.dp),
                 ) {
                     Text("Cancel", color = Slate400, fontWeight = FontWeight.Medium)
                 }
@@ -228,7 +229,7 @@ private fun ComplaintCard(
                         containerColor         = Red400,
                         disabledContainerColor = Red400.copy(alpha = 0.4f),
                     ),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(6.dp),
                 ) {
                     Text("Submit Complaint", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -265,15 +266,15 @@ private fun PriorityChip(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) color.copy(alpha = 0.2f) else Slate700)
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (isSelected) color.copy(alpha = 0.15f) else Color(0xFFF8FAFC))
             .border(
-                width = if (isSelected) 1.dp else 0.5.dp,
+                width = if (isSelected) 1.5.dp else 1.dp,
                 color = if (isSelected) color else Slate700,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
             )
             .clickable { onClick() }
-            .padding(vertical = 8.dp),
+            .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
