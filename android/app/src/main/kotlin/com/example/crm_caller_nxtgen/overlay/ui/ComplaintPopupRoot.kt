@@ -50,14 +50,14 @@ import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.domain.ComplaintPopupState
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
-private val Red400     = Color(0xFFF87171)
-private val Emerald400 = Color(0xFF34D399)
+private val Red400     = Color(0xFFEF4444)
+private val Emerald400 = Color(0xFF10B981)
 private val Amber400   = Color(0xFFFBBF24)
 private val Slate900   = Color(0xFF0F172A)
-private val Slate800   = Color(0xF01E293B)
-private val Slate700   = Color(0xFF334155)
-private val Slate400   = Color(0xFF94A3B8)
-private val SlateText  = Color(0xFFF8FAFC)
+private val Slate800   = Color(0xFFFFFFFF)
+private val Slate700   = Color(0xFFE2E8F0)
+private val Slate400   = Color(0xFF64748B)
+private val SlateText  = Color(0xFF0F172A)
 
 /**
  * Root composable for the second WindowManager window — complaint popup.
@@ -128,7 +128,7 @@ private fun ComplaintCard(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text     = state.identity.displayNameShort,
+                        text     = if (state.identity is com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity.Unknown) state.phoneNumber else state.identity.displayNameShort,
                         color    = Slate400,
                         fontSize = 12.sp,
                     )
@@ -138,7 +138,7 @@ private fun ComplaintCard(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(Slate700),
+                        .background(Color(0xFFF1F5F9)),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.Close,

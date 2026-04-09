@@ -152,7 +152,7 @@ fun UnknownCallerForm(
             onClick     = { onEvent(OverlayEvent.ToggleRecording) },
         )
 
-        // Complaint button — state machine will toast "Save lead first" if no identity
+        // Complaint button — can now be logged directly even if caller is unknown
         OutlinedButton(
             onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
             modifier = Modifier.fillMaxWidth().height(44.dp),

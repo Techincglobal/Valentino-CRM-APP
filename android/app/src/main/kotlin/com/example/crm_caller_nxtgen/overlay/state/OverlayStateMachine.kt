@@ -181,11 +181,8 @@ class OverlayStateMachine(
             is OverlayEvent.OpenComplaintPopup,
             is OverlayEvent.OpenComplaintForm -> {
                 val phone = current.phoneNumber ?: return
-                val identity = current.knownIdentity
-                if (identity == null || identity is CallerIdentity.Unknown) {
-                    emitEffect(OverlaySideEffect.ShowToast("Save lead first to log a complaint"))
-                    return
-                }
+                val identity = current.knownIdentity ?: CallerIdentity.Unknown
+                
                 // Minimise main overlay to bubble
                 when (current) {
                     is OverlayState.KnownCaller -> _state.value = current.copy(isExpanded = false)
@@ -216,7 +213,7 @@ class OverlayStateMachine(
                 _complaintState.value = ComplaintPopupState.Submitting(identity, phone)
                 activeJob = scope.launch {
                     val result = runCatching {
-                        repository.createComplaint(identity, event.category, event.details, event.priority)
+                        repository.createComplaint(identity, phone, event.category, event.details, event.priority)
                     }
                     result.fold(
                         onSuccess = {

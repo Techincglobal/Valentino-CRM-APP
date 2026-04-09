@@ -213,6 +213,7 @@ class FrappeRepository(private val context: Context) {
 
     suspend fun createComplaint(
         identity: CallerIdentity,
+        phoneArg: String,
         category: String,
         details: String,
         priority: String,
@@ -221,7 +222,7 @@ class FrappeRepository(private val context: Context) {
         val phone = when (identity) {
             is CallerIdentity.Lead     -> identity.phone
             is CallerIdentity.Customer -> identity.phone
-            else -> ""
+            else -> phoneArg
         }
         val leadDocname = when (identity) {
             is CallerIdentity.Lead     -> identity.docname
