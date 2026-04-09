@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,12 +49,15 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayCompany
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
-/**
- * The expanded overlay card.
- *
- * - onCollapse: minimise to bubble (chevron button — safe during live call)
- * - onClose: fully dismiss overlay (X button — only shown in PostCall)
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Light palette
+// ─────────────────────────────────────────────────────────────────────────────
+private val TextPrimary   = Color(0xFF0F172A)
+private val TextSecondary = Color(0xFF64748B)
+private val BorderLight   = Color(0xFFE2E8F0)
+private val SurfaceLight  = Color(0xFFF8FAFC)
+private val White         = Color(0xFFFFFFFF)
+
 @Composable
 fun ExpandedOverlayCard(
     state: OverlayState,
@@ -94,34 +98,52 @@ fun ExpandedOverlayCard(
         else -> return
     }
 
+    val accentColor = when (identity) {
+        is CallerIdentity.Unknown  -> Color(0xFFF59E0B) // Amber 500
+        is CallerIdentity.Customer -> Color(0xFF10B981) // Emerald 500
+        is CallerIdentity.Lead     -> Color(0xFF6366F1) // Indigo 500
+    }
+
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp)
-            .shadow(32.dp, RoundedCornerShape(26.dp), spotColor = Color.Black.copy(alpha = 0.25f)),
-        shape          = RoundedCornerShape(26.dp),
-        color          = Color.White,
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .shadow(
+                elevation     = 24.dp,
+                shape         = RoundedCornerShape(20.dp),
+                ambientColor  = Color.Black.copy(alpha = 0.08f),
+                spotColor     = Color.Black.copy(alpha = 0.14f),
+            ),
+        shape          = RoundedCornerShape(20.dp),
+        color          = White,
         tonalElevation = 0.dp,
     ) {
-        Column(modifier = Modifier.heightIn(max = 560.dp)) {
+        Column(modifier = Modifier.heightIn(max = 590.dp)) {
 
-            CardHeader(
-                identity     = identity,
-                phone        = phone,
-                callPhase    = callPhase,
-                durationSecs = durationSecs,
-                isRecording  = isRecording,
-                isPostCall   = isPostCall,
-                onCollapse   = onCollapse,
-                onClose      = onClose,
-            )
+            // Coloured accent bg strip behind header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(accentColor.copy(alpha = 0.06f)),
+            ) {
+                CardHeader(
+                    identity     = identity,
+                    phone        = phone,
+                    callPhase    = callPhase,
+                    durationSecs = durationSecs,
+                    isRecording  = isRecording,
+                    isPostCall   = isPostCall,
+                    accentColor  = accentColor,
+                    onCollapse   = onCollapse,
+                    onClose      = onClose,
+                )
+            }
 
-            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+            HorizontalDivider(color = BorderLight, thickness = 1.dp)
 
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 when (identity) {
@@ -152,7 +174,7 @@ fun ExpandedOverlayCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Header strip
+// Header
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -163,101 +185,115 @@ private fun CardHeader(
     durationSecs: Long,
     isRecording: Boolean,
     isPostCall: Boolean,
+    accentColor: Color,
     onCollapse: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val accentColor = when (identity) {
-        is CallerIdentity.Unknown  -> Color(0xFF38BDF8)
-        is CallerIdentity.Customer -> Color(0xFF10B981)
-        is CallerIdentity.Lead     -> Color(0xFF6366F1)
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment     = Alignment.CenterVertically,
     ) {
-        // Left: identity info
+        // Avatar circle with initial
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(accentColor.copy(alpha = 0.12f))
+                .border(1.5.dp, accentColor.copy(alpha = 0.35f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            val initials = when (identity) {
+                is CallerIdentity.Unknown  -> "?"
+                is CallerIdentity.Lead     -> identity.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+                is CallerIdentity.Customer -> identity.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+            }
+            Text(
+                text       = initials,
+                color      = accentColor,
+                fontSize   = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+        }
+
+        // Identity info
         Column(modifier = Modifier.weight(1f)) {
-            // Status badge
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(accentColor.copy(alpha = 0.1f))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                    .background(accentColor.copy(alpha = 0.12f))
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
             ) {
                 Text(
                     text = when (identity) {
-                        is CallerIdentity.Unknown  -> if (isPostCall) "CLOSED" else "UNKNOWN"
-                        is CallerIdentity.Customer -> if (isPostCall) "CLOSED" else "CUSTOMER"
-                        is CallerIdentity.Lead     -> if (isPostCall) "CLOSED" else identity.status.uppercase().ifBlank { "LEAD" }
+                        is CallerIdentity.Unknown  -> if (isPostCall) "Post Call" else "Unknown Caller"
+                        is CallerIdentity.Customer -> if (isPostCall) "Post Call" else "Customer"
+                        is CallerIdentity.Lead     -> if (isPostCall) "Post Call" else identity.status.ifBlank { "Lead" }
                     },
-                    color      = accentColor,
-                    fontSize   = 9.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.8.sp,
+                    color         = accentColor,
+                    fontSize      = 10.sp,
+                    fontWeight    = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 text       = if (identity is CallerIdentity.Unknown) phone else identity.displayName,
-                color      = Color(0xFF1E293B),
-                fontSize   = 19.sp,
-                fontWeight = FontWeight.W800,
-                letterSpacing = -0.5.sp,
+                color      = TextPrimary,
+                fontSize   = 16.sp,
+                fontWeight = FontWeight.Bold,
             )
             if (identity.displayCompany.isNotBlank()) {
-                Text(text = identity.displayCompany, color = Color(0xFF64748B), fontSize = 12.sp)
+                Text(text = identity.displayCompany, color = TextSecondary, fontSize = 12.sp)
             }
         }
 
-        // Right: recording indicator + timer + buttons
+        // Right: timer + recording dot + action buttons
         Column(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // Button row: chevron-down + X
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Chevron — minimise to bubble
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Chevron — minimise
                 IconButton(
                     onClick  = onCollapse,
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF8FAFC)),
+                        .background(SurfaceLight)
+                        .border(1.dp, BorderLight, CircleShape),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.KeyboardArrowDown,
                         contentDescription = "Minimise",
-                        tint               = Color(0xFF64748B),
-                        modifier           = Modifier.size(20.dp),
+                        tint               = TextSecondary,
+                        modifier           = Modifier.size(18.dp),
                     )
                 }
-                // X — full dismiss, available anytime
-                IconButton(
-                    onClick  = onClose,
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFEF2F2)),
-                ) {
-                    Icon(
-                        imageVector        = Icons.Default.Close,
-                        contentDescription = "Close overlay",
-                        tint               = Color(0xFFEF4444),
-                        modifier           = Modifier.size(17.dp),
-                    )
+                // X — full dismiss, PostCall only
+                if (isPostCall) {
+                    IconButton(
+                        onClick  = onClose,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEE2E2))
+                            .border(1.dp, Color(0xFFFCA5A5), CircleShape),
+                    ) {
+                        Icon(
+                            imageVector        = Icons.Default.Close,
+                            contentDescription = "Close overlay",
+                            tint               = Color(0xFFEF4444),
+                            modifier           = Modifier.size(15.dp),
+                        )
+                    }
                 }
             }
 
-            // Recording indicator
-            if (isRecording) {
-                RecordingDot()
-            }
+            if (isRecording) RecordingDot()
 
-            // Timer chip
             TimerChip(callPhase, durationSecs, accentColor)
         }
     }
@@ -265,18 +301,21 @@ private fun CardHeader(
 
 @Composable
 private fun TimerChip(callPhase: CallPhase, durationSecs: Long, accentColor: Color) {
-    Row(
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    val label = when (callPhase) {
+        CallPhase.RINGING -> "Ringing…"
+        CallPhase.ENDED   -> "Ended · ${SessionTimerManager.formatDuration(durationSecs)}"
+        CallPhase.ACTIVE  -> SessionTimerManager.formatDuration(durationSecs)
+    }
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(accentColor.copy(alpha = 0.10f))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
-            text = when (callPhase) {
-                CallPhase.RINGING -> "Ringing"
-                CallPhase.ENDED   -> "Ended · ${SessionTimerManager.formatDuration(durationSecs)}"
-                CallPhase.ACTIVE  -> SessionTimerManager.formatDuration(durationSecs)
-            },
+            text       = label,
             color      = accentColor,
-            fontSize   = 12.sp,
+            fontSize   = 11.sp,
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -286,27 +325,34 @@ private fun TimerChip(callPhase: CallPhase, durationSecs: Long, accentColor: Col
 private fun RecordingDot() {
     val infiniteTransition = rememberInfiniteTransition(label = "recDotPulse")
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue  = 1f,
-        animationSpec = InfiniteRepeatableSpec(tween(600), RepeatMode.Reverse),
-        label = "recDotAlpha",
+        initialValue  = 0.6f,
+        targetValue   = 1f,
+        animationSpec = InfiniteRepeatableSpec(tween(550), RepeatMode.Reverse),
+        label         = "recDotAlpha",
     )
-    Row(
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFFEF4444).copy(alpha = 0.10f))
+            .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFF87171).copy(alpha = alpha)),
-        )
-        Text(
-            text       = "REC",
-            color      = Color(0xFFF87171).copy(alpha = alpha),
-            fontSize   = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp,
-        )
+        Row(
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFEF4444).copy(alpha = alpha)),
+            )
+            Text(
+                text          = "REC",
+                color         = Color(0xFFEF4444).copy(alpha = alpha),
+                fontSize      = 10.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+            )
+        }
     }
 }

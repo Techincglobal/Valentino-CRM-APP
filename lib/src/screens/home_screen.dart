@@ -973,7 +973,7 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// TEST OVERLAY CARD
+// SIMULATE INCOMING CALL CARD
 // ════════════════════════════════════════════════════════════════════════════
 
 class _TestOverlayCard extends StatelessWidget {
@@ -986,7 +986,7 @@ class _TestOverlayCard extends StatelessWidget {
     final isDark = context.isDark;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF111827) : Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -996,39 +996,44 @@ class _TestOverlayCard extends StatelessWidget {
             : [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(Icons.flash_on_rounded,
-                    color: AppColors.accent, size: 18),
+                child: const Icon(Icons.phone_in_talk,
+                    color: Color(0xFF6366F1), size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Test Native Overlay',
-                        style: TextStyle(
-                          color: ac.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        )),
-                    Text('Preview the new UI architecture',
-                        style:
-                            TextStyle(color: ac.textSecondary, fontSize: 12)),
+                    Text(
+                      'Simulate Incoming Call',
+                      style: TextStyle(
+                        color: ac.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    Text(
+                      'Test the overlay without a real call',
+                      style: TextStyle(color: ac.textSecondary, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
@@ -1037,34 +1042,126 @@ class _TestOverlayCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _buildBtn(context, 'Test Unknown', () => onTest(false))),
-              const SizedBox(width: 8),
-              Expanded(child: _buildBtn(context, 'Test Known', () => onTest(true))),
+              Expanded(
+                child: _SimBtn(
+                  label: 'Unknown Caller',
+                  subtitle: 'New number, no CRM match',
+                  icon: Icons.person_outline,
+                  color: const Color(0xFFF59E0B),
+                  bgColor: const Color(0xFFFFFBEB),
+                  borderColor: const Color(0xFFFDE68A),
+                  onTap: () => onTest(false),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SimBtn(
+                  label: 'Known Contact',
+                  subtitle: 'Existing lead or customer',
+                  icon: Icons.person,
+                  color: const Color(0xFF6366F1),
+                  bgColor: const Color(0xFFEEF2FF),
+                  borderColor: const Color(0xFFC7D2FE),
+                  onTap: () => onTest(true),
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: ac.bgInput,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: ac.border),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 14, color: ac.textTertiary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Overlay only appears for incoming calls on device. Use these buttons to preview.',
+                    style: TextStyle(
+                      color: ac.textTertiary,
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildBtn(BuildContext context, String label, VoidCallback onTap) {
+class _SimBtn extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+  final Color borderColor;
+  final VoidCallback onTap;
+
+  const _SimBtn({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.bgColor,
+    required this.borderColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.isDark;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        alignment: Alignment.center,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.accent.withValues(alpha: 0.11),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: AppColors.accent.withValues(alpha: 0.22)),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.accentLight,
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
+          color: isDark ? color.withValues(alpha: 0.12) : bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? color.withValues(alpha: 0.30) : borderColor,
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isDark ? 0.20 : 0.15),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, color: color, size: 17),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: color.withValues(alpha: 0.70),
+                fontSize: 10,
+                height: 1.3,
+              ),
+            ),
+          ],
         ),
       ),
     );

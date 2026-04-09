@@ -74,7 +74,7 @@ class NativeCallOverlayService : Service() {
     private var params: WindowManager.LayoutParams?   = null
 
     private var windowX = 0
-    private var windowY = 120 // Fixed margin from the top edge
+    private var windowY = 300 // Initial vertical position
 
     // ── Complaint popup window (second overlay) ───────────────────────────────
     private var complaintView: ComposeView?           = null
@@ -200,11 +200,29 @@ class NativeCallOverlayService : Service() {
     }
 
     private fun handleDrag(dx: Float, dy: Float) {
-        // Disabled for Dynamic Banner UI — fixed top anchor
+        val p = params ?: return
+        p.x += dx.toInt()
+        p.y += dy.toInt()
+        windowX = p.x
+        windowY = p.y
+        try { windowManager?.updateViewLayout(composeView, p) } catch (_: Exception) {}
     }
 
     private fun snapToEdge() {
-        // Disabled for Dynamic Banner UI — fixed top anchor
+        val p = params ?: return
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        
+        // Snap to left or right side with margin
+        val margin = (EDGE_MARGIN_DP * displayMetrics.density).toInt()
+        p.x = if (p.x + (composeView?.width ?: 0) / 2 < screenWidth / 2) {
+            margin
+        } else {
+            screenWidth - (composeView?.width ?: 0) - margin
+        }
+        
+        windowX = p.x
+        try { windowManager?.updateViewLayout(composeView, p) } catch (_: Exception) {}
     }
 
     private fun setWindowFocusable(focusable: Boolean) {
@@ -232,7 +250,7 @@ class NativeCallOverlayService : Service() {
             baseFlags,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.TOP or Gravity.START
             x = windowX
             y = windowY
         }

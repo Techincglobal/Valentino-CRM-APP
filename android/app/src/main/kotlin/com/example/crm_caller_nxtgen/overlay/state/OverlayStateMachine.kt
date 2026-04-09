@@ -54,10 +54,12 @@ class OverlayStateMachine(
                 activeJob = scope.launch {
                     if (event.phoneNumber == "555-KNOWN") {
                         val fakeCustomer = CallerIdentity.Customer(
-                            id = "DEV_TEST",
-                            name = "Alex Mercer",
-                            companyName = "ACME Corp",
-                            tier = "VIP",
+                            docname     = "DEV-TEST-001",
+                            leadDocname = "",
+                            name        = "Alex Mercer",
+                            company     = "ACME Corp",
+                            email       = "alex@acme.com",
+                            phone       = "+1 555 010 2026",
                         )
                         transition(OverlayEvent.IdentityResolved(fakeCustomer))
                         return@launch
@@ -193,10 +195,11 @@ class OverlayStateMachine(
                 val phone = current.phoneNumber ?: return
                 val identity = current.knownIdentity ?: CallerIdentity.Unknown
                 
-                // Minimise main overlay to bubble
+                // Minimise main overlay to bubble so complaint popup has full focus
                 when (current) {
-                    is OverlayState.KnownCaller -> _state.value = current.copy(isExpanded = false)
-                    is OverlayState.PostCall    -> _state.value = current.copy(isExpanded = false)
+                    is OverlayState.KnownCaller   -> _state.value = current.copy(isExpanded = false)
+                    is OverlayState.PostCall      -> _state.value = current.copy(isExpanded = false)
+                    is OverlayState.UnknownCaller -> _state.value = current.copy(isExpanded = false)
                     else -> {}
                 }
                 _complaintState.value = ComplaintPopupState.Visible(identity, phone)
@@ -208,8 +211,9 @@ class OverlayStateMachine(
                 emitEffect(OverlaySideEffect.HideComplaintPopup)
                 // Re-expand main overlay
                 when (val cur = _state.value) {
-                    is OverlayState.KnownCaller -> _state.value = cur.copy(isExpanded = true)
-                    is OverlayState.PostCall    -> _state.value = cur.copy(isExpanded = true)
+                    is OverlayState.KnownCaller   -> _state.value = cur.copy(isExpanded = true)
+                    is OverlayState.PostCall      -> _state.value = cur.copy(isExpanded = true)
+                    is OverlayState.UnknownCaller -> _state.value = cur.copy(isExpanded = true)
                     else -> {}
                 }
             }
@@ -232,8 +236,9 @@ class OverlayStateMachine(
                             emitEffect(OverlaySideEffect.ShowToast("Complaint logged"))
                             // Re-expand main overlay
                             when (val cur = _state.value) {
-                                is OverlayState.KnownCaller -> _state.value = cur.copy(isExpanded = true)
-                                is OverlayState.PostCall    -> _state.value = cur.copy(isExpanded = true)
+                                is OverlayState.KnownCaller   -> _state.value = cur.copy(isExpanded = true)
+                                is OverlayState.PostCall      -> _state.value = cur.copy(isExpanded = true)
+                                is OverlayState.UnknownCaller -> _state.value = cur.copy(isExpanded = true)
                                 else -> {}
                             }
                         },

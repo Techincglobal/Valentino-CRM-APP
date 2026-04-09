@@ -50,21 +50,20 @@ import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.domain.ComplaintPopupState
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
-private val Red400     = Color(0xFFEF4444)
-private val Emerald400 = Color(0xFF10B981)
-private val Amber400   = Color(0xFFFBBF24)
-private val BlueFrappe = Color(0xFF2490EF)
-private val Slate900   = Color(0xFF0F172A)
-private val Slate800   = Color(0xFFFFFFFF)
-private val Slate700   = Color(0xFFE2E8F0)
-private val Slate400   = Color(0xFF64748B)
-private val SlateText  = Color(0xFF0F172A)
+// Light palette
+private val Red500        = Color(0xFFEF4444)
+private val Emerald500    = Color(0xFF10B981)
+private val Amber500      = Color(0xFFF59E0B)
+private val TextPrimary   = Color(0xFF0F172A)
+private val TextSecondary = Color(0xFF64748B)
+private val TextMuted     = Color(0xFF94A3B8)
+private val BorderLight   = Color(0xFFE2E8F0)
+private val SurfaceLight  = Color(0xFFF8FAFC)
+private val White         = Color(0xFFFFFFFF)
 
 /**
  * Root composable for the second WindowManager window — complaint popup.
- *
- * Renders on top of the main overlay (which has minimised to the bubble).
- * After submit or cancel the popup closes and the main overlay re-expands.
+ * Light white design with red accent. Appears centred with dim behind.
  */
 @Composable
 fun ComplaintPopupRoot(
@@ -74,8 +73,8 @@ fun ComplaintPopupRoot(
     MaterialTheme(colorScheme = OverlayTheme) {
         AnimatedVisibility(
             visible = complaintState !is ComplaintPopupState.Hidden,
-            enter   = slideInVertically(initialOffsetY = { it / 4 }) + fadeIn(),
-            exit    = slideOutVertically(targetOffsetY = { it / 4 }) + fadeOut(),
+            enter   = slideInVertically(initialOffsetY = { it / 5 }) + fadeIn(),
+            exit    = slideOutVertically(targetOffsetY = { it / 5 }) + fadeOut(),
         ) {
             when (complaintState) {
                 is ComplaintPopupState.Hidden     -> { /* animated out */ }
@@ -96,73 +95,101 @@ private fun ComplaintCard(
     var priority by remember { mutableStateOf("Medium") }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor   = BlueFrappe,
-        unfocusedBorderColor = Slate700,
-        focusedTextColor     = SlateText,
-        unfocusedTextColor   = SlateText,
-        focusedLabelColor    = BlueFrappe,
-        unfocusedLabelColor  = Slate400,
-        cursorColor          = BlueFrappe,
+        focusedBorderColor      = Red500,
+        unfocusedBorderColor    = BorderLight,
+        focusedTextColor        = TextPrimary,
+        unfocusedTextColor      = TextPrimary,
+        focusedLabelColor       = Red500,
+        unfocusedLabelColor     = TextSecondary,
+        cursorColor             = Red500,
+        focusedContainerColor   = White,
+        unfocusedContainerColor = White,
     )
 
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .shadow(32.dp, RoundedCornerShape(12.dp), spotColor = Color.Black.copy(alpha = 0.25f)),
-        shape         = RoundedCornerShape(12.dp),
-        color         = Slate800,
-        tonalElevation = 0.dp,
+            .width(320.dp)
+            .shadow(
+                elevation    = 24.dp,
+                shape        = RoundedCornerShape(20.dp),
+                ambientColor = Color.Black.copy(alpha = 0.10f),
+                spotColor    = Color.Black.copy(alpha = 0.16f),
+            ),
+        shape           = RoundedCornerShape(20.dp),
+        color           = White,
+        tonalElevation  = 0.dp,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
 
-            // ── Header ────────────────────────────────────────────────────────
+            // Header
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically,
             ) {
                 Column {
+                    // Red accent strip
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Red500.copy(alpha = 0.10f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            "COMPLAINT",
+                            color         = Red500,
+                            fontSize      = 10.sp,
+                            fontWeight    = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text       = "Log Complaint",
-                        color      = SlateText,
+                        color      = TextPrimary,
                         fontSize   = 18.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text     = if (state.identity is com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity.Unknown) state.phoneNumber else state.identity.displayNameShort,
-                        color    = Slate400,
+                        text     = state.identity.displayNameShort,
+                        color    = TextSecondary,
                         fontSize = 12.sp,
                     )
                 }
                 IconButton(
                     onClick  = { onEvent(OverlayEvent.CloseComplaintPopup) },
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF1F5F9)),
+                        .background(SurfaceLight)
+                        .border(1.dp, BorderLight, CircleShape),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.Close,
-                        contentDescription = "Cancel complaint",
-                        tint               = Slate400,
+                        contentDescription = "Cancel",
+                        tint               = TextSecondary,
                         modifier           = Modifier.size(16.dp),
                     )
                 }
             }
 
-            androidx.compose.material3.HorizontalDivider(
-                modifier  = Modifier.padding(vertical = 12.dp),
-                color     = Slate700,
+            HorizontalDivider(
+                modifier  = Modifier.padding(vertical = 14.dp),
+                color     = BorderLight,
                 thickness = 1.dp,
             )
 
-            // ── Priority chips ────────────────────────────────────────────────
-            Text("Priority", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+            // Priority chips
+            Text(
+                "Priority",
+                color         = TextMuted,
+                fontSize      = 11.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+            )
             Spacer(Modifier.height(8.dp))
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Low" to Emerald400, "Medium" to Amber400, "High" to Red400).forEach { (p, color) ->
+                listOf("Low" to Emerald500, "Medium" to Amber500, "High" to Red500).forEach { (p, color) ->
                     PriorityChip(
                         text       = p,
                         isSelected = priority == p,
@@ -175,64 +202,66 @@ private fun ComplaintCard(
 
             Spacer(Modifier.height(12.dp))
 
-            // ── Category ──────────────────────────────────────────────────────
+            // Category
             OutlinedTextField(
                 value         = category,
                 onValueChange = { category = it },
-                label         = { Text("Category / Reason", fontSize = 13.sp) },
-                modifier      = Modifier.fillMaxWidth().height(56.dp),
+                label         = { Text("Category / Reason") },
+                modifier      = Modifier.fillMaxWidth(),
                 colors        = fieldColors,
-                shape         = RoundedCornerShape(6.dp),
+                shape         = RoundedCornerShape(12.dp),
                 singleLine    = true,
             )
 
             Spacer(Modifier.height(10.dp))
 
-            // ── Details ───────────────────────────────────────────────────────
+            // Details
             OutlinedTextField(
                 value         = details,
                 onValueChange = { details = it },
-                label         = { Text("Details", fontSize = 13.sp) },
+                label         = { Text("Details") },
                 modifier      = Modifier.fillMaxWidth(),
                 colors        = fieldColors,
-                shape         = RoundedCornerShape(6.dp),
+                shape         = RoundedCornerShape(12.dp),
                 maxLines      = 3,
                 minLines      = 3,
             )
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Actions ───────────────────────────────────────────────────────
+            // Actions
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 TextButton(
                     onClick  = { onEvent(OverlayEvent.CloseComplaintPopup) },
-                    modifier = Modifier.weight(1f).height(46.dp),
+                    modifier = Modifier.weight(1f),
                 ) {
-                    Text("Cancel", color = Slate400, fontWeight = FontWeight.Medium)
+                    Text("Cancel", color = TextMuted, fontWeight = FontWeight.Medium)
                 }
 
                 Button(
                     onClick  = {
-                        onEvent(OverlayEvent.SubmitComplaint(
-                            category = category.trim(),
-                            details  = details.trim(),
-                            priority = priority,
-                        ))
+                        onEvent(
+                            OverlayEvent.SubmitComplaint(
+                                category = category.trim(),
+                                details  = details.trim(),
+                                priority = priority,
+                            )
+                        )
                     },
                     modifier = Modifier
                         .weight(2f)
-                        .height(46.dp),
+                        .height(48.dp),
                     enabled  = category.isNotBlank() && details.isNotBlank(),
                     colors   = ButtonDefaults.buttonColors(
-                        containerColor         = Red400,
-                        disabledContainerColor = Red400.copy(alpha = 0.4f),
+                        containerColor         = Red500,
+                        disabledContainerColor = Red500.copy(alpha = 0.35f),
                     ),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text("Submit Complaint", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Submit", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }
@@ -242,17 +271,20 @@ private fun ComplaintCard(
 @Composable
 private fun SubmittingCard() {
     Surface(
-        modifier = Modifier.width(280.dp).shadow(16.dp, RoundedCornerShape(20.dp)),
-        shape    = RoundedCornerShape(20.dp),
-        color    = Slate800,
+        modifier = Modifier
+            .width(260.dp)
+            .shadow(16.dp, RoundedCornerShape(20.dp)),
+        shape          = RoundedCornerShape(20.dp),
+        color          = White,
+        tonalElevation = 0.dp,
     ) {
         Row(
-            modifier             = Modifier.padding(24.dp),
-            verticalAlignment    = Alignment.CenterVertically,
+            modifier              = Modifier.padding(24.dp),
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            CircularProgressIndicator(color = Red400, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
-            Text("Submitting complaint…", color = SlateText, fontWeight = FontWeight.SemiBold)
+            CircularProgressIndicator(color = Red500, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+            Text("Submitting complaint…", color = TextPrimary, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -267,27 +299,26 @@ private fun PriorityChip(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (isSelected) color.copy(alpha = 0.15f) else Color(0xFFF8FAFC))
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isSelected) color.copy(alpha = 0.12f) else SurfaceLight)
             .border(
                 width = if (isSelected) 1.5.dp else 1.dp,
-                color = if (isSelected) color else Slate700,
-                shape = RoundedCornerShape(6.dp),
+                color = if (isSelected) color else BorderLight,
+                shape = RoundedCornerShape(10.dp),
             )
             .clickable { onClick() }
-            .padding(vertical = 10.dp),
+            .padding(vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text       = text,
-            color      = if (isSelected) color else Slate400,
+            color      = if (isSelected) color else TextSecondary,
             fontSize   = 12.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
         )
     }
 }
 
-// Helper
 private val com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity.displayNameShort: String
     get() = when (this) {
         is com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity.Unknown  -> "Unknown caller"

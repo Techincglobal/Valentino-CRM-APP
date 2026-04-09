@@ -1,6 +1,16 @@
 package com.example.crm_caller_nxtgen.overlay.ui.components
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -17,7 +27,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -26,22 +38,15 @@ import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UnknownCallerForm — create-lead form during a call
-//
-// Design goals:
-//  - Phone pre-filled and locked (can't be edited — it came from the OS)
-//  - Only required field is Full Name
-//  - Email, company, note are optional
-//  - "Create Lead & Save" enabled once name is non-blank
-//  - Record Call toggle below notes
-//  - Log Complaint button (toasts "Save lead first" if no identity yet)
+// Light palette
 // ─────────────────────────────────────────────────────────────────────────────
-
-private val AccentIndigo = Color(0xFF6366F1)
-private val AccentRed    = Color(0xFFEF4444)
-private val SurfaceDark  = Color(0xFFE2E8F0) // Gray 200
-private val TextPrimary  = Color(0xFF0F172A) // Slate 900
-private val TextMuted    = Color(0xFF64748B) // Slate 500
+private val AccentIndigo  = Color(0xFF6366F1)
+private val AccentRed     = Color(0xFFEF4444)
+private val TextPrimary   = Color(0xFF0F172A)
+private val TextSecondary = Color(0xFF64748B)
+private val TextMuted     = Color(0xFF94A3B8)
+private val BorderLight   = Color(0xFFE2E8F0)
+private val SectionLabel  = Color(0xFF6366F1)
 
 @Composable
 fun UnknownCallerForm(
@@ -57,43 +62,51 @@ fun UnknownCallerForm(
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor   = AccentIndigo,
-        unfocusedBorderColor = SurfaceDark,
+        unfocusedBorderColor = BorderLight,
         focusedTextColor     = TextPrimary,
         unfocusedTextColor   = TextPrimary,
         disabledTextColor    = TextMuted,
-        disabledBorderColor  = SurfaceDark.copy(alpha = 0.6f),
+        disabledBorderColor  = BorderLight,
         disabledLabelColor   = TextMuted,
         focusedLabelColor    = AccentIndigo,
-        unfocusedLabelColor  = TextMuted,
+        unfocusedLabelColor  = TextSecondary,
         cursorColor          = AccentIndigo,
+        focusedContainerColor   = Color.White,
+        unfocusedContainerColor = Color.White,
+        disabledContainerColor  = Color(0xFFF8FAFC),
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
         // Section label
-        Text(
-            text       = "New Lead",
-            color      = TextPrimary,
-            fontSize   = 15.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(3.dp, 14.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(AccentIndigo),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text          = "NEW LEAD",
+                color         = SectionLabel,
+                fontSize      = 11.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
+            )
+        }
 
-        androidx.compose.material3.HorizontalDivider(
-            color = SurfaceDark,
-            thickness = 1.dp,
-        )
+        Spacer(Modifier.height(2.dp))
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Phone — auto-filled from call, locked
+        // Phone — locked
         OutlinedTextField(
             value         = phone,
             onValueChange = {},
-            label         = { Text("Phone number", fontSize = 13.sp) },
+            label         = { Text("Phone number") },
             enabled       = false,
-            modifier      = Modifier.fillMaxWidth().height(56.dp),
+            modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(6.dp),
+            shape         = RoundedCornerShape(12.dp),
             singleLine    = true,
         )
 
@@ -101,22 +114,22 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = name,
             onValueChange = { name = it },
-            label         = { Text("Full name *", fontSize = 13.sp) },
-            modifier      = Modifier.fillMaxWidth().height(56.dp),
+            label         = { Text("Full name *") },
+            modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(6.dp),
+            shape         = RoundedCornerShape(12.dp),
             singleLine    = true,
         )
 
         // Email
         OutlinedTextField(
-            value         = email,
-            onValueChange = { email = it },
-            label         = { Text("Email", fontSize = 13.sp) },
-            modifier      = Modifier.fillMaxWidth().height(56.dp),
-            colors        = fieldColors,
-            shape         = RoundedCornerShape(6.dp),
-            singleLine    = true,
+            value           = email,
+            onValueChange   = { email = it },
+            label           = { Text("Email") },
+            modifier        = Modifier.fillMaxWidth(),
+            colors          = fieldColors,
+            shape           = RoundedCornerShape(12.dp),
+            singleLine      = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
 
@@ -124,26 +137,26 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = company,
             onValueChange = { company = it },
-            label         = { Text("Company", fontSize = 13.sp) },
-            modifier      = Modifier.fillMaxWidth().height(56.dp),
+            label         = { Text("Company") },
+            modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(6.dp),
+            shape         = RoundedCornerShape(12.dp),
             singleLine    = true,
         )
 
-        // Call note
+        // Quick note
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
-            label         = { Text("Quick note", fontSize = 13.sp) },
+            label         = { Text("Quick note") },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors,
-            shape         = RoundedCornerShape(6.dp),
+            shape         = RoundedCornerShape(12.dp),
             maxLines      = 3,
             minLines      = 2,
         )
 
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(4.dp))
 
         // Record toggle
         RecordToggleButton(
@@ -151,46 +164,54 @@ fun UnknownCallerForm(
             onClick     = { onEvent(OverlayEvent.ToggleRecording) },
         )
 
-        // Complaint button — can now be logged directly even if caller is unknown
+        // Log Complaint — can always be pressed (even without saving lead first)
         OutlinedButton(
             onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
-            modifier = Modifier.fillMaxWidth().height(42.dp),
-            colors   = ButtonDefaults.outlinedButtonColors(contentColor = AccentRed),
-            shape    = RoundedCornerShape(6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .border(1.dp, AccentRed.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = AccentRed,
+            ),
+            shape = RoundedCornerShape(12.dp),
         ) {
-            Row {
-                Icon(
-                    imageVector        = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint               = AccentRed,
-                    modifier           = Modifier.size(16.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text       = "Log Complaint",
-                    color      = AccentRed,
-                    fontSize   = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
+            Icon(
+                imageVector        = Icons.Default.Warning,
+                contentDescription = null,
+                tint               = AccentRed,
+                modifier           = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text       = "Log Complaint",
+                color      = AccentRed,
+                fontSize   = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
 
         Spacer(Modifier.height(2.dp))
 
-        // Create lead
+        // Create lead button
         Button(
             onClick  = { onSubmit(name.trim(), email.trim(), company.trim(), note.trim()) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(50.dp),
             enabled  = name.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
-                containerColor         = Color(0xFF2490EF), // Frappe standard blue
-                disabledContainerColor = Color(0xFF2490EF).copy(alpha = 0.5f),
+                containerColor         = AccentIndigo,
+                disabledContainerColor = AccentIndigo.copy(alpha = 0.35f),
             ),
-            shape = RoundedCornerShape(6.dp),
+            shape = RoundedCornerShape(12.dp),
         ) {
-            Text("Create Lead & Save", fontWeight = FontWeight.Bold, color = Color.White)
+            Text(
+                text       = "Create Lead & Save",
+                fontWeight = FontWeight.Bold,
+                color      = Color.White,
+                fontSize   = 14.sp,
+            )
         }
     }
 }

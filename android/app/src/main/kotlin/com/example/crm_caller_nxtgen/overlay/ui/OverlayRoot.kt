@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,18 +35,18 @@ import com.example.crm_caller_nxtgen.overlay.ui.components.MinimizedTopPill
 import com.example.crm_caller_nxtgen.overlay.ui.components.ExpandedOverlayCard
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Premium dark colour scheme — used consistently across all overlay surfaces
+// Clean light colour scheme — white cards, dark typography, vivid accents
 // ─────────────────────────────────────────────────────────────────────────────
 val OverlayTheme = lightColorScheme(
     primary          = Color(0xFF6366F1), // Indigo 500
-    secondary        = Color(0xFF38BDF8), // Light Blue
-    tertiary         = Color(0xFF10B981), // Emerald 500
+    secondary        = Color(0xFF60A5FA), // Blue 400
+    tertiary         = Color(0xFF34D399), // Emerald 400
     error            = Color(0xFFEF4444), // Red 500
-    background       = Color.Transparent, 
+    background       = Color(0xFFF8FAFC), // Slate 50
     surface          = Color(0xFFFFFFFF), // White
-    surfaceVariant   = Color(0xFFF8FAFC), // Slight off-white
-    onSurface        = Color(0xFF0F172A), // Dark text (Slate 900)
-    onSurfaceVariant = Color(0xFF475569), // Slate 600
+    surfaceVariant   = Color(0xFFF1F5F9), // Slate 100
+    onSurface        = Color(0xFF0F172A), // Slate 900
+    onSurfaceVariant = Color(0xFF64748B), // Slate 500
 )
 
 @Composable
@@ -62,13 +64,8 @@ fun OverlayRoot(
         AnimatedContent(
             targetState = state,
             transitionSpec = {
-                androidx.compose.animation.slideInVertically(
-                    animationSpec = tween(300),
-                    initialOffsetY = { -it }
-                ) + fadeIn(tween(200)) togetherWith androidx.compose.animation.slideOutVertically(
-                    animationSpec = tween(250),
-                    targetOffsetY = { -it }
-                ) + fadeOut(tween(150))
+                (fadeIn(tween(220)) + scaleIn(tween(240), initialScale = 0.96f)) togetherWith
+                (fadeOut(tween(170)) + scaleOut(tween(170), targetScale = 0.96f))
             },
             label = "OverlayRoot",
         ) { currentState ->
@@ -97,6 +94,9 @@ fun OverlayRoot(
                             durationSecs = durationSecs,
                             isRecording  = currentState.isRecording,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
+                            onClose      = onClose,
+                            onDrag       = onDrag,
+                            onDragEnd    = onDragEnd,
                         )
                     }
                 }
@@ -121,6 +121,9 @@ fun OverlayRoot(
                             durationSecs = durationSecs,
                             isRecording  = currentState.isRecording,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
+                            onClose      = onClose,
+                            onDrag       = onDrag,
+                            onDragEnd    = onDragEnd,
                         )
                     }
                 }
@@ -153,6 +156,9 @@ fun OverlayRoot(
                             durationSecs = durationSecs,
                             isRecording  = false,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
+                            onClose      = onClose,
+                            onDrag       = onDrag,
+                            onDragEnd    = onDragEnd,
                         )
                     }
                 }
@@ -162,17 +168,17 @@ fun OverlayRoot(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Small shared composables
+// Shared loading composables — white surface, dark text
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun LoadingBubble() {
     Surface(
-        modifier       = Modifier.padding(16.dp),
-        shape          = RoundedCornerShape(28.dp),
-        color          = Color.White,
-        tonalElevation = 6.dp,
-        shadowElevation = 12.dp,
+        modifier        = Modifier.padding(16.dp),
+        shape           = RoundedCornerShape(28.dp),
+        color           = Color(0xFFFFFFFF),
+        shadowElevation = 14.dp,
+        tonalElevation  = 0.dp,
     ) {
         Row(
             modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -181,10 +187,14 @@ private fun LoadingBubble() {
             CircularProgressIndicator(
                 color       = Color(0xFF6366F1),
                 modifier    = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
+                strokeWidth = 2.5.dp,
             )
             Spacer(Modifier.width(12.dp))
-            Text("Looking up caller…", color = Color(0xFF0F172A), fontWeight = FontWeight.SemiBold)
+            Text(
+                text       = "Looking up caller…",
+                color      = Color(0xFF0F172A),
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
@@ -192,11 +202,11 @@ private fun LoadingBubble() {
 @Composable
 private fun SubmittingBubble(label: String) {
     Surface(
-        modifier       = Modifier.padding(16.dp),
-        shape          = RoundedCornerShape(28.dp),
-        color          = Color.White,
-        tonalElevation = 6.dp,
-        shadowElevation = 12.dp,
+        modifier        = Modifier.padding(16.dp),
+        shape           = RoundedCornerShape(28.dp),
+        color           = Color(0xFFFFFFFF),
+        shadowElevation = 14.dp,
+        tonalElevation  = 0.dp,
     ) {
         Row(
             modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -205,10 +215,14 @@ private fun SubmittingBubble(label: String) {
             CircularProgressIndicator(
                 color       = Color(0xFF6366F1),
                 modifier    = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
+                strokeWidth = 2.5.dp,
             )
             Spacer(Modifier.width(12.dp))
-            Text(label, color = Color(0xFF0F172A), fontWeight = FontWeight.SemiBold)
+            Text(
+                text       = label,
+                color      = Color(0xFF0F172A),
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
