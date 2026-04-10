@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
@@ -60,13 +61,35 @@ class CallMonitorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification())
-        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        registerPhoneListener()
+        try {
+            createNotificationChannel()
+            // Layered startForeground — never crash regardless of OEM or Android version
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    startForeground(NOTIF_ID, buildNotification(),
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                } catch (_: Exception) {
+                    startForeground(NOTIF_ID, buildNotification())
+                }
+            } else {
+                startForeground(NOTIF_ID, buildNotification())
+            }
+            telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            registerPhoneListener()
+        } catch (e: Exception) {
+            android.util.Log.e("CrmMonitor", "CallMonitorService onCreate failed: $e")
+            stopSelf()
+        }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Ensure foreground if system restarted us after being killed by OEM battery saver
+        try {
+            createNotificationChannel()
+            startForeground(NOTIF_ID, buildNotification())
+        } catch (_: Exception) { }
+        return START_STICKY
+    }
 
     override fun onDestroy() {
         unregisterPhoneListener()
@@ -78,22 +101,28 @@ class CallMonitorService : Service() {
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun registerPhoneListener() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val cb = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
-                override fun onCallStateChanged(state: Int) = handleState(state, null)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val cb = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                    override fun onCallStateChanged(state: Int) = handleState(state, null)
+                }
+                telephonyCallback = cb
+                telephonyManager?.registerTelephonyCallback(mainExecutor, cb)
+            } else {
+                @Suppress("DEPRECATION")
+                val listener = object : PhoneStateListener() {
+                    @Deprecated("Deprecated in Java")
+                    override fun onCallStateChanged(state: Int, number: String?) =
+                        handleState(state, number)
+                }
+                legacyListener = listener
+                @Suppress("DEPRECATION")
+                telephonyManager?.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
             }
-            telephonyCallback = cb
-            telephonyManager?.registerTelephonyCallback(mainExecutor, cb)
-        } else {
-            @Suppress("DEPRECATION")
-            val listener = object : PhoneStateListener() {
-                @Deprecated("Deprecated in Java")
-                override fun onCallStateChanged(state: Int, number: String?) =
-                    handleState(state, number)
-            }
-            legacyListener = listener
-            @Suppress("DEPRECATION")
-            telephonyManager?.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
+        } catch (e: Exception) {
+            // Some OEMs (MIUI, ColorOS) may restrict TelephonyCallback registration.
+            // CallStateReceiver broadcast is still active as fallback.
+            android.util.Log.e("CrmMonitor", "Failed to register phone listener: $e")
         }
     }
 

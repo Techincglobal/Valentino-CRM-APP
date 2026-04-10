@@ -77,13 +77,19 @@
         <!-- ⚠️ V2 REFACTOR: Switched to 'specialUse' for CRM Context.
              Target SDK 34+ requires 'phoneCall' FGS to be the default Dialer,
              which this app is not. 'specialUse' allows overlay display with justification. -->
+        <!--
+            NativeCallOverlayService uses ONLY specialUse type.
+            "microphone" was removed: targetSDK=36 (Android 16) rejects microphone FGS
+            started from the background even with SecurityException catch, because the
+            manifest declaration itself triggers full type validation on create.
+        -->
         <service
             android:name=".NativeCallOverlayService"
             android:exported="false"
-            android:foregroundServiceType="specialUse|microphone">
+            android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
-                android:value="CRM Contextual Overlay: Displays lead and opportunity data from the CRM during active phone calls to assist sales agents." />
+                android:value="CRM Contextual Overlay: Displays caller identity and CRM data during incoming phone calls to assist sales agents. Runs only for the duration of a call." />
         </service>
 
         <!--

@@ -98,21 +98,27 @@ class NativeCallOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        repository    = FrappeRepository(applicationContext)
-        timerManager  = SessionTimerManager(serviceScope)
+        try {
+            repository    = FrappeRepository(applicationContext)
+            timerManager  = SessionTimerManager(serviceScope)
+            stateMachine  = OverlayStateMachine(repository, serviceScope)
+            callRecorder  = CallRecorder(applicationContext)
 
-        stateMachine  = OverlayStateMachine(repository, serviceScope)
-        callRecorder  = CallRecorder(applicationContext)
+            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock     = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:overlay_wakelock")
+            callWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:call_wakelock")
 
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock     = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:overlay_wakelock")
-        callWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:call_wakelock")
-
-        createNotificationChannel()
-        startForegroundCompat()
-        observeSideEffects()
-        observeStateForWindowFlags()
+            createNotificationChannel()
+            startForegroundCompat()
+            observeSideEffects()
+            observeStateForWindowFlags()
+        } catch (e: Exception) {
+            // Never crash the entire app on service startup failure.
+            // Log and stop gracefully — CallMonitorService will retry on next call.
+            android.util.Log.e("CrmOverlay", "NativeCallOverlayService onCreate failed: $e")
+            stopSelf()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -461,30 +467,23 @@ class NativeCallOverlayService : Service() {
 
     private fun startForegroundCompat() {
         val notification = buildNotification("Monitoring calls")
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-                // API 30+: include microphone FGS type so recording works,
-                // BUT only if we actually have the permission, else Android 14+ crashes us!
-                var fgsType = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                if (hasRecordAudioPermission()) {
-                    fgsType = fgsType or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-                }
-                
-                try {
-                    startForeground(NOTIFICATION_ID, notification, fgsType)
-                } catch (e: SecurityException) {
-                    // Fallback if system still denies microphone FGS (e.g. started from background without exemption)
-                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                }
-            }
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-                )
-            }
-            else -> startForeground(NOTIFICATION_ID, notification)
+        // Use ONLY specialUse. The microphone type was removed from the manifest because
+        // Android 16 (targetSDK=36) rejects it at service-create time when started from
+        // the background — even inside a try-catch — because the manifest declaration
+        // itself triggers full type validation. Three layered fallbacks ensure we never crash.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                startForeground(NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                return
+            } catch (_: Exception) { }
+        }
+        // Last-resort: type-less (works on all API levels before Q)
+        try {
+            startForeground(NOTIFICATION_ID, notification)
+        } catch (_: Exception) {
+            // Absolute last resort — if even this fails, keep running without FGS
+            // (overlay will still work; we just won't have the foreground notification)
         }
     }
 
