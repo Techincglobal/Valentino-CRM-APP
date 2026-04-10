@@ -74,7 +74,7 @@ class NativeCallOverlayService : Service() {
     private var params: WindowManager.LayoutParams?   = null
 
     private var windowX = 0
-    private var windowY = 300 // Initial vertical position
+    private var windowY = 0 // start at top of screen (status bar height clearance handled by gravity)
 
     // ── Complaint popup window (second overlay) ───────────────────────────────
     private var complaintView: ComposeView?           = null
@@ -87,6 +87,8 @@ class NativeCallOverlayService : Service() {
     private lateinit var callRecorder: CallRecorder
 
     private var wakeLock: PowerManager.WakeLock? = null
+    // Separate long-running wakelock held for the call duration (not just startup burst)
+    private var callWakeLock: PowerManager.WakeLock? = null
 
     // ─────────────────────────────────────────────────────────────────────────
     // Lifecycle
@@ -98,12 +100,14 @@ class NativeCallOverlayService : Service() {
         super.onCreate()
         repository    = FrappeRepository(applicationContext)
         timerManager  = SessionTimerManager(serviceScope)
+
         stateMachine  = OverlayStateMachine(repository, serviceScope)
         callRecorder  = CallRecorder(applicationContext)
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:overlay_wakelock")
+        wakeLock     = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:overlay_wakelock")
+        callWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:call_wakelock")
 
         createNotificationChannel()
         startForegroundCompat()
@@ -124,6 +128,8 @@ class NativeCallOverlayService : Service() {
                 if (!hasOverlayPermission()) { stopSelf(); return START_NOT_STICKY }
                 val phone = intent.getStringExtra(EXTRA_PHONE) ?: ""
                 if (phone.isNotBlank()) {
+                    // Hold CPU alive for the entire call (up to 1 h)
+                    if (callWakeLock?.isHeld != true) callWakeLock?.acquire(3_600_000L)
                     timerManager.reset()
                     stateMachine.handleEvent(OverlayEvent.CallRinging(phone))
                     ensureWindowShown()
@@ -145,6 +151,8 @@ class NativeCallOverlayService : Service() {
                 stateMachine.handleEvent(OverlayEvent.CallEnded)
                 updateNotification("Call ended — overlay open")
                 SyncWorker.enqueue(applicationContext)
+                // Release the long call wakelock — user still sees PostCall overlay
+                if (callWakeLock?.isHeld == true) callWakeLock?.release()
                 // No auto-dismiss — overlay stays until user closes it
             }
         }
@@ -154,6 +162,7 @@ class NativeCallOverlayService : Service() {
 
     override fun onDestroy() {
         if (wakeLock?.isHeld == true) wakeLock?.release()
+        if (callWakeLock?.isHeld == true) callWakeLock?.release()
         if (callRecorder.isRecording) callRecorder.stopRecording()
         removeComplaintPopup()
         removeOverlay()
@@ -182,9 +191,20 @@ class NativeCallOverlayService : Service() {
         params = buildWindowParams(focusable = false)
         updateComposeContent()
 
+        var added = false
         try {
             windowManager?.addView(composeView, params)
+            added = true
         } catch (_: Exception) { }
+
+        // If addView failed (e.g. overlay permission revoked), clear state so
+        // the next ensureWindowShown() call attempts addView again instead of
+        // silently skipping because composeView is non-null.
+        if (!added) {
+            lifecycleOwner?.onDestroy()
+            composeView    = null
+            lifecycleOwner = null
+        }
     }
 
     private fun updateComposeContent() {
@@ -239,7 +259,11 @@ class NativeCallOverlayService : Service() {
 
         var baseFlags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+            // FLAG_LAYOUT_IN_SCREEN ensures the overlay is placed in the screen frame,
+            // not clipped by the status bar — keeps it visually above all other windows
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
 
         if (!focusable) baseFlags = baseFlags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
 
@@ -498,6 +522,7 @@ class NativeCallOverlayService : Service() {
 
     private fun cleanup() {
         if (callRecorder.isRecording) callRecorder.stopRecording()
+        if (callWakeLock?.isHeld == true) callWakeLock?.release()
         removeComplaintPopup()
         removeOverlay()
         timerManager.reset()

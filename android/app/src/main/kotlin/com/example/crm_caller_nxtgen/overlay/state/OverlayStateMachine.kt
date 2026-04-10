@@ -49,6 +49,16 @@ class OverlayStateMachine(
             // ── Phone OS ──────────────────────────────────────────────────────
 
             is OverlayEvent.CallRinging -> {
+                // Ignore duplicate event for the same phone number to prevent race
+                // between the native BroadcastReceiver and the Flutter phone listener.
+                val alreadyHandling = when (current) {
+                    is OverlayState.LoadingIdentity -> current.phoneNumber == event.phoneNumber
+                    is OverlayState.UnknownCaller   -> current.phoneNumber == event.phoneNumber
+                    is OverlayState.KnownCaller     -> current.phoneNumber == event.phoneNumber
+                    else -> false
+                }
+                if (alreadyHandling) return
+
                 activeJob?.cancel()
                 _state.value = OverlayState.LoadingIdentity(event.phoneNumber, CallPhase.RINGING)
                 activeJob = scope.launch {
@@ -64,12 +74,14 @@ class OverlayStateMachine(
                         transition(OverlayEvent.IdentityResolved(fakeCustomer))
                         return@launch
                     }
-                    val identity = repository.lookupIdentityByPhone(event.phoneNumber)
-                    if (identity != null) {
-                        transition(OverlayEvent.IdentityResolved(identity))
-                    } else {
-                        transition(OverlayEvent.IdentityNotFound)
-                    }
+                    // Wrap in runCatching so a DB/network crash can't leave overlay
+                    // stuck at LoadingIdentity forever showing a spinner
+                    runCatching { repository.lookupIdentityByPhone(event.phoneNumber) }
+                        .onSuccess { identity ->
+                            if (identity != null) transition(OverlayEvent.IdentityResolved(identity))
+                            else                  transition(OverlayEvent.IdentityNotFound)
+                        }
+                        .onFailure { transition(OverlayEvent.IdentityNotFound) }
                 }
             }
 
@@ -92,22 +104,24 @@ class OverlayStateMachine(
 
             is OverlayEvent.IdentityResolved -> {
                 val phone = current.phoneNumber ?: return
-                val wasExpanded = current.isExpanded
+                // Always start expanded so the card is immediately visible on incoming call
+                val expanded = if (current is OverlayState.LoadingIdentity) true else current.isExpanded
                 _state.value = OverlayState.KnownCaller(
                     phoneNumber = phone,
                     identity = event.identity,
                     callPhase = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded = wasExpanded,
+                    isExpanded = expanded,
                 )
             }
 
             is OverlayEvent.IdentityNotFound -> {
                 val phone = current.phoneNumber ?: return
-                val wasExpanded = current.isExpanded
+                // Always start expanded so the card is immediately visible on incoming call
+                val expanded = if (current is OverlayState.LoadingIdentity) true else current.isExpanded
                 _state.value = OverlayState.UnknownCaller(
                     phoneNumber = phone,
                     callPhase = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded = wasExpanded,
+                    isExpanded = expanded,
                 )
             }
 

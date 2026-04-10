@@ -105,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _startUiPhoneListener() {
     _phoneSubscription?.cancel();
-    _phoneSubscription = PhoneState.stream.listen((event) {
+    _phoneSubscription = PhoneState.stream.listen((event) async {
       if (event.status == PhoneStateStatus.CALL_INCOMING) {
         final phone = event.number ?? '';
         if (phone.isEmpty) return;
@@ -115,6 +115,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             now.difference(_lastHandledAt!).inSeconds < 5) return;
         _lastHandledPhone = phone;
         _lastHandledAt = now;
+        // Save phone immediately so native CallStateReceiver can use it as fallback
+        // (EXTRA_INCOMING_NUMBER requires READ_CALL_LOG on Android 12+, this is the backup)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('crm_caller_phone', phone);
         unawaited(_handleIncomingNumber(phone));
       }
     });
@@ -154,28 +158,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _workflowOpen = true;
     if (mounted) setState(() => _loading = true);
     unawaited(_incrementCallCount());
-    Map<String, dynamic> response;
     try {
-      response = await CallerService.getCallerDetails(phone);
-    } catch (e) {
+      Map<String, dynamic> response;
+      try {
+        response = await CallerService.getCallerDetails(phone);
+      } catch (e) {
+        response = {
+          'found': false,
+          'name': 'Unknown Caller',
+          'customer_name': 'Unknown Caller',
+          'type': 'Network/API Error',
+        };
+      }
       if (!mounted) return;
-      _showError('Lookup failed (Using Fallback)');
-      response = {
-        'found': false,
-        'name': 'Unknown Caller',
-        'customer_name': 'Unknown Caller',
-        'type': 'Network/API Error',
-      };
-    }
-    if (!mounted) return;
-    try {
       await _saveCallerDataToPrefs(phone, response);
       await _presentCallerWorkflow(phone, response);
     } catch (e) {
       debugPrint('Overlay error: $e');
-      if (mounted) setState(() => _loading = false);
-      return;
     } finally {
+      // Always reset the flag so the next call is never silently dropped
+      _workflowOpen = false;
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -236,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _presentCallerWorkflow(
       String phone, Map<String, dynamic> response) async {
-    if (!mounted) { _workflowOpen = false; return; }
+    if (!mounted) return;
     final data = {
       'phone':    phone,
       'name':     response['name'] ?? '',
@@ -246,17 +248,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       'event_id': DateTime.now().millisecondsSinceEpoch,
     };
     if (Platform.isAndroid) {
-      var overlayGranted =
+      final overlayGranted =
           await _nativeOverlayChannel.invokeMethod<bool>('canDrawOverlays') ??
           false;
-      if (overlayGranted) {
-        await _showNativeOverlay(data);
-        _workflowOpen = false;
-        return;
-      }
+      if (!overlayGranted) return; // permission not granted — native receiver won't show it either
     }
     await _showNativeOverlay(data);
-    _workflowOpen = false;
   }
 
   void _showError(String msg) {

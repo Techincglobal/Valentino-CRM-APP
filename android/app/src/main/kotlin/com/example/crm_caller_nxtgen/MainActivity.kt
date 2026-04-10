@@ -1,11 +1,14 @@
 package com.example.crm_caller_nxtgen
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -17,6 +20,26 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingOpenPhone = intent?.getStringExtra("open_phone")
+        requestCallLogPermissionIfNeeded()
+        // Start persistent call monitor so overlay works even when app is in background/killed
+        CallMonitorService.start(this)
+    }
+
+    private fun requestCallLogPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG)
+                != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.READ_CALL_LOG),
+                REQUEST_READ_CALL_LOG,
+            )
+        }
+    }
+
+    companion object {
+        private const val REQUEST_READ_CALL_LOG = 42
     }
 
     override fun onNewIntent(intent: Intent) {

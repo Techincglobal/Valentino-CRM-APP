@@ -1,5 +1,10 @@
 package com.example.crm_caller_nxtgen.overlay.ui.components
 
+import androidx.compose.animation.core.InfiniteRepeatableSpec
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -9,19 +14,25 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,15 +49,15 @@ import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Light palette
+// Palette
 // ─────────────────────────────────────────────────────────────────────────────
 private val AccentIndigo  = Color(0xFF6366F1)
+private val AccentAmber   = Color(0xFFF59E0B)
 private val AccentRed     = Color(0xFFEF4444)
 private val TextPrimary   = Color(0xFF0F172A)
 private val TextSecondary = Color(0xFF64748B)
-private val TextMuted     = Color(0xFF94A3B8)
 private val BorderLight   = Color(0xFFE2E8F0)
-private val SectionLabel  = Color(0xFF6366F1)
+private val SurfaceLight  = Color(0xFFF8FAFC)
 
 @Composable
 fun UnknownCallerForm(
@@ -61,71 +72,93 @@ fun UnknownCallerForm(
     var note    by remember { mutableStateOf("") }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor   = AccentIndigo,
-        unfocusedBorderColor = BorderLight,
-        focusedTextColor     = TextPrimary,
-        unfocusedTextColor   = TextPrimary,
-        disabledTextColor    = TextMuted,
-        disabledBorderColor  = BorderLight,
-        disabledLabelColor   = TextMuted,
-        focusedLabelColor    = AccentIndigo,
-        unfocusedLabelColor  = TextSecondary,
-        cursorColor          = AccentIndigo,
+        focusedBorderColor      = AccentIndigo,
+        unfocusedBorderColor    = BorderLight,
+        focusedTextColor        = TextPrimary,
+        unfocusedTextColor      = TextPrimary,
+        disabledTextColor       = TextSecondary,
+        disabledBorderColor     = BorderLight,
+        disabledLabelColor      = TextSecondary,
+        focusedLabelColor       = AccentIndigo,
+        unfocusedLabelColor     = TextSecondary,
+        cursorColor             = AccentIndigo,
         focusedContainerColor   = Color.White,
         unfocusedContainerColor = Color.White,
-        disabledContainerColor  = Color(0xFFF8FAFC),
+        disabledContainerColor  = SurfaceLight,
+        focusedLeadingIconColor   = AccentIndigo,
+        unfocusedLeadingIconColor = TextSecondary,
+        disabledLeadingIconColor  = TextSecondary,
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
 
-        // Section label
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // ── Phone number banner ───────────────────────────────────────────────
+        PhoneNumberBanner(phone)
+
+        Spacer(Modifier.height(14.dp))
+
+        HorizontalDivider(
+            color = BorderLight,
+            thickness = 1.dp,
+            modifier = Modifier.padding(horizontal = 0.dp),
+        )
+
+        Spacer(Modifier.height(14.dp))
+
+        // ── Section label ─────────────────────────────────────────────────────
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Box(
                 modifier = Modifier
-                    .size(3.dp, 14.dp)
+                    .size(width = 3.dp, height = 14.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(AccentIndigo),
             )
-            Spacer(Modifier.width(8.dp))
             Text(
                 text          = "NEW LEAD",
-                color         = SectionLabel,
+                color         = AccentIndigo,
                 fontSize      = 11.sp,
                 fontWeight    = FontWeight.Bold,
                 letterSpacing = 1.2.sp,
             )
         }
 
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(10.dp))
 
-        // Phone — locked
-        OutlinedTextField(
-            value         = phone,
-            onValueChange = {},
-            label         = { Text("Phone number") },
-            enabled       = false,
-            modifier      = Modifier.fillMaxWidth(),
-            colors        = fieldColors,
-            shape         = RoundedCornerShape(12.dp),
-            singleLine    = true,
-        )
-
-        // Full name — required
+        // ── Full name ─────────────────────────────────────────────────────────
         OutlinedTextField(
             value         = name,
             onValueChange = { name = it },
             label         = { Text("Full name *") },
-            modifier      = Modifier.fillMaxWidth(),
-            colors        = fieldColors,
-            shape         = RoundedCornerShape(12.dp),
-            singleLine    = true,
+            leadingIcon   = {
+                Icon(
+                    imageVector        = Icons.Default.Person,
+                    contentDescription = null,
+                    modifier           = Modifier.size(18.dp),
+                )
+            },
+            modifier   = Modifier.fillMaxWidth(),
+            colors     = fieldColors,
+            shape      = RoundedCornerShape(12.dp),
+            singleLine = true,
         )
 
-        // Email
+        Spacer(Modifier.height(8.dp))
+
+        // ── Email ─────────────────────────────────────────────────────────────
         OutlinedTextField(
             value           = email,
             onValueChange   = { email = it },
             label           = { Text("Email") },
+            leadingIcon     = {
+                Icon(
+                    imageVector        = Icons.Default.Email,
+                    contentDescription = null,
+                    modifier           = Modifier.size(18.dp),
+                )
+            },
             modifier        = Modifier.fillMaxWidth(),
             colors          = fieldColors,
             shape           = RoundedCornerShape(12.dp),
@@ -133,7 +166,9 @@ fun UnknownCallerForm(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
 
-        // Company
+        Spacer(Modifier.height(8.dp))
+
+        // ── Company ───────────────────────────────────────────────────────────
         OutlinedTextField(
             value         = company,
             onValueChange = { company = it },
@@ -144,11 +179,14 @@ fun UnknownCallerForm(
             singleLine    = true,
         )
 
-        // Quick note
+        Spacer(Modifier.height(8.dp))
+
+        // ── Quick note ────────────────────────────────────────────────────────
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
             label         = { Text("Quick note") },
+            placeholder   = { Text("What's this call about?", color = TextSecondary.copy(alpha = 0.5f)) },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors,
             shape         = RoundedCornerShape(12.dp),
@@ -156,44 +194,17 @@ fun UnknownCallerForm(
             minLines      = 2,
         )
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // Record toggle
+        // ── Record toggle ─────────────────────────────────────────────────────
         RecordToggleButton(
             isRecording = isRecording,
             onClick     = { onEvent(OverlayEvent.ToggleRecording) },
         )
 
-        // Log Complaint — can always be pressed (even without saving lead first)
-        OutlinedButton(
-            onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp)
-                .border(1.dp, AccentRed.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = AccentRed,
-            ),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Icon(
-                imageVector        = Icons.Default.Warning,
-                contentDescription = null,
-                tint               = AccentRed,
-                modifier           = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text       = "Log Complaint",
-                color      = AccentRed,
-                fontSize   = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        Spacer(Modifier.height(10.dp))
 
-        Spacer(Modifier.height(2.dp))
-
-        // Create lead button
+        // ── Save as Lead button ───────────────────────────────────────────────
         Button(
             onClick  = { onSubmit(name.trim(), email.trim(), company.trim(), note.trim()) },
             modifier = Modifier
@@ -202,16 +213,111 @@ fun UnknownCallerForm(
             enabled  = name.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
                 containerColor         = AccentIndigo,
-                disabledContainerColor = AccentIndigo.copy(alpha = 0.35f),
+                disabledContainerColor = AccentIndigo.copy(alpha = 0.30f),
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape     = RoundedCornerShape(12.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
         ) {
             Text(
                 text       = "Create Lead & Save",
                 fontWeight = FontWeight.Bold,
                 color      = Color.White,
                 fontSize   = 14.sp,
+                letterSpacing = 0.3.sp,
             )
+        }
+
+        // ── Log Complaint — secondary text button ─────────────────────────────
+        TextButton(
+            onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                imageVector        = Icons.Default.Warning,
+                contentDescription = null,
+                tint               = AccentRed.copy(alpha = 0.8f),
+                modifier           = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text       = "Log a Complaint",
+                color      = AccentRed.copy(alpha = 0.8f),
+                fontSize   = 12.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phone number banner with pulsing ring
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun PhoneNumberBanner(phone: String) {
+    val infiniteTransition = rememberInfiniteTransition(label = "ringPulse")
+    val ringAlpha by infiniteTransition.animateFloat(
+        initialValue  = 0.15f,
+        targetValue   = 0.35f,
+        animationSpec = InfiniteRepeatableSpec(tween(900), RepeatMode.Reverse),
+        label         = "ringAlpha",
+    )
+
+    Row(
+        modifier              = Modifier.fillMaxWidth(),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        // Pulsing phone icon circle
+        Box(contentAlignment = Alignment.Center) {
+            // Outer pulse ring
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(AccentAmber.copy(alpha = ringAlpha)),
+            )
+            // Inner icon circle
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(AccentAmber.copy(alpha = 0.15f))
+                    .border(1.5.dp, AccentAmber.copy(alpha = 0.4f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Phone,
+                    contentDescription = null,
+                    tint               = AccentAmber,
+                    modifier           = Modifier.size(20.dp),
+                )
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text       = if (phone == "Hidden") "Hidden Number" else phone,
+                color      = TextPrimary,
+                fontSize   = 16.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(AccentAmber.copy(alpha = ringAlpha + 0.5f)),
+                )
+                Text(
+                    text     = "Not in your CRM",
+                    color    = TextSecondary,
+                    fontSize = 12.sp,
+                )
+            }
         }
     }
 }
