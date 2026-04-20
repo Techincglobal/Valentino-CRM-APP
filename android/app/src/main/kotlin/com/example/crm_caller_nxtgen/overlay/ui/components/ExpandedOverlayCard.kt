@@ -106,7 +106,7 @@ fun ExpandedOverlayCard(
 
     Surface(
         modifier = Modifier
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
             .shadow(
                 elevation     = 24.dp,
                 shape         = RoundedCornerShape(20.dp),
@@ -117,7 +117,7 @@ fun ExpandedOverlayCard(
         color          = White,
         tonalElevation = 0.dp,
     ) {
-        Column(modifier = Modifier.heightIn(max = 590.dp)) {
+        Column(modifier = Modifier.heightIn(max = 720.dp)) {
 
             // Coloured accent bg strip behind header
             Box(

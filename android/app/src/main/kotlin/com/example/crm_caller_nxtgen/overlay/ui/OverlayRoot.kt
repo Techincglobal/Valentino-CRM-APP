@@ -138,6 +138,7 @@ fun OverlayRoot(
                         ActiveSheet.OPPORTUNITY -> "Saving opportunity…"
                         ActiveSheet.ADD_LEAD    -> "Creating lead…"
                         ActiveSheet.ADD_NOTE    -> "Saving note…"
+                        ActiveSheet.QUOTE       -> "Sending quote…"
                         else                    -> "Syncing…"
                     }
                     SubmittingBubble(label)

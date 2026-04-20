@@ -208,6 +208,37 @@ class FrappeRepository(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // CREATE QUOTATION
+    // Returns the Frappe docname on success, or empty string on network failure.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createQuotation(
+        identity: CallerIdentity,
+        subject: String,
+        amount: Double,
+        note: String,
+    ): String = withContext(Dispatchers.IO) {
+        val (leadDocname, partyType) = when (identity) {
+            is CallerIdentity.Lead     -> Pair(identity.docname,     "Lead")
+            is CallerIdentity.Customer -> Pair(identity.leadDocname, "Customer")
+            else -> throw IllegalStateException("Cannot create quotation for unknown caller")
+        }
+
+        return@withContext try {
+            if (api.getConfig().isValid && leadDocname.isNotBlank()) {
+                val result = api.createQuotation(
+                    leadDocname = leadDocname,
+                    partyType   = partyType,
+                    subject     = subject,
+                    amount      = amount,
+                    note        = note,
+                )
+                result.docname
+            } else ""
+        } catch (_: Exception) { "" }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // CREATE COMPLAINT
     // ─────────────────────────────────────────────────────────────────────────
 

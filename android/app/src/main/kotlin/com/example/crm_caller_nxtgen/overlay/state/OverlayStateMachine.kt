@@ -104,24 +104,22 @@ class OverlayStateMachine(
 
             is OverlayEvent.IdentityResolved -> {
                 val phone = current.phoneNumber ?: return
-                // Always start expanded so the card is immediately visible on incoming call
-                val expanded = if (current is OverlayState.LoadingIdentity) true else current.isExpanded
+                // Always start minimised — user taps the pill to expand
                 _state.value = OverlayState.KnownCaller(
                     phoneNumber = phone,
-                    identity = event.identity,
-                    callPhase = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded = expanded,
+                    identity    = event.identity,
+                    callPhase   = current.callPhase ?: CallPhase.RINGING,
+                    isExpanded  = false,
                 )
             }
 
             is OverlayEvent.IdentityNotFound -> {
                 val phone = current.phoneNumber ?: return
-                // Always start expanded so the card is immediately visible on incoming call
-                val expanded = if (current is OverlayState.LoadingIdentity) true else current.isExpanded
+                // Always start minimised — user taps the pill to expand
                 _state.value = OverlayState.UnknownCaller(
                     phoneNumber = phone,
-                    callPhase = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded = expanded,
+                    callPhase   = current.callPhase ?: CallPhase.RINGING,
+                    isExpanded  = false,
                 )
             }
 
@@ -378,6 +376,71 @@ class OverlayStateMachine(
                         }
                     )
                 }
+            }
+
+            // ── Quote submission ──────────────────────────────────────────────
+
+            is OverlayEvent.OpenQuoteForm -> {
+                when (current) {
+                    is OverlayState.KnownCaller ->
+                        _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.QUOTE)
+                    is OverlayState.PostCall ->
+                        _state.value = OverlayState.KnownCaller(
+                            phoneNumber = current.phoneNumber,
+                            identity    = current.identity,
+                            callPhase   = CallPhase.ENDED,
+                            isExpanded  = true,
+                            activeSheet = ActiveSheet.QUOTE,
+                        )
+                    else -> {}
+                }
+            }
+
+            is OverlayEvent.SubmitQuote -> {
+                if (current !is OverlayState.KnownCaller) return
+                val identity = current.identity
+                if (identity is CallerIdentity.Unknown) return
+
+                _state.value = OverlayState.SubmittingAction(
+                    phoneNumber = current.phoneNumber,
+                    identity    = identity,
+                    callPhase   = current.callPhase,
+                    action      = ActiveSheet.QUOTE,
+                )
+                activeJob = scope.launch {
+                    val result = runCatching {
+                        repository.createQuotation(identity, event.subject, event.amount, event.note)
+                    }
+                    result.fold(
+                        onSuccess = { docname ->
+                            _state.value = OverlayState.KnownCaller(
+                                phoneNumber = current.phoneNumber,
+                                identity    = identity,
+                                callPhase   = current.callPhase,
+                                isExpanded  = true,
+                                activeSheet = ActiveSheet.NONE,
+                            )
+                            val msg = if (docname.isNotBlank()) "Quote created: $docname" else "Quote saved"
+                            emitEffect(OverlaySideEffect.ShowToast(msg))
+                        },
+                        onFailure = { err ->
+                            _state.value = current.copy(activeSheet = ActiveSheet.QUOTE)
+                            emitEffect(OverlaySideEffect.ShowToast("Quote failed: ${err.message}"))
+                        }
+                    )
+                }
+            }
+
+            is OverlayEvent.QuoteCreated -> {
+                val phone = current.phoneNumber ?: return
+                val identity = current.knownIdentity ?: return
+                _state.value = OverlayState.KnownCaller(
+                    phoneNumber = phone,
+                    identity    = identity,
+                    callPhase   = current.callPhase ?: CallPhase.ACTIVE,
+                    isExpanded  = true,
+                )
+                emitEffect(OverlaySideEffect.ShowToast("Quote created: ${event.docname}"))
             }
 
             is OverlayEvent.OpportunityCreated -> {

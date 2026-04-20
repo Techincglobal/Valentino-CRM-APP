@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'src/models/user_model.dart';
 import 'src/screens/site_setup_screen.dart';
 import 'src/screens/login_screen.dart';
-import 'src/screens/home_screen.dart';
+import 'src/screens/main_shell.dart';
 import 'src/services/storage_service.dart';
 import 'src/theme/app_theme.dart';
 
@@ -106,7 +106,7 @@ class MyApp extends StatelessWidget {
           return switch (startup.route) {
             _StartupRoute.siteSetup => const SiteSetupScreen(),
             _StartupRoute.login => const LoginScreen(),
-            _StartupRoute.home => HomeScreen(user: startup.user!),
+            _StartupRoute.home => MainShell(user: startup.user!),
           };
         },
       ),

@@ -42,6 +42,7 @@ data class FrappeLeadResult(
 
 data class FrappeOpportunityResult(val docname: String)
 data class FrappeComplaintResult(val docname: String)
+data class FrappeQuotationResult(val docname: String)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FrappeApiService
@@ -75,57 +76,47 @@ class FrappeApiService(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // LOOKUP: find lead by phone number
-    // Tries: exact match on mobile_no, then partial (last 10 digits).
-    // Returns null when not found (404 is NOT an error here).
+    // LOOKUP: find lead by phone number via get_caller_details API
+    // Returns null when not found.
     // ─────────────────────────────────────────────────────────────────────────
 
     suspend fun lookupLeadByPhone(phone: String): FrappeLeadResult? = withContext(Dispatchers.IO) {
         val config = getConfig()
         if (!config.isValid) return@withContext null
 
-        val normalised = normalisePhone(phone)
+        val url = "${config.serverUrl}/api/method/nxtgen_crm_mobile.api.get_caller_details" +
+            "?caller_number=${normalisePhone(phone).encodeUrl()}"
 
-        // Try exact match first, then partial suffix match
-        for (query in listOf(normalised, normalised.takeLast(10))) {
-            val filters = JSONArray().apply {
-                put(JSONArray().apply { put("mobile_no"); put("like"); put("%$query%") })
-            }.toString()
-            val fields = """["name","lead_name","company_name","email_id","mobile_no","status"]"""
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", config.authHeader)
+            .header("Content-Type", "application/json")
+            .get()
+            .build()
 
-            val url = "${config.serverUrl}/api/resource/CRM Lead" +
-                "?filters=${filters.encodeUrl()}&fields=${fields.encodeUrl()}&limit=1"
-
-            val request = Request.Builder()
-                .url(url)
-                .header("Authorization", config.authHeader)
-                .header("Content-Type", "application/json")
-                .get()
-                .build()
-
+        return@withContext try {
             val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) continue
+            if (!response.isSuccessful) return@withContext null
 
-            val body = response.body?.string() ?: continue
-            val root = JSONObject(body)
-            val dataArr = root.optJSONArray("data") ?: continue
-            if (dataArr.length() == 0) continue
+            val bodyStr = response.body?.string() ?: return@withContext null
+            val root = JSONObject(bodyStr)
+            val msg  = root.optJSONObject("message") ?: return@withContext null
 
-            val item = dataArr.getJSONObject(0)
-            return@withContext FrappeLeadResult(
-                docname     = item.optString("name"),
-                leadName    = item.optString("lead_name"),
-                companyName = item.optString("company_name"),
-                email       = item.optString("email_id"),
-                mobileNo    = item.optString("mobile_no"),
-                status      = item.optString("status", "Lead"),
+            if (!msg.optBoolean("found", false)) return@withContext null
+
+            FrappeLeadResult(
+                docname     = msg.optString("docname"),
+                leadName    = msg.optString("name"),
+                companyName = "",
+                email       = msg.optString("email_id"),
+                mobileNo    = msg.optString("mobile_no").ifBlank { msg.optString("phone") },
+                status      = "Lead",
             )
-        }
-        null
+        } catch (_: Exception) { null }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // CREATE LEAD
+    // CREATE LEAD via create_lead_with_note API
     // ─────────────────────────────────────────────────────────────────────────
 
     suspend fun createLead(
@@ -139,17 +130,14 @@ class FrappeApiService(private val context: Context) {
         if (!config.isValid) throw IllegalStateException("Frappe not configured")
 
         val body = JSONObject().apply {
-            put("lead_name",    name)
-            put("email_id",     email)
-            put("company_name", company)
-            put("mobile_no",    normalisePhone(phone))
-            put("source",       "Call")
-            put("status",       "Lead")
-            if (note.isNotBlank()) put("notes", note)
+            put("first_name", name)
+            if (email.isNotBlank()) put("email_id", email)
+            put("mobile_no",  normalisePhone(phone))
+            if (note.isNotBlank()) put("note_content", note)
         }
 
         val request = Request.Builder()
-            .url("${config.serverUrl}/api/resource/CRM Lead")
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_lead_with_note")
             .header("Authorization", config.authHeader)
             .header("Content-Type", "application/json")
             .post(body.toString().toRequestBody(JSON))
@@ -162,14 +150,16 @@ class FrappeApiService(private val context: Context) {
         }
 
         val responseBody = response.body?.string() ?: throw RuntimeException("Empty response")
-        val data = JSONObject(responseBody).getJSONObject("data")
+        val msg = JSONObject(responseBody).optJSONObject("message")
+            ?: throw RuntimeException("Invalid response")
+
         FrappeLeadResult(
-            docname     = data.optString("name"),
-            leadName    = data.optString("lead_name"),
-            companyName = data.optString("company_name"),
-            email       = data.optString("email_id"),
-            mobileNo    = data.optString("mobile_no"),
-            status      = data.optString("status", "Lead"),
+            docname     = msg.optString("lead_name"),
+            leadName    = name,
+            companyName = company,
+            email       = email,
+            mobileNo    = normalisePhone(phone),
+            status      = "Lead",
         )
     }
 
@@ -251,6 +241,47 @@ class FrappeApiService(private val context: Context) {
 
         val data = JSONObject(response.body?.string() ?: "{}").getJSONObject("data")
         FrappeComplaintResult(docname = data.optString("name"))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CREATE QUOTATION
+    // POST /api/method/nxtgen_crm_mobile.api.create_quotation
+    // Links a new Frappe Quotation to an existing Lead or Customer docname.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createQuotation(
+        leadDocname: String,
+        partyType: String,    // "Lead" or "Customer"
+        subject: String,
+        amount: Double,
+        note: String,
+    ): FrappeQuotationResult = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+
+        val body = JSONObject().apply {
+            put("lead_docname", leadDocname)
+            put("party_type",   partyType)
+            put("subject",      subject)
+            put("amount",       amount)
+            put("note",         note)
+        }
+
+        val request = Request.Builder()
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_quotation")
+            .header("Authorization", config.authHeader)
+            .header("Content-Type", "application/json")
+            .post(body.toString().toRequestBody(JSON))
+            .build()
+
+        val response = httpClient.newCall(request).execute()
+        if (!response.isSuccessful) {
+            throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
+        }
+
+        val data = JSONObject(response.body?.string() ?: "{}")
+        val msg  = data.optJSONObject("message") ?: data
+        FrappeQuotationResult(docname = msg.optString("name", ""))
     }
 
     // ─────────────────────────────────────────────────────────────────────────

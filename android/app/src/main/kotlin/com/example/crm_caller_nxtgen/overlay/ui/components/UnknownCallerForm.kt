@@ -1,10 +1,5 @@
 package com.example.crm_caller_nxtgen.overlay.ui.components
 
-import androidx.compose.animation.core.InfiniteRepeatableSpec
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +51,7 @@ private val AccentAmber   = Color(0xFFF59E0B)
 private val AccentRed     = Color(0xFFEF4444)
 private val TextPrimary   = Color(0xFF0F172A)
 private val TextSecondary = Color(0xFF64748B)
+private val TextMuted     = Color(0xFF94A3B8)
 private val BorderLight   = Color(0xFFE2E8F0)
 private val SurfaceLight  = Color(0xFFF8FAFC)
 
@@ -72,19 +68,19 @@ fun UnknownCallerForm(
     var note    by remember { mutableStateOf("") }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor      = AccentIndigo,
-        unfocusedBorderColor    = BorderLight,
-        focusedTextColor        = TextPrimary,
-        unfocusedTextColor      = TextPrimary,
-        disabledTextColor       = TextSecondary,
-        disabledBorderColor     = BorderLight,
-        disabledLabelColor      = TextSecondary,
-        focusedLabelColor       = AccentIndigo,
-        unfocusedLabelColor     = TextSecondary,
-        cursorColor             = AccentIndigo,
-        focusedContainerColor   = Color.White,
-        unfocusedContainerColor = Color.White,
-        disabledContainerColor  = SurfaceLight,
+        focusedBorderColor        = AccentIndigo,
+        unfocusedBorderColor      = BorderLight,
+        focusedTextColor          = TextPrimary,
+        unfocusedTextColor        = TextPrimary,
+        disabledTextColor         = TextSecondary,
+        disabledBorderColor       = BorderLight,
+        disabledLabelColor        = TextSecondary,
+        focusedLabelColor         = AccentIndigo,
+        unfocusedLabelColor       = TextSecondary,
+        cursorColor               = AccentIndigo,
+        focusedContainerColor     = Color.White,
+        unfocusedContainerColor   = Color.White,
+        disabledContainerColor    = SurfaceLight,
         focusedLeadingIconColor   = AccentIndigo,
         unfocusedLeadingIconColor = TextSecondary,
         disabledLeadingIconColor  = TextSecondary,
@@ -96,18 +92,12 @@ fun UnknownCallerForm(
         PhoneNumberBanner(phone)
 
         Spacer(Modifier.height(14.dp))
-
-        HorizontalDivider(
-            color = BorderLight,
-            thickness = 1.dp,
-            modifier = Modifier.padding(horizontal = 0.dp),
-        )
-
+        HorizontalDivider(color = BorderLight, thickness = 1.dp)
         Spacer(Modifier.height(14.dp))
 
         // ── Section label ─────────────────────────────────────────────────────
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
@@ -133,11 +123,7 @@ fun UnknownCallerForm(
             onValueChange = { name = it },
             label         = { Text("Full name *") },
             leadingIcon   = {
-                Icon(
-                    imageVector        = Icons.Default.Person,
-                    contentDescription = null,
-                    modifier           = Modifier.size(18.dp),
-                )
+                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
             },
             modifier   = Modifier.fillMaxWidth(),
             colors     = fieldColors,
@@ -153,11 +139,7 @@ fun UnknownCallerForm(
             onValueChange   = { email = it },
             label           = { Text("Email") },
             leadingIcon     = {
-                Icon(
-                    imageVector        = Icons.Default.Email,
-                    contentDescription = null,
-                    modifier           = Modifier.size(18.dp),
-                )
+                Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
             },
             modifier        = Modifier.fillMaxWidth(),
             colors          = fieldColors,
@@ -186,7 +168,7 @@ fun UnknownCallerForm(
             value         = note,
             onValueChange = { note = it },
             label         = { Text("Quick note") },
-            placeholder   = { Text("What's this call about?", color = TextSecondary.copy(alpha = 0.5f)) },
+            placeholder   = { Text("What's this call about?", color = TextMuted) },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors,
             shape         = RoundedCornerShape(12.dp),
@@ -197,32 +179,27 @@ fun UnknownCallerForm(
         Spacer(Modifier.height(12.dp))
 
         // ── Record toggle ─────────────────────────────────────────────────────
-        RecordToggleButton(
-            isRecording = isRecording,
-            onClick     = { onEvent(OverlayEvent.ToggleRecording) },
-        )
+        RecordToggleButton(isRecording = isRecording, onClick = { onEvent(OverlayEvent.ToggleRecording) })
 
         Spacer(Modifier.height(10.dp))
 
         // ── Save as Lead button ───────────────────────────────────────────────
         Button(
             onClick  = { onSubmit(name.trim(), email.trim(), company.trim(), note.trim()) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
             enabled  = name.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
                 containerColor         = AccentIndigo,
                 disabledContainerColor = AccentIndigo.copy(alpha = 0.30f),
             ),
             shape     = RoundedCornerShape(12.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
         ) {
             Text(
-                text       = "Create Lead & Save",
-                fontWeight = FontWeight.Bold,
-                color      = Color.White,
-                fontSize   = 14.sp,
+                text          = "Create Lead & Save",
+                fontWeight    = FontWeight.Bold,
+                color         = Color.White,
+                fontSize      = 14.sp,
                 letterSpacing = 0.3.sp,
             )
         }
@@ -232,55 +209,36 @@ fun UnknownCallerForm(
             onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Icon(
-                imageVector        = Icons.Default.Warning,
-                contentDescription = null,
-                tint               = AccentRed.copy(alpha = 0.8f),
-                modifier           = Modifier.size(14.dp),
-            )
+            Icon(Icons.Default.Warning, contentDescription = null,
+                tint = AccentRed.copy(alpha = 0.8f), modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(6.dp))
-            Text(
-                text       = "Log a Complaint",
-                color      = AccentRed.copy(alpha = 0.8f),
-                fontSize   = 12.sp,
-                fontWeight = FontWeight.Medium,
-            )
+            Text("Log a Complaint", color = AccentRed.copy(alpha = 0.8f),
+                fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phone number banner with pulsing ring
+// Phone number banner — no animation, clean card style
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun PhoneNumberBanner(phone: String) {
-    val infiniteTransition = rememberInfiniteTransition(label = "ringPulse")
-    val ringAlpha by infiniteTransition.animateFloat(
-        initialValue  = 0.15f,
-        targetValue   = 0.35f,
-        animationSpec = InfiniteRepeatableSpec(tween(900), RepeatMode.Reverse),
-        label         = "ringAlpha",
-    )
-
-    Row(
-        modifier              = Modifier.fillMaxWidth(),
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(AccentAmber.copy(alpha = 0.08f))
+            .border(1.dp, AccentAmber.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        // Pulsing phone icon circle
-        Box(contentAlignment = Alignment.Center) {
-            // Outer pulse ring
+        Row(
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(AccentAmber.copy(alpha = ringAlpha)),
-            )
-            // Inner icon circle
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(AccentAmber.copy(alpha = 0.15f))
                     .border(1.5.dp, AccentAmber.copy(alpha = 0.4f), CircleShape),
@@ -293,24 +251,12 @@ private fun PhoneNumberBanner(phone: String) {
                     modifier           = Modifier.size(20.dp),
                 )
             }
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text       = if (phone == "Hidden") "Hidden Number" else phone,
-                color      = TextPrimary,
-                fontSize   = 16.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(AccentAmber.copy(alpha = ringAlpha + 0.5f)),
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text       = if (phone == "Hidden") "Hidden Number" else phone,
+                    color      = TextPrimary,
+                    fontSize   = 16.sp,
+                    fontWeight = FontWeight.Bold,
                 )
                 Text(
                     text     = "Not in your CRM",

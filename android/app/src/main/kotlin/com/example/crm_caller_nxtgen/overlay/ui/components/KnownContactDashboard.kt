@@ -21,9 +21,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -60,6 +61,7 @@ import com.example.crm_caller_nxtgen.overlay.domain.displayName
 private val Indigo500     = Color(0xFF6366F1)
 private val Blue400       = Color(0xFF60A5FA)
 private val Emerald500    = Color(0xFF10B981)
+private val Amber500      = Color(0xFFF59E0B)
 private val Red500        = Color(0xFFEF4444)
 private val TextPrimary   = Color(0xFF0F172A)
 private val TextSecondary = Color(0xFF64748B)
@@ -109,23 +111,17 @@ fun KnownContactDashboard(
             letterSpacing = 1.sp,
         )
 
+        // Quick action row: Opportunity | Note | Quote
         Row(
             modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             QuickActionCard(
                 label       = "Opportunity",
-                icon        = Icons.Default.Add,
+                icon        = Icons.Default.CheckCircle,
                 accentColor = Indigo500,
                 modifier    = Modifier.weight(1f),
                 onClick     = { onEvent(OverlayEvent.OpenOpportunityForm) },
-            )
-            QuickActionCard(
-                label       = "New Lead",
-                icon        = Icons.Default.Add,
-                accentColor = Blue400,
-                modifier    = Modifier.weight(1f),
-                onClick     = { onEvent(OverlayEvent.OpenAddLeadForm) },
             )
             QuickActionCard(
                 label       = "Add Note",
@@ -133,6 +129,13 @@ fun KnownContactDashboard(
                 accentColor = Emerald500,
                 modifier    = Modifier.weight(1f),
                 onClick     = { onEvent(OverlayEvent.OpenAddNoteForm) },
+            )
+            QuickActionCard(
+                label       = "Quote",
+                icon        = Icons.Default.Receipt,
+                accentColor = Amber500,
+                modifier    = Modifier.weight(1f),
+                onClick     = { onEvent(OverlayEvent.OpenQuoteForm) },
             )
         }
 
@@ -151,20 +154,6 @@ fun KnownContactDashboard(
         }
 
         AnimatedVisibility(
-            visible = activeSheet == ActiveSheet.ADD_LEAD,
-            enter   = expandVertically() + fadeIn(),
-            exit    = shrinkVertically() + fadeOut(),
-        ) {
-            AddLeadInlineForm(
-                phone    = identity.displayPhoneInline,
-                onCancel = { onEvent(OverlayEvent.CancelSheet) },
-                onSubmit = { name, email, company, note ->
-                    onEvent(OverlayEvent.SubmitLead(name, email, company, note))
-                },
-            )
-        }
-
-        AnimatedVisibility(
             visible = activeSheet == ActiveSheet.ADD_NOTE,
             enter   = expandVertically() + fadeIn(),
             exit    = shrinkVertically() + fadeOut(),
@@ -172,6 +161,20 @@ fun KnownContactDashboard(
             AddNoteInlineForm(
                 onCancel = { onEvent(OverlayEvent.CancelSheet) },
                 onSubmit = { note -> onEvent(OverlayEvent.SubmitNote(note)) },
+            )
+        }
+
+        AnimatedVisibility(
+            visible = activeSheet == ActiveSheet.QUOTE,
+            enter   = expandVertically() + fadeIn(),
+            exit    = shrinkVertically() + fadeOut(),
+        ) {
+            QuoteForm(
+                callerName = identity.displayName,
+                onCancel   = { onEvent(OverlayEvent.CancelSheet) },
+                onSubmit   = { subject, amount, note ->
+                    onEvent(OverlayEvent.SubmitQuote(subject, amount, note))
+                },
             )
         }
 
@@ -292,52 +295,6 @@ private fun ContactReadOnlyCard(identity: CallerIdentity) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AddLeadInlineForm(
-    phone: String,
-    onCancel: () -> Unit,
-    onSubmit: (String, String, String, String) -> Unit,
-) {
-    var name    by remember { mutableStateOf("") }
-    var email   by remember { mutableStateOf("") }
-    var company by remember { mutableStateOf("") }
-    var note    by remember { mutableStateOf("") }
-    val fc = lightFieldColors(Indigo500)
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceLight)
-            .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
-            .padding(14.dp),
-    ) {
-        FormHeader("Create Lead", onCancel)
-        OutlinedTextField(value = phone, onValueChange = {}, label = { Text("Phone") },
-            enabled = false, modifier = Modifier.fillMaxWidth(), colors = fc,
-            shape = RoundedCornerShape(10.dp), singleLine = true)
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full name *") },
-            modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp), singleLine = true)
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp), singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-        OutlinedTextField(value = company, onValueChange = { company = it }, label = { Text("Company") },
-            modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp), singleLine = true)
-        OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note") },
-            modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp), maxLines = 2)
-        Button(
-            onClick  = { onSubmit(name.trim(), email.trim(), company.trim(), note.trim()) },
-            modifier = Modifier.fillMaxWidth().height(46.dp),
-            enabled  = name.isNotBlank(),
-            colors   = ButtonDefaults.buttonColors(
-                containerColor = Indigo500,
-                disabledContainerColor = Indigo500.copy(alpha = 0.35f),
-            ),
-            shape = RoundedCornerShape(10.dp),
-        ) { Text("Create Lead", color = Color.White, fontWeight = FontWeight.Bold) }
-    }
-}
-
-@Composable
 private fun AddNoteInlineForm(onCancel: () -> Unit, onSubmit: (String) -> Unit) {
     var note by remember { mutableStateOf("") }
     val fc = lightFieldColors(Emerald500)
@@ -386,7 +343,7 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
         OutlinedTextField(
             value = expectedValue,
             onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) expectedValue = it },
-            label = { Text("Expected value (₹)") },
+            label = { Text("Expected value (Rs.)") },
             modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp),
             singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
         Text("Stage", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
@@ -411,6 +368,77 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
             ),
             shape = RoundedCornerShape(10.dp),
         ) { Text("Save Opportunity", fontWeight = FontWeight.Bold, color = Color.White) }
+    }
+}
+
+@Composable
+private fun QuoteForm(
+    callerName: String,
+    onCancel: () -> Unit,
+    onSubmit: (String, Double, String) -> Unit,
+) {
+    var subject by remember { mutableStateOf(callerName) }
+    var amount  by remember { mutableStateOf("") }
+    var note    by remember { mutableStateOf("") }
+    val fc = lightFieldColors(Amber500)
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceLight)
+            .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
+            .padding(14.dp),
+    ) {
+        FormHeader("Create Quotation", onCancel)
+        OutlinedTextField(
+            value         = subject,
+            onValueChange = { subject = it },
+            label         = { Text("Subject *") },
+            modifier      = Modifier.fillMaxWidth(),
+            colors        = fc,
+            shape         = RoundedCornerShape(10.dp),
+            singleLine    = true,
+        )
+        OutlinedTextField(
+            value         = amount,
+            onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) amount = it },
+            label         = { Text("Amount (Rs.)") },
+            modifier      = Modifier.fillMaxWidth(),
+            colors        = fc,
+            shape         = RoundedCornerShape(10.dp),
+            singleLine    = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
+        OutlinedTextField(
+            value         = note,
+            onValueChange = { note = it },
+            label         = { Text("Note") },
+            modifier      = Modifier.fillMaxWidth(),
+            colors        = fc,
+            shape         = RoundedCornerShape(10.dp),
+            maxLines      = 3,
+            minLines      = 2,
+        )
+        Button(
+            onClick  = { onSubmit(subject.trim(), amount.toDoubleOrNull() ?: 0.0, note.trim()) },
+            modifier = Modifier.fillMaxWidth().height(46.dp),
+            enabled  = subject.isNotBlank(),
+            colors   = ButtonDefaults.buttonColors(
+                containerColor         = Amber500,
+                disabledContainerColor = Amber500.copy(alpha = 0.35f),
+            ),
+            shape = RoundedCornerShape(10.dp),
+        ) {
+            Icon(
+                imageVector        = Icons.Default.Receipt,
+                contentDescription = null,
+                tint               = Color.White,
+                modifier           = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("Send Quote", color = Color.White, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
@@ -526,12 +554,5 @@ private fun lightFieldColors(accent: Color) = OutlinedTextFieldDefaults.colors(
     unfocusedContainerColor = White,
     disabledContainerColor  = SurfaceLight,
 )
-
-private val CallerIdentity.displayPhoneInline: String
-    get() = when (this) {
-        is CallerIdentity.Lead     -> phone
-        is CallerIdentity.Customer -> phone
-        else -> ""
-    }
 
 // displayName is defined publicly in Models.kt

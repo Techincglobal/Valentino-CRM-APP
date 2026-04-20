@@ -140,7 +140,7 @@ sealed class OverlayState {
     ) : OverlayState()
 }
 
-enum class ActiveSheet { NONE, OPPORTUNITY, ADD_LEAD, ADD_NOTE }
+enum class ActiveSheet { NONE, OPPORTUNITY, ADD_LEAD, ADD_NOTE, QUOTE }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPLAINT POPUP STATE  (second WindowManager window)
@@ -241,6 +241,15 @@ sealed class OverlayEvent {
 
     // Recording toggle
     object ToggleRecording : OverlayEvent()
+
+    // Quotation
+    object OpenQuoteForm : OverlayEvent()
+    data class SubmitQuote(
+        val subject: String,
+        val amount: Double,
+        val note: String = "",
+    ) : OverlayEvent()
+    data class QuoteCreated(val docname: String) : OverlayEvent()
 
     // Cancel sub-form
     object CancelSheet : OverlayEvent()
