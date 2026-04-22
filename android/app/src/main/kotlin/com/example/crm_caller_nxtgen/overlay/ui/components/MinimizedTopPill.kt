@@ -15,11 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +42,15 @@ import com.example.crm_caller_nxtgen.overlay.data.SessionTimerManager
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 import kotlinx.coroutines.delay
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dark glass palette
+// ─────────────────────────────────────────────────────────────────────────────
+private val DarkPillBg    = Color(0xFF1A2235)
+private val GlassBorder   = Color(0x1AFFFFFF) // White 10%
+private val DividerColor  = Color(0x14FFFFFF) // White 8%
+private val TextPrimary   = Color(0xFFF8FAFC)
+private val TextSecondary = Color(0xFF94A3B8)
 
 @Composable
 fun MinimizedTopPill(
@@ -66,7 +76,7 @@ fun MinimizedTopPill(
         is OverlayState.UnknownCaller   -> Triple(state.phoneNumber, Color(0xFFF59E0B), "UNKNOWN")
         is OverlayState.KnownCaller     -> Triple(state.identity.displayName, Color(0xFF10B981), "CRM")
         is OverlayState.PostCall        -> Triple("Call Ended", Color(0xFF64748B), "CLOSED")
-        else -> Triple("CRM Overlay", Color(0xFF0F172A), "")
+        else -> Triple("CRM Overlay", TextSecondary, "")
     }
 
     Box(
@@ -84,21 +94,34 @@ fun MinimizedTopPill(
                 )
             }
             .shadow(
-                elevation = 16.dp,
-                shape = CircleShape,
-                ambientColor = Color.Black.copy(alpha = 0.10f),
-                spotColor = Color.Black.copy(alpha = 0.16f),
+                elevation    = 18.dp,
+                shape        = RoundedCornerShape(40.dp),
+                ambientColor = Color.Black.copy(alpha = 0.30f),
+                spotColor    = Color.Black.copy(alpha = 0.40f),
             )
-            .clip(CircleShape)
-            .background(Color.White)
-            .border(1.dp, Color(0xFFE2E8F0), CircleShape)
+            .clip(RoundedCornerShape(40.dp))
+            .background(DarkPillBg)
+            .border(1.dp, GlassBorder, RoundedCornerShape(40.dp))
             .clickable(onClick = onExpand)
-            .padding(end = 6.dp) // extra padding for close button balance
+            .padding(end = 4.dp),
     ) {
+        // Specular highlight strip at top of pill
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp))
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.White.copy(alpha = 0.06f),
+                        0.4f to Color.Transparent,
+                    )
+                ),
+        )
+
         Row(
-            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Center,
         ) {
             // Pulsing status dot
             Box(
@@ -106,82 +129,85 @@ fun MinimizedTopPill(
                     .size(8.dp)
                     .clip(CircleShape)
                     .background(dotColor)
-                    .alpha(dotAlpha)
+                    .alpha(dotAlpha),
             )
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(Modifier.width(10.dp))
 
             // Main caller identity text
             Text(
-                text = titleText,
-                color = Color(0xFF0F172A),
-                fontSize = 14.sp,
+                text       = titleText,
+                color      = TextPrimary,
+                fontSize   = 14.sp,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
+                maxLines   = 1,
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            // Time Duration
+            Spacer(Modifier.width(8.dp))
+
+            // Time or ringing
             if (durationSecs > 0 || state is OverlayState.PostCall) {
                 Text(
-                    text = SessionTimerManager.formatDuration(durationSecs),
-                    color = Color(0xFF64748B),
-                    fontSize = 13.sp,
+                    text       = SessionTimerManager.formatDuration(durationSecs),
+                    color      = TextSecondary,
+                    fontSize   = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(Modifier.width(10.dp))
             } else {
                 Text(
-                    text = "Ringing…",
-                    color = Color(0xFF64748B),
-                    fontSize = 13.sp,
+                    text       = "Ringing…",
+                    color      = TextSecondary,
+                    fontSize   = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(Modifier.width(10.dp))
             }
 
+            // Badge: REC or type badge
             if (isRecording) {
                 Box(
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color(0xFFEF4444).copy(alpha = 0.1f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFEF4444).copy(alpha = 0.15f))
+                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.30f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                 ) {
                     Text("REC", color = Color(0xFFEF4444), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
             } else if (badgeText.isNotBlank()) {
                 Box(
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(dotColor.copy(alpha = 0.1f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(dotColor.copy(alpha = 0.12f))
+                        .border(1.dp, dotColor.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                 ) {
                     Text(badgeText, color = dotColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
             }
-            
-            // Vertical Divider
+
+            // Vertical divider
             Box(
                 modifier = Modifier
-                    .size(1.dp, 20.dp)
-                    .background(Color(0xFFE2E8F0))
+                    .size(1.dp, 18.dp)
+                    .background(DividerColor),
             )
-            
-            Spacer(modifier = Modifier.width(2.dp))
 
-            // Close button (Dismiss overlay directly)
+            Spacer(Modifier.width(2.dp))
+
+            // Close button
             IconButton(
-                onClick = onClose,
-                modifier = Modifier.size(32.dp)
+                onClick  = onClose,
+                modifier = Modifier.size(32.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector        = Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = Color(0xFF64748B),
-                    modifier = Modifier.size(17.dp)
+                    tint               = TextSecondary,
+                    modifier           = Modifier.size(16.dp),
                 )
             }
         }

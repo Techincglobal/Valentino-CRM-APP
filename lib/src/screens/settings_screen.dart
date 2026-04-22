@@ -2,10 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
+import '../theme/app_theme.dart';
 import 'site_setup_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Design tokens — same liquid glass palette as sales_screen
+// Brand tokens (same as rest of app)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _indigo  = Color(0xFF6366F1);
@@ -71,9 +72,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final top = MediaQuery.of(context).padding.top;
+    final ac  = context.ac;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: ac.bgBase,
       body: Stack(
         children: [
           // ── Background mesh glows ──────────────────────────────────────────
@@ -107,9 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // ── Profile hero header ──────────────────────────────────────
               SliverToBoxAdapter(child: _ProfileHeader(user: widget.user, topPad: top)),
-              // ── Body ─────────────────────────────────────────────────────
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                 sliver: SliverList(
@@ -191,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Profile hero header
+// Profile hero header — always dark gradient (brand section)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ProfileHeader extends StatelessWidget {
@@ -217,164 +217,127 @@ class _ProfileHeader extends StatelessWidget {
           stops: [0.0, 0.55, 1.0],
         ),
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(22, topPad + 22, 22, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(22, topPad + 22, 22, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Eyebrow row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Eyebrow label
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _violet.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: _violet.withValues(alpha: 0.28)),
-                      ),
-                      child: const Text(
-                        'ACCOUNT',
-                        style: TextStyle(color: _violet, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8),
-                      ),
-                    ),
-                    // Settings icon badge
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.07),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-                          ),
-                          child: const Icon(Icons.settings_rounded, color: Colors.white54, size: 20),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Settings',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1.0,
-                    height: 1.1,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _violet.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _violet.withValues(alpha: 0.28)),
                   ),
+                  child: const Text('ACCOUNT',
+                      style: TextStyle(color: _violet, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
                 ),
-                const SizedBox(height: 22),
-                // ── Profile glass card ──────────────────────────────────────
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(12),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                     child: Container(
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.10),
-                            Colors.white.withValues(alpha: 0.04),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-                        boxShadow: [
-                          BoxShadow(color: _indigo.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 8)),
-                        ],
+                        color: Colors.white.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
                       ),
-                      child: Row(
-                        children: [
-                          // Avatar ring
-                          Container(
-                            width: 58,
-                            height: 58,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [_indigo, _violet],
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(color: _indigo.withValues(alpha: 0.40), blurRadius: 16, offset: const Offset(0, 5)),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                _initials(user.username),
-                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user.username,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                Row(children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: _indigo.withValues(alpha: 0.22),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: _indigo.withValues(alpha: 0.35)),
-                                    ),
-                                    child: const Text(
-                                      'CRM USER',
-                                      style: TextStyle(color: _indigo, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    width: 6, height: 6,
-                                    decoration: BoxDecoration(
-                                      color: _emerald,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [BoxShadow(color: _emerald.withValues(alpha: 0.6), blurRadius: 6)],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text('Active', style: TextStyle(color: _emerald, fontSize: 11, fontWeight: FontWeight.w600)),
-                                ]),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: const Icon(Icons.settings_rounded, color: Colors.white54, size: 20),
                     ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            const Text('Settings',
+                style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1.0, height: 1.1)),
+            const SizedBox(height: 22),
+            // ── Profile glass card ──────────────────────────────────────────
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      colors: [Colors.white.withValues(alpha: 0.10), Colors.white.withValues(alpha: 0.04)],
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+                    boxShadow: [
+                      BoxShadow(color: _indigo.withValues(alpha: 0.15), blurRadius: 24, offset: const Offset(0, 8)),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Avatar
+                      Container(
+                        width: 58, height: 58,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft, end: Alignment.bottomRight,
+                            colors: [_indigo, _violet],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.40), blurRadius: 16, offset: const Offset(0, 5))],
+                        ),
+                        child: Center(child: Text(_initials(user.username),
+                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(user.username,
+                                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                            const SizedBox(height: 5),
+                            Row(children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: _indigo.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: _indigo.withValues(alpha: 0.35)),
+                                ),
+                                child: const Text('CRM USER',
+                                    style: TextStyle(color: _indigo, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 6, height: 6,
+                                decoration: BoxDecoration(
+                                  color: _emerald, shape: BoxShape.circle,
+                                  boxShadow: [BoxShadow(color: _emerald.withValues(alpha: 0.6), blurRadius: 6)],
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text('Active', style: TextStyle(color: _emerald, fontSize: 11, fontWeight: FontWeight.w600)),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section label
+// Section label — adaptive
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
@@ -388,7 +351,7 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.30),
+          color: context.ac.textTertiary,
           fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.4,
@@ -399,7 +362,7 @@ class _SectionLabel extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Glass tile row
+// Glass tile row — adaptive
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GlassTile extends StatelessWidget {
@@ -412,30 +375,36 @@ class _GlassTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [const Color(0xFF161F30), const Color(0xFF0F1726)],
-        ),
+        color: isDark ? null : ac.bgCard,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [const Color(0xFF1A2235), const Color(0xFF0D1526)],
+              )
+            : null,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.20), blurRadius: 10, offset: const Offset(0, 3)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: Row(
         children: [
           // Icon badge
           Container(
-            width: 40,
-            height: 40,
+            width: 40, height: 40,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
                 colors: [iconColor.withValues(alpha: 0.22), iconColor.withValues(alpha: 0.10)],
               ),
               borderRadius: BorderRadius.circular(12),
@@ -448,12 +417,9 @@ class _GlassTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: -0.1)),
+                Text(title, style: TextStyle(color: ac.textPrimary, fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: -0.1)),
                 const SizedBox(height: 2),
-                Text(subtitle,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.38), fontSize: 12),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(subtitle, style: TextStyle(color: ac.textSecondary, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -509,7 +475,7 @@ class _StatusDot extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sign-out button
+// Sign-out button — adaptive
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SignOutButton extends StatelessWidget {
@@ -525,8 +491,7 @@ class _SignOutButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
             colors: [_red.withValues(alpha: 0.16), _red.withValues(alpha: 0.08)],
           ),
           borderRadius: BorderRadius.circular(18),
@@ -537,15 +502,8 @@ class _SignOutButton extends StatelessWidget {
           children: [
             Icon(Icons.logout_rounded, color: _red.withValues(alpha: 0.85), size: 18),
             const SizedBox(width: 8),
-            Text(
-              'Sign Out',
-              style: TextStyle(
-                color: _red.withValues(alpha: 0.90),
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
-              ),
-            ),
+            Text('Sign Out',
+                style: TextStyle(color: _red.withValues(alpha: 0.90), fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.2)),
           ],
         ),
       ),
@@ -554,7 +512,7 @@ class _SignOutButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Glass dialog
+// Glass dialog — adaptive
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GlassDialog extends StatelessWidget {
@@ -572,6 +530,8 @@ class _GlassDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -582,26 +542,26 @@ class _GlassDialog extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [const Color(0xFF1A2235), const Color(0xFF0D1526)],
-              ),
+              color: isDark ? null : ac.bgCard,
+              gradient: isDark
+                  ? LinearGradient(
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      colors: [const Color(0xFF1A2235), const Color(0xFF0D1526)],
+                    )
+                  : null,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
               boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.50), blurRadius: 40, offset: const Offset(0, 16)),
+                BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.50 : 0.12), blurRadius: 40, offset: const Offset(0, 16)),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                Text(title, style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
                 const SizedBox(height: 8),
-                Text(body,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 14, height: 1.5)),
+                Text(body, style: TextStyle(color: ac.textSecondary, fontSize: 14, height: 1.5)),
                 const SizedBox(height: 22),
                 Row(children: [
                   Expanded(
@@ -610,13 +570,12 @@ class _GlassDialog extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.07),
+                          color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.bgInput,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
                         ),
                         child: Center(
-                          child: Text('Cancel',
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontWeight: FontWeight.w600)),
+                          child: Text('Cancel', style: TextStyle(color: ac.textSecondary, fontWeight: FontWeight.w600)),
                         ),
                       ),
                     ),
@@ -632,13 +591,10 @@ class _GlassDialog extends StatelessWidget {
                             colors: [confirmColor, Color.lerp(confirmColor, Colors.black, 0.18)!],
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(color: confirmColor.withValues(alpha: 0.30), blurRadius: 12, offset: const Offset(0, 4)),
-                          ],
+                          boxShadow: [BoxShadow(color: confirmColor.withValues(alpha: 0.30), blurRadius: 12, offset: const Offset(0, 4))],
                         ),
                         child: Center(
-                          child: Text(confirmLabel,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                          child: Text(confirmLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                         ),
                       ),
                     ),

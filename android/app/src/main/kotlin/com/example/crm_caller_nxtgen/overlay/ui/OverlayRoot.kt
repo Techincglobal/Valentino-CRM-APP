@@ -4,12 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -21,8 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,20 +31,21 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.state.OverlayStateMachine
 import com.example.crm_caller_nxtgen.overlay.ui.components.MinimizedTopPill
 import com.example.crm_caller_nxtgen.overlay.ui.components.ExpandedOverlayCard
+import androidx.compose.material3.Text
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Clean light colour scheme — white cards, dark typography, vivid accents
+// Dark glass colour scheme — overlay is always dark for readability on any bg
 // ─────────────────────────────────────────────────────────────────────────────
-val OverlayTheme = lightColorScheme(
+val OverlayTheme = darkColorScheme(
     primary          = Color(0xFF6366F1), // Indigo 500
     secondary        = Color(0xFF60A5FA), // Blue 400
     tertiary         = Color(0xFF34D399), // Emerald 400
     error            = Color(0xFFEF4444), // Red 500
-    background       = Color(0xFFF8FAFC), // Slate 50
-    surface          = Color(0xFFFFFFFF), // White
-    surfaceVariant   = Color(0xFFF1F5F9), // Slate 100
-    onSurface        = Color(0xFF0F172A), // Slate 900
-    onSurfaceVariant = Color(0xFF64748B), // Slate 500
+    background       = Color(0xFF0D1117), // Near-black
+    surface          = Color(0xFF1A2235), // Dark slate card
+    surfaceVariant   = Color(0xFF1E293B), // Slightly lighter input
+    onSurface        = Color(0xFFF8FAFC), // Near-white
+    onSurfaceVariant = Color(0xFF94A3B8), // Slate 400
 )
 
 @Composable
@@ -173,7 +167,7 @@ fun OverlayRoot(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared loading composables — white surface, dark text
+// Shared loading composables — dark glass surface
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -181,7 +175,7 @@ private fun LoadingBubble() {
     Surface(
         modifier        = Modifier.padding(16.dp),
         shape           = RoundedCornerShape(28.dp),
-        color           = Color(0xFFFFFFFF),
+        color           = Color(0xFF1A2235),
         shadowElevation = 14.dp,
         tonalElevation  = 0.dp,
     ) {
@@ -197,7 +191,7 @@ private fun LoadingBubble() {
             Spacer(Modifier.width(12.dp))
             Text(
                 text       = "Looking up caller…",
-                color      = Color(0xFF0F172A),
+                color      = Color(0xFFF8FAFC),
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -209,7 +203,7 @@ private fun SubmittingBubble(label: String) {
     Surface(
         modifier        = Modifier.padding(16.dp),
         shape           = RoundedCornerShape(28.dp),
-        color           = Color(0xFFFFFFFF),
+        color           = Color(0xFF1A2235),
         shadowElevation = 14.dp,
         tonalElevation  = 0.dp,
     ) {
@@ -225,7 +219,7 @@ private fun SubmittingBubble(label: String) {
             Spacer(Modifier.width(12.dp))
             Text(
                 text       = label,
-                color      = Color(0xFF0F172A),
+                color      = Color(0xFFF8FAFC),
                 fontWeight = FontWeight.SemiBold,
             )
         }

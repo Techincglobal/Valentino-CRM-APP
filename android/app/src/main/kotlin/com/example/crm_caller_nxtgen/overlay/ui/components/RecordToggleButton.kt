@@ -33,14 +33,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val RecRed    = Color(0xFFEF4444)
-private val SlateText = Color(0xFF64748B)
-private val BorderL   = Color(0xFFE2E8F0)
+// ─────────────────────────────────────────────────────────────────────────────
+// Dark glass palette
+// ─────────────────────────────────────────────────────────────────────────────
+private val RecRed        = Color(0xFFEF4444)
+private val DarkInput     = Color(0xFF1E293B)
+private val GlassBorder   = Color(0x1AFFFFFF)  // White 10%
+private val TextSecondary = Color(0xFF94A3B8)
 
 /**
  * Toggle button for call recording.
- * - Idle: outlined with phone icon, slate text
- * - Recording: filled pulsing red button, "Recording… Tap to stop"
+ * - Idle: dark glass outlined button with mic icon
+ * - Recording: filled pulsing red button with live indicator
  */
 @Composable
 fun RecordToggleButton(
@@ -71,7 +75,7 @@ fun RecordToggleButton(
             shape = RoundedCornerShape(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Pulsing dot indicator
+                // Pulsing live dot
                 androidx.compose.foundation.layout.Box(
                     modifier = Modifier
                         .size(10.dp)
@@ -93,9 +97,10 @@ fun RecordToggleButton(
             modifier = modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .border(1.dp, BorderL, RoundedCornerShape(12.dp)),
+                .border(1.dp, GlassBorder, RoundedCornerShape(12.dp)),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = SlateText,
+                containerColor = DarkInput,
+                contentColor   = TextSecondary,
             ),
             shape = RoundedCornerShape(12.dp),
         ) {
@@ -103,13 +108,13 @@ fun RecordToggleButton(
                 Icon(
                     imageVector        = Icons.Default.Phone,
                     contentDescription = "Record call",
-                    tint               = SlateText,
+                    tint               = TextSecondary,
                     modifier           = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text       = "Record Call",
-                    color      = SlateText,
+                    color      = TextSecondary,
                     fontSize   = 13.sp,
                     fontWeight = FontWeight.Medium,
                 )

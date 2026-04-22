@@ -187,6 +187,8 @@ class SalesService {
     required String subject,
     required double amount,
     String note = '',
+    String currency = 'LKR',
+    List<Map<String, dynamic>> items = const [],
   }) async {
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.create_quotation',
@@ -196,6 +198,8 @@ class SalesService {
         'subject':      subject,
         'amount':       amount,
         'note':         note,
+        'currency':     currency,
+        'items':        items,
       },
     );
     if (resp.statusCode != 200) {

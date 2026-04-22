@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,13 +50,15 @@ import com.example.crm_caller_nxtgen.overlay.domain.displayCompany
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Light palette
+// Dark glass palette — matches app dark theme
 // ─────────────────────────────────────────────────────────────────────────────
-private val TextPrimary   = Color(0xFF0F172A)
-private val TextSecondary = Color(0xFF64748B)
-private val BorderLight   = Color(0xFFE2E8F0)
-private val SurfaceLight  = Color(0xFFF8FAFC)
-private val White         = Color(0xFFFFFFFF)
+private val DarkSurface   = Color(0xFF1A2235)  // Card background
+private val DarkSurface2  = Color(0xFF1E293B)  // Raised / input bg
+private val GlassBorder   = Color(0x1AFFFFFF)  // White 10% border
+private val GlassBorder2  = Color(0x0DFFFFFF)  // White 5%
+private val TextPrimary   = Color(0xFFF8FAFC)  // Near-white
+private val TextSecondary = Color(0xFF94A3B8)  // Slate 400
+private val DividerColor  = Color(0x14FFFFFF)  // White 8%
 
 @Composable
 fun ExpandedOverlayCard(
@@ -104,22 +106,41 @@ fun ExpandedOverlayCard(
         is CallerIdentity.Lead     -> Color(0xFF6366F1) // Indigo 500
     }
 
-    Surface(
+    Box(
         modifier = Modifier
             .padding(horizontal = 10.dp, vertical = 8.dp)
             .shadow(
-                elevation     = 24.dp,
-                shape         = RoundedCornerShape(20.dp),
-                ambientColor  = Color.Black.copy(alpha = 0.08f),
-                spotColor     = Color.Black.copy(alpha = 0.14f),
+                elevation    = 28.dp,
+                shape        = RoundedCornerShape(22.dp),
+                ambientColor = Color.Black.copy(alpha = 0.35f),
+                spotColor    = accentColor.copy(alpha = 0.12f),
             ),
-        shape          = RoundedCornerShape(20.dp),
-        color          = White,
-        tonalElevation = 0.dp,
     ) {
-        Column(modifier = Modifier.heightIn(max = 720.dp)) {
+        // ── Outer dark card ───────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(22.dp))
+                .background(DarkSurface)
+                .border(1.dp, GlassBorder, RoundedCornerShape(22.dp))
+                .heightIn(max = 720.dp),
+        ) {
+            // ── Top specular highlight strip ──────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.18f),
+                                Color.Transparent,
+                            )
+                        )
+                    ),
+            )
 
-            // Coloured accent bg strip behind header
+            // ── Accent tint strip behind header ───────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -138,7 +159,7 @@ fun ExpandedOverlayCard(
                 )
             }
 
-            HorizontalDivider(color = BorderLight, thickness = 1.dp)
+            HorizontalDivider(color = DividerColor, thickness = 1.dp)
 
             Column(
                 modifier = Modifier
@@ -201,8 +222,8 @@ private fun CardHeader(
             modifier = Modifier
                 .size(46.dp)
                 .clip(CircleShape)
-                .background(accentColor.copy(alpha = 0.12f))
-                .border(1.5.dp, accentColor.copy(alpha = 0.35f), CircleShape),
+                .background(accentColor.copy(alpha = 0.15f))
+                .border(1.5.dp, accentColor.copy(alpha = 0.45f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             val initials = when (identity) {
@@ -223,7 +244,7 @@ private fun CardHeader(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(accentColor.copy(alpha = 0.12f))
+                    .background(accentColor.copy(alpha = 0.15f))
                     .padding(horizontal = 7.dp, vertical = 2.dp),
             ) {
                 Text(
@@ -262,8 +283,8 @@ private fun CardHeader(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(SurfaceLight)
-                        .border(1.dp, BorderLight, CircleShape),
+                        .background(DarkSurface2)
+                        .border(1.dp, GlassBorder, CircleShape),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.KeyboardArrowDown,
@@ -279,8 +300,8 @@ private fun CardHeader(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFFEE2E2))
-                            .border(1.dp, Color(0xFFFCA5A5), CircleShape),
+                            .background(Color(0xFFEF4444).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.35f), CircleShape),
                     ) {
                         Icon(
                             imageVector        = Icons.Default.Close,
@@ -309,7 +330,8 @@ private fun TimerChip(callPhase: CallPhase, durationSecs: Long, accentColor: Col
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(accentColor.copy(alpha = 0.10f))
+            .background(accentColor.copy(alpha = 0.12f))
+            .border(1.dp, accentColor.copy(alpha = 0.25f), RoundedCornerShape(20.dp))
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
@@ -333,7 +355,8 @@ private fun RecordingDot() {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFFEF4444).copy(alpha = 0.10f))
+            .background(Color(0xFFEF4444).copy(alpha = 0.15f))
+            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.30f), RoundedCornerShape(20.dp))
             .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         Row(

@@ -44,16 +44,17 @@ import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Palette
+// Dark glass palette
 // ─────────────────────────────────────────────────────────────────────────────
 private val AccentIndigo  = Color(0xFF6366F1)
 private val AccentAmber   = Color(0xFFF59E0B)
 private val AccentRed     = Color(0xFFEF4444)
-private val TextPrimary   = Color(0xFF0F172A)
-private val TextSecondary = Color(0xFF64748B)
-private val TextMuted     = Color(0xFF94A3B8)
-private val BorderLight   = Color(0xFFE2E8F0)
-private val SurfaceLight  = Color(0xFFF8FAFC)
+private val TextPrimary   = Color(0xFFF8FAFC)
+private val TextSecondary = Color(0xFF94A3B8)
+private val TextMuted     = Color(0xFF64748B)
+private val DarkInput     = Color(0xFF1E293B)  // Field background
+private val GlassBorder   = Color(0x1AFFFFFF)  // White 10%
+private val DividerColor  = Color(0x14FFFFFF)  // White 8%
 
 @Composable
 fun UnknownCallerForm(
@@ -67,24 +68,7 @@ fun UnknownCallerForm(
     var company by remember { mutableStateOf("") }
     var note    by remember { mutableStateOf("") }
 
-    val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor        = AccentIndigo,
-        unfocusedBorderColor      = BorderLight,
-        focusedTextColor          = TextPrimary,
-        unfocusedTextColor        = TextPrimary,
-        disabledTextColor         = TextSecondary,
-        disabledBorderColor       = BorderLight,
-        disabledLabelColor        = TextSecondary,
-        focusedLabelColor         = AccentIndigo,
-        unfocusedLabelColor       = TextSecondary,
-        cursorColor               = AccentIndigo,
-        focusedContainerColor     = Color.White,
-        unfocusedContainerColor   = Color.White,
-        disabledContainerColor    = SurfaceLight,
-        focusedLeadingIconColor   = AccentIndigo,
-        unfocusedLeadingIconColor = TextSecondary,
-        disabledLeadingIconColor  = TextSecondary,
-    )
+    val fieldColors = darkFieldColors(AccentIndigo)
 
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
 
@@ -92,7 +76,7 @@ fun UnknownCallerForm(
         PhoneNumberBanner(phone)
 
         Spacer(Modifier.height(14.dp))
-        HorizontalDivider(color = BorderLight, thickness = 1.dp)
+        HorizontalDivider(color = DividerColor, thickness = 1.dp)
         Spacer(Modifier.height(14.dp))
 
         // ── Section label ─────────────────────────────────────────────────────
@@ -186,14 +170,15 @@ fun UnknownCallerForm(
         // ── Save as Lead button ───────────────────────────────────────────────
         Button(
             onClick  = { onSubmit(name.trim(), email.trim(), company.trim(), note.trim()) },
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             enabled  = name.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
                 containerColor         = AccentIndigo,
                 disabledContainerColor = AccentIndigo.copy(alpha = 0.30f),
             ),
-            shape     = RoundedCornerShape(12.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+            shape = RoundedCornerShape(12.dp),
         ) {
             Text(
                 text          = "Create Lead & Save",
@@ -209,17 +194,25 @@ fun UnknownCallerForm(
             onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Icon(Icons.Default.Warning, contentDescription = null,
-                tint = AccentRed.copy(alpha = 0.8f), modifier = Modifier.size(14.dp))
+            Icon(
+                imageVector        = Icons.Default.Warning,
+                contentDescription = null,
+                tint               = AccentRed.copy(alpha = 0.8f),
+                modifier           = Modifier.size(14.dp),
+            )
             Spacer(Modifier.width(6.dp))
-            Text("Log a Complaint", color = AccentRed.copy(alpha = 0.8f),
-                fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text(
+                text       = "Log a Complaint",
+                color      = AccentRed.copy(alpha = 0.8f),
+                fontSize   = 12.sp,
+                fontWeight = FontWeight.Medium,
+            )
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phone number banner — no animation, clean card style
+// Phone number banner — dark glass style
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -229,7 +222,7 @@ private fun PhoneNumberBanner(phone: String) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(AccentAmber.copy(alpha = 0.08f))
-            .border(1.dp, AccentAmber.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+            .border(1.dp, AccentAmber.copy(alpha = 0.22f), RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(
@@ -240,8 +233,8 @@ private fun PhoneNumberBanner(phone: String) {
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(AccentAmber.copy(alpha = 0.15f))
-                    .border(1.5.dp, AccentAmber.copy(alpha = 0.4f), CircleShape),
+                    .background(AccentAmber.copy(alpha = 0.12f))
+                    .border(1.5.dp, AccentAmber.copy(alpha = 0.35f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -267,3 +260,27 @@ private fun PhoneNumberBanner(phone: String) {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dark-themed field colours
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun darkFieldColors(accent: Color) = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor        = accent,
+    unfocusedBorderColor      = GlassBorder,
+    focusedTextColor          = TextPrimary,
+    unfocusedTextColor        = TextPrimary,
+    disabledTextColor         = TextMuted,
+    disabledBorderColor       = GlassBorder,
+    disabledLabelColor        = TextMuted,
+    focusedLabelColor         = accent,
+    unfocusedLabelColor       = TextSecondary,
+    cursorColor               = accent,
+    focusedContainerColor     = DarkInput,
+    unfocusedContainerColor   = DarkInput,
+    disabledContainerColor    = DarkInput.copy(alpha = 0.6f),
+    focusedLeadingIconColor   = accent,
+    unfocusedLeadingIconColor = TextSecondary,
+    disabledLeadingIconColor  = TextMuted,
+)

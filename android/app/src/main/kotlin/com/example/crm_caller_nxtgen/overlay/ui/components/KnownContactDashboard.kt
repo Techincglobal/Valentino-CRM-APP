@@ -32,7 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,19 +55,20 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Light palette
+// Dark glass palette
 // ─────────────────────────────────────────────────────────────────────────────
 private val Indigo500     = Color(0xFF6366F1)
 private val Blue400       = Color(0xFF60A5FA)
 private val Emerald500    = Color(0xFF10B981)
 private val Amber500      = Color(0xFFF59E0B)
 private val Red500        = Color(0xFFEF4444)
-private val TextPrimary   = Color(0xFF0F172A)
-private val TextSecondary = Color(0xFF64748B)
-private val TextMuted     = Color(0xFF94A3B8)
-private val BorderLight   = Color(0xFFE2E8F0)
-private val SurfaceLight  = Color(0xFFF8FAFC)
-private val White         = Color(0xFFFFFFFF)
+private val TextPrimary   = Color(0xFFF8FAFC)
+private val TextSecondary = Color(0xFF94A3B8)
+private val TextMuted     = Color(0xFF64748B)
+private val DarkInput     = Color(0xFF1E293B)
+private val DarkCard      = Color(0xFF243044)  // Slightly lighter card for forms
+private val GlassBorder   = Color(0x1AFFFFFF)  // White 10%
+private val DividerColor  = Color(0x14FFFFFF)  // White 8%
 
 @Composable
 fun KnownContactDashboard(
@@ -89,8 +89,8 @@ fun KnownContactDashboard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFF0FDF4))
-                    .border(1.dp, Color(0xFF86EFAC), RoundedCornerShape(10.dp))
+                    .background(Emerald500.copy(alpha = 0.08f))
+                    .border(1.dp, Emerald500.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Text(
@@ -111,7 +111,7 @@ fun KnownContactDashboard(
             letterSpacing = 1.sp,
         )
 
-        // Quick action row: Opportunity | Note | Quote
+        // Quick action row
         Row(
             modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -178,7 +178,7 @@ fun KnownContactDashboard(
             )
         }
 
-        HorizontalDivider(color = BorderLight, thickness = 1.dp)
+        HorizontalDivider(color = DividerColor, thickness = 1.dp)
 
         // Record toggle
         RecordToggleButton(
@@ -192,7 +192,7 @@ fun KnownContactDashboard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .border(1.dp, Red500.copy(alpha = 0.45f), RoundedCornerShape(12.dp)),
+                .border(1.dp, Red500.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Red500),
             shape  = RoundedCornerShape(12.dp),
         ) {
@@ -222,7 +222,7 @@ fun KnownContactDashboard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Read-only contact card
+// Read-only contact card — dark glass
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -244,8 +244,8 @@ private fun ContactReadOnlyCard(identity: CallerIdentity) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(SurfaceLight)
-            .border(1.dp, BorderLight, RoundedCornerShape(14.dp))
+            .background(DarkInput)
+            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
             .padding(14.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -291,31 +291,38 @@ private fun ContactReadOnlyCard(identity: CallerIdentity) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inline forms
+// Inline forms — dark glass
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun AddNoteInlineForm(onCancel: () -> Unit, onSubmit: (String) -> Unit) {
     var note by remember { mutableStateOf("") }
-    val fc = lightFieldColors(Emerald500)
+    val fc = darkFieldColors(Emerald500)
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceLight)
-            .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
+            .background(DarkCard)
+            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
             .padding(14.dp),
     ) {
         FormHeader("Add Note", onCancel)
-        OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note") },
-            modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp),
-            maxLines = 4, minLines = 3)
+        OutlinedTextField(
+            value         = note,
+            onValueChange = { note = it },
+            label         = { Text("Note") },
+            modifier      = Modifier.fillMaxWidth(),
+            colors        = fc,
+            shape         = RoundedCornerShape(10.dp),
+            maxLines      = 4,
+            minLines      = 3,
+        )
         Button(
             onClick  = { onSubmit(note.trim()) },
             modifier = Modifier.fillMaxWidth().height(46.dp),
             enabled  = note.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
-                containerColor = Emerald500,
+                containerColor         = Emerald500,
                 disabledContainerColor = Emerald500.copy(alpha = 0.35f),
             ),
             shape = RoundedCornerShape(10.dp),
@@ -329,23 +336,27 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
     var stage         by remember { mutableStateOf("Prospecting") }
     var note          by remember { mutableStateOf("") }
     val stages = listOf("Prospecting", "Qualification", "Proposal", "Negotiation", "Closed Won")
-    val fc = lightFieldColors(Blue400)
+    val fc = darkFieldColors(Blue400)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceLight)
-            .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
+            .background(DarkCard)
+            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
             .padding(14.dp),
     ) {
         FormHeader("Create Opportunity", onCancel)
         OutlinedTextField(
-            value = expectedValue,
+            value         = expectedValue,
             onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) expectedValue = it },
-            label = { Text("Expected value (Rs.)") },
-            modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp),
-            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            label         = { Text("Expected value (Rs.)") },
+            modifier      = Modifier.fillMaxWidth(),
+            colors        = fc,
+            shape         = RoundedCornerShape(10.dp),
+            singleLine    = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
         Text("Stage", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
         stages.chunked(3).forEach { rowStages ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -356,14 +367,21 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
                 repeat(3 - rowStages.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note") },
-            modifier = Modifier.fillMaxWidth(), colors = fc, shape = RoundedCornerShape(10.dp), maxLines = 2)
+        OutlinedTextField(
+            value         = note,
+            onValueChange = { note = it },
+            label         = { Text("Note") },
+            modifier      = Modifier.fillMaxWidth(),
+            colors        = fc,
+            shape         = RoundedCornerShape(10.dp),
+            maxLines      = 2,
+        )
         Button(
             onClick  = { onSubmit(expectedValue.toDoubleOrNull() ?: 0.0, stage, note.trim()) },
             modifier = Modifier.fillMaxWidth().height(46.dp),
             enabled  = expectedValue.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
-                containerColor = Blue400,
+                containerColor         = Blue400,
                 disabledContainerColor = Blue400.copy(alpha = 0.35f),
             ),
             shape = RoundedCornerShape(10.dp),
@@ -380,14 +398,14 @@ private fun QuoteForm(
     var subject by remember { mutableStateOf(callerName) }
     var amount  by remember { mutableStateOf("") }
     var note    by remember { mutableStateOf("") }
-    val fc = lightFieldColors(Amber500)
+    val fc = darkFieldColors(Amber500)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(SurfaceLight)
-            .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
+            .background(DarkCard)
+            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
             .padding(14.dp),
     ) {
         FormHeader("Create Quotation", onCancel)
@@ -430,12 +448,7 @@ private fun QuoteForm(
             ),
             shape = RoundedCornerShape(10.dp),
         ) {
-            Icon(
-                imageVector        = Icons.Default.Receipt,
-                contentDescription = null,
-                tint               = Color.White,
-                modifier           = Modifier.size(16.dp),
-            )
+            Icon(imageVector = Icons.Default.Receipt, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text("Send Quote", color = Color.White, fontWeight = FontWeight.Bold)
         }
@@ -485,7 +498,7 @@ private fun QuickActionCard(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(accentColor.copy(alpha = 0.07f))
-            .border(1.dp, accentColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+            .border(1.dp, accentColor.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
             .clickable { onClick() }
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center,
@@ -519,10 +532,10 @@ private fun SelectChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) accentColor.copy(alpha = 0.12f) else White)
+            .background(if (isSelected) accentColor.copy(alpha = 0.15f) else DarkInput)
             .border(
                 width = if (isSelected) 1.5.dp else 1.dp,
-                color = if (isSelected) accentColor else BorderLight,
+                color = if (isSelected) accentColor else GlassBorder,
                 shape = RoundedCornerShape(8.dp),
             )
             .clickable { onClick() }
@@ -537,22 +550,5 @@ private fun SelectChip(
         )
     }
 }
-
-@Composable
-private fun lightFieldColors(accent: Color) = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor      = accent,
-    unfocusedBorderColor    = BorderLight,
-    focusedTextColor        = TextPrimary,
-    unfocusedTextColor      = TextPrimary,
-    disabledTextColor       = TextMuted,
-    disabledBorderColor     = BorderLight,
-    disabledLabelColor      = TextMuted,
-    focusedLabelColor       = accent,
-    unfocusedLabelColor     = TextSecondary,
-    cursorColor             = accent,
-    focusedContainerColor   = White,
-    unfocusedContainerColor = White,
-    disabledContainerColor  = SurfaceLight,
-)
 
 // displayName is defined publicly in Models.kt
