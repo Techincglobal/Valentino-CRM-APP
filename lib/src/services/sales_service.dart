@@ -100,6 +100,62 @@ class Quotation {
         status:     j['status'] as String? ?? 'Draft',
         modified:   j['modified'] as String? ?? '',
       );
+
+  String get initials {
+    final parts = partyName.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+}
+
+class SalesOrder {
+  final String name;
+  final String customerName;
+  final double grandTotal;
+  final String status;
+  final String deliveryStatus;
+  final String modified;
+
+  const SalesOrder({
+    required this.name,
+    required this.customerName,
+    required this.grandTotal,
+    required this.status,
+    required this.deliveryStatus,
+    required this.modified,
+  });
+
+  factory SalesOrder.fromJson(Map<String, dynamic> j) => SalesOrder(
+        name:           j['name'] as String? ?? '',
+        customerName:   (j['customer_name'] as String?)?.trim().isNotEmpty == true
+            ? j['customer_name'] as String
+            : 'Unknown',
+        grandTotal:     ((j['grand_total'] ?? 0) as num).toDouble(),
+        status:         j['status'] as String? ?? 'Draft',
+        deliveryStatus: j['delivery_status'] as String? ?? '',
+        modified:       j['modified'] as String? ?? '',
+      );
+
+  String get initials {
+    final parts = customerName.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+}
+
+class QuotesSummary {
+  final int    totalQuotes;
+  final int    draftQuotes;
+  final int    openOrders;
+  final double totalValue;
+  const QuotesSummary({
+    required this.totalQuotes,
+    required this.draftQuotes,
+    required this.openOrders,
+    required this.totalValue,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +172,9 @@ class SalesService {
 
   static const _quoteFields =
       '["name","customer_name","party_name","grand_total","net_total","status","modified"]';
+
+  static const _orderFields =
+      '["name","customer_name","grand_total","status","delivery_status","modified"]';
 
   /// Fetch open opportunities from Frappe (latest 50, newest first).
   static Future<List<Opportunity>> getOpportunities() async {
@@ -180,6 +239,27 @@ class SalesService {
     }
   }
 
+  /// Fetch sales orders from Frappe (latest 50, newest first).
+  static Future<List<SalesOrder>> getSalesOrders() async {
+    try {
+      final resp = await ApiService.get(
+        '/api/resource/Sales%20Order'
+        '?fields=$_orderFields'
+        '&limit=50'
+        '&order_by=modified%20desc',
+      );
+      if (resp.statusCode != 200) return [];
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final list = (body['data'] as List?) ?? [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(SalesOrder.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Create a quotation linked to a lead or customer.
   static Future<String> createQuotation({
     required String leadDocname,
@@ -208,6 +288,23 @@ class SalesService {
     final body    = jsonDecode(resp.body) as Map<String, dynamic>;
     final message = body['message'] as Map<String, dynamic>? ?? body;
     return message['name'] as String? ?? '';
+  }
+
+  /// Quotes & Orders summary.
+  static QuotesSummary summariseQuotes(
+      List<Quotation> quotes, List<SalesOrder> orders) {
+    final draft = quotes.where((q) => q.status == 'Draft').length;
+    final openOrd = orders
+        .where((o) => o.status != 'Completed' && o.status != 'Cancelled')
+        .length;
+    final totalVal = quotes.fold<double>(0, (s, q) => s + q.grandTotal) +
+        orders.fold<double>(0, (s, o) => s + o.grandTotal);
+    return QuotesSummary(
+      totalQuotes: quotes.length,
+      draftQuotes: draft,
+      openOrders:  openOrd,
+      totalValue:  totalVal,
+    );
   }
 
   /// Pipeline summary derived from opportunities list.

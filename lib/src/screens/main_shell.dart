@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'sales_screen.dart';
+import 'quotes_screen.dart';
 import 'settings_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ class _MainShellState extends State<MainShell>
   late final _pages = [
     HomeScreen(user: widget.user),
     const SalesScreen(),
+    const QuotesScreen(),
     SettingsScreen(user: widget.user),
   ];
 
@@ -129,24 +131,31 @@ class _GlassNavBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _NavPill(
-                    icon: Icons.home_rounded,
-                    label: 'Home',
+                    icon:     Icons.home_rounded,
+                    label:    'Home',
                     selected: currentIndex == 0,
-                    onTap: () => onTap(0),
+                    onTap:    () => onTap(0),
                   ),
                   const SizedBox(width: 4),
                   _NavPill(
-                    icon: Icons.trending_up_rounded,
-                    label: 'Sales',
+                    icon:     Icons.trending_up_rounded,
+                    label:    'Pipeline',
                     selected: currentIndex == 1,
-                    onTap: () => onTap(1),
+                    onTap:    () => onTap(1),
                   ),
                   const SizedBox(width: 4),
                   _NavPill(
-                    icon: Icons.settings_rounded,
-                    label: 'Settings',
+                    icon:     Icons.receipt_long_rounded,
+                    label:    'Quotes',
                     selected: currentIndex == 2,
-                    onTap: () => onTap(2),
+                    onTap:    () => onTap(2),
+                  ),
+                  const SizedBox(width: 4),
+                  _NavPill(
+                    icon:     Icons.settings_rounded,
+                    label:    'Settings',
+                    selected: currentIndex == 3,
+                    onTap:    () => onTap(3),
                   ),
                 ],
               ),
@@ -165,9 +174,9 @@ class _GlassNavBar extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _NavPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
+  final IconData     icon;
+  final String       label;
+  final bool         selected;
   final VoidCallback onTap;
 
   const _NavPill({
@@ -187,8 +196,8 @@ class _NavPill extends StatelessWidget {
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeInOutCubic,
         padding: EdgeInsets.symmetric(
-          horizontal: selected ? 20 : 14,
-          vertical: 11,
+          horizontal: selected ? 18 : 13,
+          vertical:   11,
         ),
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : Colors.transparent,
@@ -196,9 +205,9 @@ class _NavPill extends StatelessWidget {
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.35),
+                    color:      AppColors.primary.withValues(alpha: 0.35),
                     blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    offset:     const Offset(0, 4),
                   ),
                 ]
               : null,
@@ -210,14 +219,14 @@ class _NavPill extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               child: Icon(
                 icon,
-                key: ValueKey(selected),
+                key:   ValueKey(selected),
                 color: selected ? Colors.white : ac.textSecondary,
-                size: 20,
+                size:  20,
               ),
             ),
             AnimatedSize(
               duration: const Duration(milliseconds: 280),
-              curve: Curves.easeInOutCubic,
+              curve:    Curves.easeInOutCubic,
               child: selected
                   ? Row(
                       children: [
@@ -225,9 +234,9 @@ class _NavPill extends StatelessWidget {
                         Text(
                           label,
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            color:       Colors.white,
+                            fontSize:    13,
+                            fontWeight:  FontWeight.w600,
                             letterSpacing: 0.2,
                           ),
                         ),

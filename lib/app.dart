@@ -8,8 +8,27 @@ import 'src/theme/app_theme.dart';
 
 enum _StartupRoute { siteSetup, login, home }
 
-class MyApp extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// MyApp — StatefulWidget so _startup future is computed once in initState and
+// never re-created on rebuilds (prevents the loading flash when the system
+// calls build() again, e.g. on theme changes or orientation).
+// ─────────────────────────────────────────────────────────────────────────────
+
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final Future<({_StartupRoute route, UserModel? user})> _startup;
+
+  @override
+  void initState() {
+    super.initState();
+    _startup = _resolveStartup();
+  }
 
   Future<({_StartupRoute route, UserModel? user})> _resolveStartup() async {
     try {
@@ -44,11 +63,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: CrmTheme.light(),
-      darkTheme: CrmTheme.dark(),
-      themeMode: ThemeMode.system,
+      theme:     CrmTheme.light(),
+      darkTheme:  CrmTheme.dark(),
+      themeMode:  ThemeMode.system,
       home: FutureBuilder(
-        future: _resolveStartup(),
+        future: _startup,
         builder: (context, snapshot) {
           final ac = context.ac;
           if (!snapshot.hasData) {
@@ -105,8 +124,8 @@ class MyApp extends StatelessWidget {
           final startup = snapshot.data!;
           return switch (startup.route) {
             _StartupRoute.siteSetup => const SiteSetupScreen(),
-            _StartupRoute.login => const LoginScreen(),
-            _StartupRoute.home => MainShell(user: startup.user!),
+            _StartupRoute.login     => const LoginScreen(),
+            _StartupRoute.home      => MainShell(user: startup.user!),
           };
         },
       ),
