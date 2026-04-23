@@ -462,10 +462,11 @@ class _QuoteCard extends StatelessWidget {
 
   String _fmt(double v) {
     if (v == 0) return '—';
-    if (v >= 10000000) return 'Rs.${(v / 10000000).toStringAsFixed(1)}Cr';
-    if (v >= 100000)   return 'Rs.${(v / 100000).toStringAsFixed(1)}L';
-    if (v >= 1000)     return 'Rs.${(v / 1000).toStringAsFixed(0)}K';
-    return 'Rs.${v.toStringAsFixed(0)}';
+    final c = quote.currency.isNotEmpty ? quote.currency : 'Rs.';
+    if (v >= 10000000) return '$c ${(v / 10000000).toStringAsFixed(1)}Cr';
+    if (v >= 100000)   return '$c ${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000)     return '$c ${(v / 1000).toStringAsFixed(0)}K';
+    return '$c ${v.toStringAsFixed(0)}';
   }
 
   @override
@@ -901,10 +902,11 @@ class _QuoteDetailSheetState extends State<_QuoteDetailSheet> {
 
   String _fmt(double v) {
     if (v == 0) return '—';
-    if (v >= 10000000) return 'Rs.${(v / 10000000).toStringAsFixed(1)}Cr';
-    if (v >= 100000)   return 'Rs.${(v / 100000).toStringAsFixed(1)}L';
-    if (v >= 1000)     return 'Rs.${(v / 1000).toStringAsFixed(0)}K';
-    return 'Rs.${v.toStringAsFixed(0)}';
+    final c = (_detail?.currency.isNotEmpty == true) ? _detail!.currency : 'Rs.';
+    if (v >= 10000000) return '$c ${(v / 10000000).toStringAsFixed(1)}Cr';
+    if (v >= 100000)   return '$c ${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000)     return '$c ${(v / 1000).toStringAsFixed(0)}K';
+    return '$c ${v.toStringAsFixed(0)}';
   }
 
   static const _statusColors = {

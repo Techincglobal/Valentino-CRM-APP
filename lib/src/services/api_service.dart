@@ -52,4 +52,20 @@ class ApiService {
       body: jsonEncode(body),
     );
   }
+
+  static Future<http.Response> delete(String endpoint) async {
+    final baseUrl = await StorageService.getBaseUrl();
+    final sid     = await StorageService.getSessionId();
+
+    if (baseUrl == null || sid == null) {
+      throw Exception("Not authenticated");
+    }
+
+    final url = Uri.parse(baseUrl).resolve(endpoint);
+
+    return await http.delete(
+      url,
+      headers: {"Cookie": "sid=$sid", "Content-Type": "application/json"},
+    );
+  }
 }

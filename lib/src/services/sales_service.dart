@@ -82,6 +82,7 @@ class Quotation {
   final double grandTotal;
   final String status;
   final String modified;
+  final String currency;
 
   const Quotation({
     required this.name,
@@ -89,6 +90,7 @@ class Quotation {
     required this.grandTotal,
     required this.status,
     required this.modified,
+    this.currency = 'LKR',
   });
 
   factory Quotation.fromJson(Map<String, dynamic> j) => Quotation(
@@ -99,6 +101,7 @@ class Quotation {
         grandTotal: ((j['grand_total'] ?? j['net_total'] ?? 0) as num).toDouble(),
         status:     j['status'] as String? ?? 'Draft',
         modified:   j['modified'] as String? ?? '',
+        currency:   j['currency'] as String? ?? 'LKR',
       );
 
   String get initials {
@@ -142,7 +145,6 @@ class QuotationItem {
 
 class QuotationDetail extends Quotation {
   final int    docstatus;
-  final String currency;
   final String validTill;
   final String terms;
   final List<QuotationItem> items;
@@ -153,8 +155,8 @@ class QuotationDetail extends Quotation {
     required super.grandTotal,
     required super.status,
     required super.modified,
+    required super.currency,
     required this.docstatus,
-    required this.currency,
     required this.validTill,
     required this.terms,
     required this.items,
@@ -174,8 +176,8 @@ class QuotationDetail extends Quotation {
       grandTotal: ((j['grand_total'] ?? j['net_total'] ?? 0) as num).toDouble(),
       status:     j['status'] as String? ?? 'Draft',
       modified:   j['modified'] as String? ?? '',
-      docstatus:  (j['docstatus'] as int?) ?? 0,
       currency:   j['currency'] as String? ?? 'LKR',
+      docstatus:  (j['docstatus'] as int?) ?? 0,
       validTill:  j['valid_till'] as String? ?? '',
       terms:      j['terms'] as String? ?? '',
       items:      rawItems
@@ -248,7 +250,7 @@ class SalesService {
       '["name","first_name","lead_name","email_id","mobile_no","status","modified"]';
 
   static const _quoteFields =
-      '["name","customer_name","party_name","grand_total","net_total","status","modified"]';
+      '["name","customer_name","party_name","grand_total","net_total","status","modified","currency"]';
 
   static const _orderFields =
       '["name","customer_name","grand_total","status","delivery_status","modified"]';
@@ -449,4 +451,154 @@ class PipelineSummary {
     required this.total,
     required this.totalValue,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// New models
+// ─────────────────────────────────────────────────────────────────────────────
+
+class CompanyDefaults {
+  final String company;
+  final String currency;
+  final String symbol;
+  const CompanyDefaults({
+    required this.company,
+    required this.currency,
+    required this.symbol,
+  });
+  factory CompanyDefaults.fromJson(Map<String, dynamic> j) => CompanyDefaults(
+        company:  j['company']  as String? ?? '',
+        currency: j['currency'] as String? ?? 'LKR',
+        symbol:   j['symbol']   as String? ?? 'Rs.',
+      );
+}
+
+class FrappeItem {
+  final String itemCode;
+  final String itemName;
+  final String description;
+  final double standardRate;
+  const FrappeItem({
+    required this.itemCode,
+    required this.itemName,
+    required this.description,
+    required this.standardRate,
+  });
+  factory FrappeItem.fromJson(Map<String, dynamic> j) => FrappeItem(
+        itemCode:     j['name']          as String? ?? '',
+        itemName:     j['item_name']     as String? ?? '',
+        description:  j['description']   as String? ?? '',
+        standardRate: ((j['standard_rate'] ?? 0) as num).toDouble(),
+      );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Additional SalesService methods
+// ─────────────────────────────────────────────────────────────────────────────
+
+extension SalesServiceExtended on SalesService {
+  // Static methods can't be in extensions, so they are added inline below.
+}
+
+// Stand-alone functions grouped with SalesService for convenience.
+// (Dart doesn't allow adding static methods via extension, so these are
+// top-level helpers — called as SalesServiceOps.method())
+class SalesServiceOps {
+  /// Fetch company defaults (currency, company name).
+  static Future<CompanyDefaults> getCompanyDefaults() async {
+    try {
+      final resp = await ApiService.post(
+          '/api/method/nxtgen_crm_mobile.api.get_company_defaults', {});
+      if (resp.statusCode != 200) {
+        return const CompanyDefaults(company: '', currency: 'LKR', symbol: 'Rs.');
+      }
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final msg  = body['message'] as Map<String, dynamic>? ?? {};
+      return CompanyDefaults.fromJson(msg);
+    } catch (_) {
+      return const CompanyDefaults(company: '', currency: 'LKR', symbol: 'Rs.');
+    }
+  }
+
+  /// Create an Opportunity from a Lead; returns the new Opportunity object.
+  static Future<Opportunity> createOpportunity({
+    required String leadDocname,
+    required String partyName,
+    required double amount,
+    required String stage,
+    String closingDate = '',
+    String note = '',
+  }) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.create_opportunity',
+      {
+        'lead_docname':        leadDocname,
+        'opportunity_amount':  amount,
+        'stage':               stage,
+        'expected_closing':    closingDate,
+        'note':                note,
+      },
+    );
+    if (resp.statusCode != 200) {
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final exc  = body['exception'] as String? ?? body['message']?.toString() ?? '';
+      throw Exception(exc.isNotEmpty ? exc : 'Failed to create opportunity (${resp.statusCode})');
+    }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final msg  = body['message'] as Map<String, dynamic>? ?? {};
+    return Opportunity(
+      name:            msg['name']               as String? ?? '',
+      partyName:       msg['party_name']          as String? ?? partyName,
+      amount:          ((msg['opportunity_amount'] ?? 0) as num).toDouble(),
+      stage:           msg['stage']              as String? ?? stage,
+      status:          msg['opp_status']          as String? ?? 'Open',
+      expectedClosing: msg['expected_closing']    as String? ?? closingDate,
+      modified:        msg['modified']            as String? ?? DateTime.now().toIso8601String().substring(0, 10),
+    );
+  }
+
+  /// Update a Lead's status.
+  static Future<void> updateLeadStatus(String docname, String status) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.update_lead',
+      {'docname': docname, 'status': status},
+    );
+    if (resp.statusCode != 200) throw Exception('Failed to update lead status');
+  }
+
+  /// Update an Opportunity's stage (and optionally amount / closing date).
+  static Future<void> updateOpportunityStage(
+      String docname, String stage, {double? amount, String? closingDate}) async {
+    final body = <String, dynamic>{'docname': docname, 'stage': stage};
+    if (amount     != null) body['opportunity_amount'] = amount;
+    if (closingDate != null) body['expected_closing']  = closingDate;
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.update_opportunity', body);
+    if (resp.statusCode != 200) throw Exception('Failed to update opportunity');
+  }
+
+  /// Search Frappe Item master; returns up to [limit] matching items.
+  static Future<List<FrappeItem>> searchItems(String query, {int limit = 15}) async {
+    try {
+      final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.search_items',
+        {'query': query, 'limit': limit},
+      );
+      if (resp.statusCode != 200) return [];
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final list = (body['message'] as List?) ?? [];
+      return list.whereType<Map<String, dynamic>>().map(FrappeItem.fromJson).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Delete a document (must be draft / not submitted).
+  static Future<void> deleteDocument(String doctype, String docname) async {
+    final resp = await ApiService.delete(
+        '/api/resource/${Uri.encodeComponent(doctype)}/${Uri.encodeComponent(docname)}');
+    if (resp.statusCode != 202 && resp.statusCode != 200) {
+      throw Exception('Failed to delete $doctype $docname');
+    }
+  }
 }

@@ -3,7 +3,7 @@ import '../services/sales_service.dart';
 import '../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Brand tokens (constant — always visible on dark header AND any bg)
+// Brand tokens
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _amber  = Color(0xFFF59E0B);
@@ -27,8 +27,10 @@ class _QuoteItem {
 
   Map<String, dynamic> toJson() => {
     'item_code':   itemCodeCtrl.text.trim(),
-    'description': descriptionCtrl.text.trim(),
-    'qty':         double.tryParse(qtyCtrl.text.trim()) ?? 1.0,
+    'item_name':   descriptionCtrl.text.trim().isNotEmpty
+                       ? descriptionCtrl.text.trim()
+                       : itemCodeCtrl.text.trim(),
+    'qty':         double.tryParse(qtyCtrl.text.trim())  ?? 1.0,
     'rate':        double.tryParse(rateCtrl.text.trim()) ?? 0.0,
   };
 
@@ -88,7 +90,7 @@ const _currencies = <(String, String)>[
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mock data
+// Mock data (fallback when API returns nothing)
 // ─────────────────────────────────────────────────────────────────────────────
 
 final _mockLeads = [
@@ -103,6 +105,13 @@ final _mockOpps = [
   Opportunity(name: 'OPP-0002', partyName: 'TechCo Solutions', amount: 1200000, stage: 'Negotiation',   status: 'Open', expectedClosing: '2024-06-15', modified: '2024-04-17'),
   Opportunity(name: 'OPP-0003', partyName: 'Sunset Interiors', amount: 320000,  stage: 'Qualification', status: 'Open', expectedClosing: '2024-05-10', modified: '2024-04-14'),
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lead status & Opportunity stage options
+// ─────────────────────────────────────────────────────────────────────────────
+
+const _leadStatuses = ['Lead', 'Contacted', 'Interested', 'Converted', 'Do Not Contact'];
+const _oppStages    = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SalesScreen
@@ -169,13 +178,7 @@ class _SalesScreenState extends State<SalesScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.55),
-      builder: (_) => _ConvertSheet(
-        lead: lead,
-        onConverted: (opp) => setState(() {
-          _opps    = [opp, ..._opps];
-          _summary = SalesService.summarise(_opps);
-        }),
-      ),
+      builder: (_) => _ConvertSheet(lead: lead, onConverted: _loadFromApi),
     );
   }
 
@@ -187,6 +190,51 @@ class _SalesScreenState extends State<SalesScreen>
       barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (_) => _QuoteSheet(opp: opp, onGoToQuotes: widget.onGoToQuotes),
     );
+  }
+
+  Future<void> _updateLeadStatus(CrmLead lead, String status) async {
+    try {
+      await SalesServiceOps.updateLeadStatus(lead.name, status);
+      _loadFromApi();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Failed to update status: $e'),
+        backgroundColor: const Color(0xFFEF4444),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+    }
+  }
+
+  Future<void> _updateOppStage(Opportunity opp, String stage) async {
+    // Optimistic update
+    setState(() {
+      final idx = _opps.indexWhere((o) => o.name == opp.name);
+      if (idx >= 0) {
+        _opps[idx] = Opportunity(
+          name: opp.name, partyName: opp.partyName,
+          amount: opp.amount, stage: stage,
+          status: opp.status, expectedClosing: opp.expectedClosing,
+          modified: opp.modified,
+        );
+        _summary = SalesService.summarise(_opps);
+      }
+    });
+    try {
+      await SalesServiceOps.updateOpportunityStage(opp.name, stage);
+    } catch (e) {
+      _loadFromApi(); // roll back on failure
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Failed to update stage: $e'),
+        backgroundColor: const Color(0xFFEF4444),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+    }
   }
 
   @override
@@ -203,8 +251,14 @@ class _SalesScreenState extends State<SalesScreen>
         body: TabBarView(
           controller: _tab,
           children: [
-            _LeadsTab(leads: _leads, loading: _loading, onRetry: _loadFromApi, onConvert: _showConvertForm),
-            _OppsTab(opps: _opps, loading: _loading, onRetry: _loadFromApi, onQuote: _showQuoteForm),
+            _LeadsTab(
+              leads: _leads, loading: _loading, onRetry: _loadFromApi,
+              onConvert: _showConvertForm, onStatusUpdate: _updateLeadStatus,
+            ),
+            _OppsTab(
+              opps: _opps, loading: _loading, onRetry: _loadFromApi,
+              onQuote: _showQuoteForm, onStageUpdate: _updateOppStage,
+            ),
           ],
         ),
       ),
@@ -213,7 +267,7 @@ class _SalesScreenState extends State<SalesScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Header — always dark gradient (brand section)
+// Header — always dark gradient
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
@@ -233,8 +287,7 @@ class _Header extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
           colors: [Color(0xFF0D1240), Color(0xFF0A0F1E), Color(0xFF110D2E)],
           stops: [0.0, 0.55, 1.0],
         ),
@@ -257,10 +310,8 @@ class _Header extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: _indigo.withValues(alpha: 0.28)),
                         ),
-                        child: const Text(
-                          'PIPELINE',
-                          style: TextStyle(color: _indigo, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8),
-                        ),
+                        child: const Text('PIPELINE',
+                            style: TextStyle(color: _indigo, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
                       ),
                       const SizedBox(height: 8),
                       const Text('Pipeline',
@@ -277,15 +328,13 @@ class _Header extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-            child: Row(
-              children: [
-                _GlassStatCard(label: 'Open',    value: '${summary.open}',           icon: Icons.radio_button_checked_rounded, color: _indigo),
-                const SizedBox(width: 10),
-                _GlassStatCard(label: 'Won',     value: '${summary.won}',            icon: Icons.check_circle_rounded,         color: const Color(0xFF10B981)),
-                const SizedBox(width: 10),
-                _GlassStatCard(label: 'Pipeline', value: _fmt(summary.totalValue),   icon: Icons.trending_up_rounded,          color: _amber, wide: true),
-              ],
-            ),
+            child: Row(children: [
+              _GlassStatCard(label: 'Open',    value: '${summary.open}',         icon: Icons.radio_button_checked_rounded, color: _indigo),
+              const SizedBox(width: 10),
+              _GlassStatCard(label: 'Won',     value: '${summary.won}',          icon: Icons.check_circle_rounded,         color: const Color(0xFF10B981)),
+              const SizedBox(width: 10),
+              _GlassStatCard(label: 'Pipeline', value: _fmt(summary.totalValue), icon: Icons.trending_up_rounded,          color: _amber, wide: true),
+            ]),
           ),
         ],
       ),
@@ -294,11 +343,7 @@ class _Header extends StatelessWidget {
 }
 
 class _GlassStatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-  final bool wide;
+  final String label; final String value; final IconData icon; final Color color; final bool wide;
   const _GlassStatCard({required this.label, required this.value, required this.icon, required this.color, this.wide = false});
 
   @override
@@ -312,24 +357,20 @@ class _GlassStatCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 15),
-            const SizedBox(height: 8),
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 10, fontWeight: FontWeight.w600)),
-          ],
-        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 10, fontWeight: FontWeight.w600)),
+        ]),
       ),
     );
   }
 }
 
 class _GlassIconBadge extends StatelessWidget {
-  final IconData icon;
-  final Color color;
+  final IconData icon; final Color color;
   const _GlassIconBadge({required this.icon, required this.color});
 
   @override
@@ -347,77 +388,63 @@ class _GlassIconBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Adaptive glass tab bar
+// Glass tab bar
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GlassTabBar extends StatelessWidget {
-  final TabController controller;
-  final int leads;
-  final int opps;
+  final TabController controller; final int leads; final int opps;
   const _GlassTabBar({required this.controller, required this.leads, required this.opps});
 
   @override
   Widget build(BuildContext context) {
-    final ac = context.ac;
+    final ac     = context.ac;
     final isDark = context.isDark;
     return Container(
       color: ac.bgBase,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Container(
         decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : ac.bgCard,
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgCard,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isDark
-              ? Colors.white.withValues(alpha: 0.09)
-              : ac.border),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.09) : ac.border),
         ),
         child: TabBar(
-              controller: controller,
-              indicator: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
-                borderRadius: BorderRadius.circular(11),
-                boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 3))],
-              ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicatorPadding: const EdgeInsets.all(3),
-              dividerColor: Colors.transparent,
-              labelColor: Colors.white,
-              unselectedLabelColor: ac.textSecondary,
-              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-              tabs: [
-                Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Text('Leads'),
-                  const SizedBox(width: 6),
-                  _GlassBadge(leads, isDark: isDark),
-                ])),
-                Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Text('Opportunities'),
-                  const SizedBox(width: 6),
-                  _GlassBadge(opps, isDark: isDark),
-                ])),
-              ],
-            ),
+          controller: controller,
+          indicator: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+            borderRadius: BorderRadius.circular(11),
+            boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 3))],
           ),
-        );
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicatorPadding: const EdgeInsets.all(3),
+          dividerColor: Colors.transparent,
+          labelColor: Colors.white,
+          unselectedLabelColor: ac.textSecondary,
+          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          tabs: [
+            Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Leads'), const SizedBox(width: 6), _GlassBadge(leads, isDark: isDark),
+            ])),
+            Tab(child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Opportunities'), const SizedBox(width: 6), _GlassBadge(opps, isDark: isDark),
+            ])),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 class _GlassBadge extends StatelessWidget {
-  final int count;
-  final bool isDark;
+  final int count; final bool isDark;
   const _GlassBadge(this.count, {required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
       child: Text('$count', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
     );
   }
@@ -428,11 +455,15 @@ class _GlassBadge extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _LeadsTab extends StatelessWidget {
-  final List<CrmLead>           leads;
-  final bool                    loading;
-  final VoidCallback            onRetry;
-  final void Function(CrmLead)  onConvert;
-  const _LeadsTab({required this.leads, required this.loading, required this.onRetry, required this.onConvert});
+  final List<CrmLead>                            leads;
+  final bool                                     loading;
+  final VoidCallback                             onRetry;
+  final void Function(CrmLead)                   onConvert;
+  final void Function(CrmLead, String)           onStatusUpdate;
+  const _LeadsTab({
+    required this.leads, required this.loading, required this.onRetry,
+    required this.onConvert, required this.onStatusUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -445,20 +476,21 @@ class _LeadsTab extends StatelessWidget {
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
         itemCount: leads.length,
-        itemBuilder: (_, i) => _LeadCard(lead: leads[i], onConvert: onConvert),
+        itemBuilder: (_, i) => _LeadCard(lead: leads[i], onConvert: onConvert, onStatusUpdate: (s) => onStatusUpdate(leads[i], s)),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lead card — adaptive
+// Lead card
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _LeadCard extends StatelessWidget {
   final CrmLead               lead;
   final void Function(CrmLead) onConvert;
-  const _LeadCard({required this.lead, required this.onConvert});
+  final void Function(String)  onStatusUpdate;
+  const _LeadCard({required this.lead, required this.onConvert, required this.onStatusUpdate});
 
   static const _statusColors = {
     'Lead':           Color(0xFF8B5CF6),
@@ -469,6 +501,21 @@ class _LeadCard extends StatelessWidget {
   };
   Color get _color => _statusColors[lead.status] ?? const Color(0xFF8B5CF6);
 
+  void _pickStatus(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => _QuickPickSheet(
+        title: 'Update Lead Status',
+        options: _leadStatuses,
+        current: lead.status,
+        colorMap: _statusColors,
+        onPick: onStatusUpdate,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ac     = context.ac;
@@ -478,12 +525,7 @@ class _LeadCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isDark ? null : ac.bgCard,
-        gradient: isDark
-            ? LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [const Color(0xFF1A2235), const Color(0xFF0D1526)],
-              )
-            : null,
+        gradient: isDark ? LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [const Color(0xFF1A2235), const Color(0xFF0D1526)]) : null,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
         boxShadow: [
@@ -491,58 +533,42 @@ class _LeadCard extends StatelessWidget {
           BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06), blurRadius: 12, offset: const Offset(0, 3)),
         ],
       ),
-      child: Column(
-        children: [
-          // Top specular line
-          Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                Colors.transparent,
-                Colors.white.withValues(alpha: isDark ? 0.12 : 0.40),
-                Colors.transparent,
-              ]),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _GlassAvatar(initials: lead.initials, color: color),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(lead.displayName,
-                              style: TextStyle(color: ac.textPrimary, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.3),
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                          if (lead.mobile.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(lead.mobile, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
-                          ],
-                          const SizedBox(height: 6),
-                          _GlassChip(label: lead.status.isEmpty ? 'Lead' : lead.status, color: color),
-                        ],
-                      ),
-                    ),
-                  ],
+      child: Column(children: [
+        Container(height: 1, decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [Colors.transparent, Colors.white.withValues(alpha: isDark ? 0.12 : 0.40), Colors.transparent]),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        )),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(children: [
+            Row(children: [
+              _GlassAvatar(initials: lead.initials, color: color),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(lead.displayName,
+                    style: TextStyle(color: ac.textPrimary, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (lead.mobile.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(lead.mobile, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                ],
+                const SizedBox(height: 6),
+                // Tappable status chip — opens status picker
+                GestureDetector(
+                  onTap: () => _pickStatus(context),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    _GlassChip(label: lead.status.isEmpty ? 'Lead' : lead.status, color: color),
+                    const SizedBox(width: 4),
+                    Icon(Icons.edit_rounded, color: color.withValues(alpha: 0.55), size: 11),
+                  ]),
                 ),
-                const SizedBox(height: 12),
-                _GlassCTAButton(
-                  icon: Icons.trending_up_rounded,
-                  label: 'Convert to Opportunity',
-                  color: _indigo,
-                  onTap: () => onConvert(lead),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+              ])),
+            ]),
+            const SizedBox(height: 12),
+            _GlassCTAButton(icon: Icons.trending_up_rounded, label: 'Convert to Opportunity', color: _indigo, onTap: () => onConvert(lead)),
+          ]),
+        ),
+      ]),
     );
   }
 }
@@ -552,11 +578,15 @@ class _LeadCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _OppsTab extends StatelessWidget {
-  final List<Opportunity>           opps;
-  final bool                        loading;
-  final VoidCallback                onRetry;
-  final void Function(Opportunity)  onQuote;
-  const _OppsTab({required this.opps, required this.loading, required this.onRetry, required this.onQuote});
+  final List<Opportunity>                        opps;
+  final bool                                     loading;
+  final VoidCallback                             onRetry;
+  final void Function(Opportunity)               onQuote;
+  final void Function(Opportunity, String)       onStageUpdate;
+  const _OppsTab({
+    required this.opps, required this.loading, required this.onRetry,
+    required this.onQuote, required this.onStageUpdate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -569,20 +599,21 @@ class _OppsTab extends StatelessWidget {
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
         itemCount: opps.length,
-        itemBuilder: (_, i) => _OppCard(opp: opps[i], onQuote: onQuote),
+        itemBuilder: (_, i) => _OppCard(opp: opps[i], onQuote: onQuote, onStageUpdate: (s) => onStageUpdate(opps[i], s)),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Opportunity card — adaptive
+// Opportunity card
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _OppCard extends StatelessWidget {
   final Opportunity                opp;
   final void Function(Opportunity) onQuote;
-  const _OppCard({required this.opp, required this.onQuote});
+  final void Function(String)      onStageUpdate;
+  const _OppCard({required this.opp, required this.onQuote, required this.onStageUpdate});
 
   static const _stageColors = {
     'Prospecting':   Color(0xFF60A5FA),
@@ -593,6 +624,21 @@ class _OppCard extends StatelessWidget {
     'Closed Lost':   Color(0xFFEF4444),
   };
   Color get _color => _stageColors[opp.stage] ?? const Color(0xFF8B5CF6);
+
+  void _pickStage(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => _QuickPickSheet(
+        title: 'Update Stage',
+        options: _oppStages,
+        current: opp.stage,
+        colorMap: _stageColors,
+        onPick: onStageUpdate,
+      ),
+    );
+  }
 
   String _fmt(double v) {
     if (v == 0) return '—';
@@ -618,12 +664,7 @@ class _OppCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isDark ? null : ac.bgCard,
-        gradient: isDark
-            ? LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [const Color(0xFF1A2235), const Color(0xFF0D1526)],
-              )
-            : null,
+        gradient: isDark ? LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [const Color(0xFF1A2235), const Color(0xFF0D1526)]) : null,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
         boxShadow: [
@@ -631,157 +672,125 @@ class _OppCard extends StatelessWidget {
           BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06), blurRadius: 12, offset: const Offset(0, 3)),
         ],
       ),
-      child: Column(
-        children: [
-          Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                Colors.transparent,
-                Colors.white.withValues(alpha: isDark ? 0.12 : 0.40),
-                Colors.transparent,
+      child: Column(children: [
+        Container(height: 1, decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [Colors.transparent, Colors.white.withValues(alpha: isDark ? 0.12 : 0.40), Colors.transparent]),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        )),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(children: [
+            Row(children: [
+              _GlassAvatar(initials: _initials, color: color),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(opp.partyName,
+                    style: TextStyle(color: ac.textPrimary, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 5),
+                Row(children: [
+                  // Tappable stage chip
+                  GestureDetector(
+                    onTap: () => _pickStage(context),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      _GlassChip(label: opp.stage.isEmpty ? 'No Stage' : opp.stage, color: color),
+                      const SizedBox(width: 4),
+                      Icon(Icons.edit_rounded, color: color.withValues(alpha: 0.55), size: 11),
+                    ]),
+                  ),
+                  const Spacer(),
+                  Text(_fmt(opp.amount), style: const TextStyle(color: _amber, fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                ]),
+                if (opp.expectedClosing.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Row(children: [
+                    Icon(Icons.calendar_today_rounded, size: 11, color: ac.textTertiary),
+                    const SizedBox(width: 4),
+                    Text(opp.expectedClosing, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                  ]),
+                ],
+              ])),
+            ]),
+            const SizedBox(height: 12),
+            _GlassCTAButton(icon: Icons.receipt_long_rounded, label: 'Create Quote', color: _amber, onTap: () => onQuote(opp)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quick-pick bottom sheet (status / stage selector)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _QuickPickSheet extends StatelessWidget {
+  final String                           title;
+  final List<String>                     options;
+  final String                           current;
+  final Map<String, Color>               colorMap;
+  final void Function(String)            onPick;
+  const _QuickPickSheet({
+    required this.title, required this.options, required this.current,
+    required this.colorMap, required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Center(child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 14), width: 36, height: 4,
+          decoration: BoxDecoration(color: isDark ? Colors.white.withValues(alpha: 0.18) : ac.textMuted, borderRadius: BorderRadius.circular(2)),
+        )),
+        Text(title, style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 16),
+        Wrap(spacing: 8, runSpacing: 8, children: options.map((opt) {
+          final sel   = opt == current;
+          final color = colorMap[opt] ?? _indigo;
+          return GestureDetector(
+            onTap: () { Navigator.pop(context); onPick(opt); },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: sel ? LinearGradient(colors: [color.withValues(alpha: 0.30), color.withValues(alpha: 0.14)]) : null,
+                color: sel ? null : ac.bgInput,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: sel ? color.withValues(alpha: 0.55) : ac.border),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (sel) ...[
+                  Icon(Icons.check_rounded, color: color, size: 12),
+                  const SizedBox(width: 5),
+                ],
+                Text(opt, style: TextStyle(
+                  color: sel ? color : ac.textSecondary,
+                  fontSize: 13, fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                )),
               ]),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _GlassAvatar(initials: _initials, color: color),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(opp.partyName,
-                              style: TextStyle(color: ac.textPrimary, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.3),
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 5),
-                          Row(children: [
-                            _GlassChip(label: opp.stage.isEmpty ? 'No Stage' : opp.stage, color: color),
-                            const Spacer(),
-                            Text(_fmt(opp.amount),
-                                style: const TextStyle(color: _amber, fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
-                          ]),
-                          if (opp.expectedClosing.isNotEmpty) ...[
-                            const SizedBox(height: 5),
-                            Row(children: [
-                              Icon(Icons.calendar_today_rounded, size: 11, color: ac.textTertiary),
-                              const SizedBox(width: 4),
-                              Text(opp.expectedClosing, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
-                            ]),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _GlassCTAButton(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'Create Quote',
-                  color: _amber,
-                  onTap: () => onQuote(opp),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+          );
+        }).toList()),
+      ]),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared micro-components
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _GlassAvatar extends StatelessWidget {
-  final String initials;
-  final Color color;
-  const _GlassAvatar({required this.initials, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 46, height: 46,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.10)],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.30)),
-      ),
-      child: Center(child: Text(initials, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w800))),
-    );
-  }
-}
-
-class _GlassChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _GlassChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.2)),
-    );
-  }
-}
-
-class _GlassCTAButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _GlassCTAButton({required this.icon, required this.label, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft, end: Alignment.bottomRight,
-            colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.08)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.30)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 15),
-            const SizedBox(width: 7),
-            Text(label, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: -0.1)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Convert to Opportunity sheet
+// Convert to Opportunity sheet — wired to real API
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ConvertSheet extends StatefulWidget {
-  final CrmLead                 lead;
-  final void Function(Opportunity) onConverted;
+  final CrmLead       lead;
+  final VoidCallback  onConverted;
   const _ConvertSheet({required this.lead, required this.onConverted});
 
   @override
@@ -789,41 +798,72 @@ class _ConvertSheet extends StatefulWidget {
 }
 
 class _ConvertSheetState extends State<_ConvertSheet> {
-  final _valueCtrl = TextEditingController();
-  final _noteCtrl  = TextEditingController();
+  final _valueCtrl   = TextEditingController();
+  final _closingCtrl = TextEditingController();
+  final _noteCtrl    = TextEditingController();
   String _stage    = 'Prospecting';
   bool   _busy     = false;
   String? _error;
 
-  static const _stages = ['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed Won'];
+  @override
+  void initState() {
+    super.initState();
+    // Default closing date = 30 days from today
+    final closing = DateTime.now().add(const Duration(days: 30));
+    _closingCtrl.text =
+        '${closing.year}-${closing.month.toString().padLeft(2, '0')}-${closing.day.toString().padLeft(2, '0')}';
+  }
 
   @override
-  void dispose() { _valueCtrl.dispose(); _noteCtrl.dispose(); super.dispose(); }
+  void dispose() { _valueCtrl.dispose(); _closingCtrl.dispose(); _noteCtrl.dispose(); super.dispose(); }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(_closingCtrl.text) ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 1825)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(primary: _indigo, surface: Color(0xFF1A2235)),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      _closingCtrl.text =
+          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    }
+  }
 
   Future<void> _submit() async {
     final value = double.tryParse(_valueCtrl.text.trim());
-    if (value == null) { setState(() => _error = 'Enter a valid number'); return; }
+    if (value == null) { setState(() => _error = 'Enter a valid number for expected value'); return; }
     setState(() { _busy = true; _error = null; });
-    await Future.delayed(const Duration(milliseconds: 600));
-    final opp = Opportunity(
-      name: 'OPP-${DateTime.now().millisecondsSinceEpoch % 9000 + 1000}',
-      partyName: widget.lead.displayName,
-      amount: value,
-      stage: _stage,
-      status: 'Open',
-      expectedClosing: '',
-      modified: DateTime.now().toIso8601String().substring(0, 10),
-    );
-    if (!mounted) return;
-    Navigator.pop(context);
-    widget.onConverted(opp);
-    ScaffoldMessenger.of(context).showSnackBar(_successSnack('Opportunity created for ${widget.lead.displayName}'));
+    try {
+      await SalesServiceOps.createOpportunity(
+        leadDocname: widget.lead.name,
+        partyName:   widget.lead.displayName,
+        amount:      value,
+        stage:       _stage,
+        closingDate: _closingCtrl.text.trim(),
+        note:        _noteCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onConverted();
+      ScaffoldMessenger.of(context).showSnackBar(
+        _successSnack('Opportunity created for ${widget.lead.displayName}'),
+      );
+    } catch (e) {
+      setState(() { _busy = false; _error = e.toString().replaceFirst('Exception: ', ''); });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final inset  = MediaQuery.of(context).viewInsets.bottom;
-    final ac     = context.ac;
+    final inset = MediaQuery.of(context).viewInsets.bottom;
+    final ac    = context.ac;
     return _GlassSheet(
       child: Padding(
         padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
@@ -835,11 +875,23 @@ class _ConvertSheetState extends State<_ConvertSheet> {
             _SheetHeader(icon: Icons.trending_up_rounded, color: _indigo, title: 'Convert to Opportunity', subtitle: widget.lead.displayName),
             const SizedBox(height: 20),
             if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
-            _GlassField(controller: _valueCtrl, label: 'Expected Value (Rs.) *', keyboardType: TextInputType.number, enabled: !_busy),
+            _GlassField(controller: _valueCtrl, label: 'Expected Value *', keyboardType: TextInputType.number, enabled: !_busy),
+            const SizedBox(height: 12),
+            // Closing date picker
+            GestureDetector(
+              onTap: _busy ? null : _pickDate,
+              child: AbsorbPointer(
+                child: _GlassField(
+                  controller: _closingCtrl,
+                  label: 'Expected Closing Date',
+                  enabled: !_busy,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Text('Stage', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
             const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: _stages.map((s) {
+            Wrap(spacing: 8, runSpacing: 8, children: _oppStages.map((s) {
               final sel = s == _stage;
               return GestureDetector(
                 onTap: _busy ? null : () => setState(() => _stage = s),
@@ -853,8 +905,7 @@ class _ConvertSheetState extends State<_ConvertSheet> {
                   ),
                   child: Text(s, style: TextStyle(
                     color: sel ? Colors.white : ac.textSecondary,
-                    fontSize: 12,
-                    fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                    fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
                   )),
                 ),
               );
@@ -865,7 +916,7 @@ class _ConvertSheetState extends State<_ConvertSheet> {
             Row(children: [
               Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
               const SizedBox(width: 12),
-              Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Saving…' : 'Convert', icon: Icons.trending_up_rounded, color: _indigo, loading: _busy, onTap: _busy ? null : _submit)),
+              Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Creating…' : 'Convert', icon: Icons.trending_up_rounded, color: _indigo, loading: _busy, onTap: _busy ? null : _submit)),
             ]),
           ],
         ),
@@ -875,7 +926,7 @@ class _ConvertSheetState extends State<_ConvertSheet> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Quote sheet — with line items + currency
+// Quote sheet — with item search + default currency from Frappe
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _QuoteSheet extends StatefulWidget {
@@ -899,7 +950,14 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   void initState() {
     super.initState();
     _subjectCtrl.text = 'Quotation for ${widget.opp.partyName}';
-    _items.add(_QuoteItem()); // start with one blank item
+    _items.add(_QuoteItem());
+    _loadDefaultCurrency();
+  }
+
+  Future<void> _loadDefaultCurrency() async {
+    final defaults = await SalesServiceOps.getCompanyDefaults();
+    if (!mounted || defaults.currency.isEmpty) return;
+    setState(() => _currency = defaults.currency);
   }
 
   @override
@@ -913,10 +971,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   void _addItem() => setState(() => _items.add(_QuoteItem()));
 
   void _removeItem(int i) {
-    setState(() {
-      _items[i].dispose();
-      _items.removeAt(i);
-    });
+    setState(() { _items[i].dispose(); _items.removeAt(i); });
   }
 
   double get _grandTotal => _items.fold(0, (sum, item) => sum + item.amount);
@@ -927,8 +982,10 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   }
 
   Future<void> _submit() async {
-    final subject = _subjectCtrl.text.trim();
+    final subject    = _subjectCtrl.text.trim();
     if (subject.isEmpty) { setState(() => _error = 'Subject is required'); return; }
+    final validItems = _items.where((i) => i.itemCodeCtrl.text.trim().isNotEmpty).toList();
+    if (validItems.isEmpty) { setState(() => _error = 'Add at least one item with an item code'); return; }
     setState(() { _busy = true; _error = null; });
     try {
       final docname = await SalesService.createQuotation(
@@ -938,7 +995,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
         amount: _grandTotal,
         note: _noteCtrl.text.trim(),
         currency: _currency,
-        items: _items.map((e) => e.toJson()).toList(),
+        items: validItems.map((e) => e.toJson()).toList(),
       );
       if (!mounted) return;
       final goToQuotes = widget.onGoToQuotes;
@@ -951,11 +1008,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         duration: const Duration(seconds: 4),
         action: goToQuotes != null
-            ? SnackBarAction(
-                label: 'View Quotes',
-                textColor: Colors.white,
-                onPressed: goToQuotes,
-              )
+            ? SnackBarAction(label: 'View Quotes', textColor: Colors.white, onPressed: goToQuotes)
             : null,
       ));
     } catch (e) {
@@ -965,14 +1018,12 @@ class _QuoteSheetState extends State<_QuoteSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final ac       = context.ac;
-    final isDark   = context.isDark;
-    final bottom   = MediaQuery.of(context).viewInsets.bottom
-                   + MediaQuery.of(context).padding.bottom;
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    final bottom = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
 
     return _GlassSheet(
       child: SingleChildScrollView(
-        // keyboard pushes content up, buttons always visible above it
         padding: EdgeInsets.fromLTRB(22, 0, 22, 24 + bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -987,7 +1038,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
             if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 10)],
             _GlassField(controller: _subjectCtrl, label: 'Subject *', enabled: !_busy),
             const SizedBox(height: 12),
-            // ── Currency picker ───────────────────────────────────────────
+            // Currency picker
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
@@ -995,77 +1046,73 @@ class _QuoteSheetState extends State<_QuoteSheet> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.currency_exchange_rounded, color: _amber, size: 16),
-                  const SizedBox(width: 8),
-                  Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 13)),
-                  const Spacer(),
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _currency,
-                      isDense: true,
-                      style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-                      dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-                      borderRadius: BorderRadius.circular(12),
-                      icon: Icon(Icons.keyboard_arrow_down_rounded, color: ac.textSecondary, size: 18),
-                      onChanged: _busy ? null : (v) => setState(() => _currency = v!),
-                      items: _currencies.map((c) => DropdownMenuItem(
-                        value: c.$1,
-                        child: Text('${c.$1} — ${c.$2}',
-                            style: TextStyle(color: ac.textPrimary, fontSize: 13)),
-                      )).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            // ── Line items header ─────────────────────────────────────────
-            Row(
-              children: [
-                Text('LINE ITEMS', style: TextStyle(color: ac.textSecondary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+              child: Row(children: [
+                Icon(Icons.currency_exchange_rounded, color: _amber, size: 16),
+                const SizedBox(width: 8),
+                Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 13)),
                 const Spacer(),
-                GestureDetector(
-                  onTap: _busy ? null : _addItem,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: _indigo.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _indigo.withValues(alpha: 0.28)),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.add_rounded, color: _indigo, size: 13),
-                      const SizedBox(width: 4),
-                      const Text('Add Item', style: TextStyle(color: _indigo, fontSize: 11, fontWeight: FontWeight.w700)),
-                    ]),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _currencies.any((c) => c.$1 == _currency) ? _currency : 'LKR',
+                    isDense: true,
+                    style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                    dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                    borderRadius: BorderRadius.circular(12),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: ac.textSecondary, size: 18),
+                    onChanged: _busy ? null : (v) => setState(() => _currency = v!),
+                    items: _currencies.map((c) => DropdownMenuItem(
+                      value: c.$1,
+                      child: Text('${c.$1} — ${c.$2}', style: TextStyle(color: ac.textPrimary, fontSize: 13)),
+                    )).toList(),
                   ),
                 ),
-              ],
+              ]),
             ),
+            const SizedBox(height: 14),
+            // Line items header
+            Row(children: [
+              Text('LINE ITEMS', style: TextStyle(color: ac.textSecondary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+              const Spacer(),
+              GestureDetector(
+                onTap: _busy ? null : _addItem,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _indigo.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _indigo.withValues(alpha: 0.28)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.add_rounded, color: _indigo, size: 13),
+                    const SizedBox(width: 4),
+                    const Text('Add Item', style: TextStyle(color: _indigo, fontSize: 11, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            ]),
             const SizedBox(height: 8),
-            // ── Items ─────────────────────────────────────────────────────
             if (_items.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'No items added yet. Tap "Add Item" to start.',
-                  style: TextStyle(color: ac.textTertiary, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
+                child: Text('No items added yet. Tap "Add Item" to start.',
+                    style: TextStyle(color: ac.textTertiary, fontSize: 12), textAlign: TextAlign.center),
               ),
-            ..._items.asMap().entries.map((entry) {
-              return _ItemCard(
-                no:        entry.key + 1,
-                item:      entry.value,
-                currency:  _currency,
-                enabled:   !_busy,
-                onRemove:  () => _removeItem(entry.key),
-                onChanged: () => setState(() {}),
-              );
-            }),
-            // ── Grand total ───────────────────────────────────────────────
+            ..._items.asMap().entries.map((entry) => _ItemCard(
+              no: entry.key + 1,
+              item: entry.value,
+              currency: _currency,
+              enabled: !_busy,
+              onRemove: () => _removeItem(entry.key),
+              onChanged: () => setState(() {}),
+              onSearchPick: (item) {
+                entry.value.itemCodeCtrl.text    = item.itemCode;
+                entry.value.descriptionCtrl.text = item.itemName;
+                if (item.standardRate > 0) {
+                  entry.value.rateCtrl.text = item.standardRate.toStringAsFixed(2);
+                }
+                setState(() {});
+              },
+            )),
             if (_items.isNotEmpty) ...[
               const SizedBox(height: 4),
               Container(
@@ -1085,9 +1132,8 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               ),
             ],
             const SizedBox(height: 12),
-            _GlassField(controller: _noteCtrl, label: 'Note (optional)', maxLines: 2, enabled: !_busy),
+            _GlassField(controller: _noteCtrl, label: 'Terms / Notes (optional)', maxLines: 2, enabled: !_busy),
             const SizedBox(height: 16),
-            // ── Action buttons ────────────────────────────────────────────
             Row(children: [
               Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
               const SizedBox(width: 12),
@@ -1101,17 +1147,33 @@ class _QuoteSheetState extends State<_QuoteSheet> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item card (one line-item row)
+// Item card (one line-item row) — with Frappe item search button
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ItemCard extends StatelessWidget {
-  final int no;
-  final _QuoteItem item;
-  final String currency;
-  final bool enabled;
-  final VoidCallback onRemove;
-  final VoidCallback onChanged;
-  const _ItemCard({required this.no, required this.item, required this.currency, required this.enabled, required this.onRemove, required this.onChanged});
+  final int                       no;
+  final _QuoteItem                item;
+  final String                    currency;
+  final bool                      enabled;
+  final VoidCallback              onRemove;
+  final VoidCallback              onChanged;
+  final void Function(FrappeItem) onSearchPick;
+  const _ItemCard({
+    required this.no, required this.item, required this.currency,
+    required this.enabled, required this.onRemove, required this.onChanged,
+    required this.onSearchPick,
+  });
+
+  Future<void> _openSearch(BuildContext context) async {
+    final picked = await showModalBottomSheet<FrappeItem>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => const _ItemSearchSheet(),
+    );
+    if (picked != null) onSearchPick(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1126,106 +1188,252 @@ class _ItemCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: No. + Item Code + delete
-          Row(
-            children: [
-              Container(
-                width: 22, height: 22,
-                decoration: BoxDecoration(color: _indigo.withValues(alpha: 0.18), shape: BoxShape.circle),
-                child: Center(child: Text('$no', style: const TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w800))),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: _TinyField(ctrl: item.itemCodeCtrl, hint: 'Item Code', enabled: enabled, onChanged: onChanged)),
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: enabled ? onRemove : null,
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: const Icon(Icons.close_rounded, color: Color(0xFFEF4444), size: 13),
-                ),
-              ),
-            ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Row 1: number badge + item code + search + delete
+        Row(children: [
+          Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(color: _indigo.withValues(alpha: 0.18), shape: BoxShape.circle),
+            child: Center(child: Text('$no', style: const TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w800))),
           ),
-          const SizedBox(height: 7),
-          // Row 2: Description
-          _TinyField(ctrl: item.descriptionCtrl, hint: 'Description (optional)', enabled: enabled, onChanged: onChanged),
-          const SizedBox(height: 7),
-          // Row 3: Qty | Rate | Amount
-          Row(
-            children: [
-              Expanded(child: _TinyField(ctrl: item.qtyCtrl, hint: 'Qty', kbType: TextInputType.number, enabled: enabled, onChanged: onChanged, prefixText: 'Qty ')),
-              const SizedBox(width: 6),
-              Expanded(flex: 2, child: _TinyField(ctrl: item.rateCtrl, hint: 'Rate', kbType: TextInputType.number, enabled: enabled, onChanged: onChanged, prefixText: 'Rate ')),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: amt > 0 ? _amber.withValues(alpha: 0.10) : ac.bgInput,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: amt > 0 ? _amber.withValues(alpha: 0.25) : ac.border),
-                ),
-                child: Text(
-                  amt > 0 ? amt.toStringAsFixed(0) : '—',
-                  style: TextStyle(
-                    color: amt > 0 ? _amber : ac.textTertiary,
-                    fontSize: 12, fontWeight: FontWeight.w700,
-                  ),
-                ),
+          const SizedBox(width: 8),
+          Expanded(child: _TinyField(ctrl: item.itemCodeCtrl, hint: 'Item Code', enabled: enabled, onChanged: onChanged)),
+          const SizedBox(width: 4),
+          // Frappe item search button
+          GestureDetector(
+            onTap: enabled ? () => _openSearch(context) : null,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: _indigo.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(7),
               ),
-            ],
+              child: const Icon(Icons.search_rounded, color: _indigo, size: 13),
+            ),
           ),
-        ],
-      ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: enabled ? onRemove : null,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: const Icon(Icons.close_rounded, color: Color(0xFFEF4444), size: 13),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 7),
+        // Row 2: description
+        _TinyField(ctrl: item.descriptionCtrl, hint: 'Description (optional)', enabled: enabled, onChanged: onChanged),
+        const SizedBox(height: 7),
+        // Row 3: qty | rate | amount
+        Row(children: [
+          Expanded(child: _TinyField(ctrl: item.qtyCtrl, hint: 'Qty', kbType: TextInputType.number, enabled: enabled, onChanged: onChanged, prefixText: 'Qty ')),
+          const SizedBox(width: 6),
+          Expanded(flex: 2, child: _TinyField(ctrl: item.rateCtrl, hint: 'Rate', kbType: TextInputType.number, enabled: enabled, onChanged: onChanged, prefixText: 'Rate ')),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: amt > 0 ? _amber.withValues(alpha: 0.10) : ac.bgInput,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: amt > 0 ? _amber.withValues(alpha: 0.25) : ac.border),
+            ),
+            child: Text(
+              amt > 0 ? amt.toStringAsFixed(0) : '—',
+              style: TextStyle(color: amt > 0 ? _amber : ac.textTertiary, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ]),
+      ]),
     );
   }
 }
 
-class _TinyField extends StatelessWidget {
-  final TextEditingController ctrl;
-  final String hint;
-  final TextInputType kbType;
-  final bool enabled;
-  final VoidCallback onChanged;
-  final String? prefixText;
-  const _TinyField({required this.ctrl, required this.hint, this.kbType = TextInputType.text, required this.enabled, required this.onChanged, this.prefixText});
+// ─────────────────────────────────────────────────────────────────────────────
+// Item search bottom sheet — queries Frappe Item master
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ItemSearchSheet extends StatefulWidget {
+  const _ItemSearchSheet();
+
+  @override
+  State<_ItemSearchSheet> createState() => _ItemSearchSheetState();
+}
+
+class _ItemSearchSheetState extends State<_ItemSearchSheet> {
+  final _searchCtrl = TextEditingController();
+  List<FrappeItem> _results = [];
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _search('');
+  }
+
+  @override
+  void dispose() { _searchCtrl.dispose(); super.dispose(); }
+
+  Future<void> _search(String q) async {
+    setState(() => _loading = true);
+    final items = await SalesServiceOps.searchItems(q);
+    if (!mounted) return;
+    setState(() { _results = items; _loading = false; });
+  }
 
   @override
   Widget build(BuildContext context) {
     final ac     = context.ac;
     final isDark = context.isDark;
-    return TextField(
-      controller: ctrl,
-      keyboardType: kbType,
-      enabled: enabled,
-      onChanged: (_) => onChanged(),
-      style: TextStyle(color: ac.textPrimary, fontSize: 12),
-      cursorColor: _indigo,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixText: prefixText,
-        prefixStyle: TextStyle(color: ac.textTertiary, fontSize: 11),
-        hintStyle: TextStyle(color: ac.textTertiary, fontSize: 12),
-        filled: true,
-        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _indigo, width: 1.5)),
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Center(child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 14), width: 36, height: 4,
+          decoration: BoxDecoration(color: isDark ? Colors.white.withValues(alpha: 0.18) : ac.textMuted, borderRadius: BorderRadius.circular(2)),
+        )),
+        Text('Select Item', style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          onChanged: _search,
+          style: TextStyle(color: ac.textPrimary, fontSize: 14),
+          cursorColor: _indigo,
+          decoration: InputDecoration(
+            hintText: 'Search items…',
+            hintStyle: TextStyle(color: ac.textTertiary, fontSize: 14),
+            prefixIcon: Icon(Icons.search_rounded, color: ac.textSecondary, size: 18),
+            filled: true,
+            fillColor: isDark ? Colors.white.withValues(alpha: 0.06) : ac.bgInput,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: CircularProgressIndicator(color: _indigo, strokeWidth: 2),
+          )
+        else if (_results.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              _searchCtrl.text.isEmpty ? 'No items in catalogue' : 'No items match "${_searchCtrl.text}"',
+              style: TextStyle(color: ac.textSecondary, fontSize: 13),
+            ),
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _results.length,
+              separatorBuilder: (_, _) => Divider(color: ac.border, height: 1),
+              itemBuilder: (_, i) {
+                final item = _results[i];
+                final label = item.itemName.isNotEmpty ? item.itemName : item.itemCode;
+                return ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  title: Text(label,
+                      style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                  subtitle: item.itemCode != label
+                      ? Text(item.itemCode,
+                            style: TextStyle(color: ac.textTertiary, fontSize: 11))
+                      : null,
+                  trailing: item.standardRate > 0
+                      ? Text(item.standardRate.toStringAsFixed(2),
+                            style: const TextStyle(color: _amber, fontWeight: FontWeight.w700, fontSize: 12))
+                      : null,
+                  onTap: () => Navigator.pop(context, item),
+                );
+              },
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared micro-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GlassAvatar extends StatelessWidget {
+  final String initials; final Color color;
+  const _GlassAvatar({required this.initials, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46, height: 46,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.10)]),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Center(child: Text(initials, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w800))),
+    );
+  }
+}
+
+class _GlassChip extends StatelessWidget {
+  final String label; final Color color;
+  const _GlassChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+    );
+  }
+}
+
+class _GlassCTAButton extends StatelessWidget {
+  final IconData icon; final String label; final Color color; final VoidCallback onTap;
+  const _GlassCTAButton({required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.08)]),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.30)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 7),
+          Text(label, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: -0.1)),
+        ]),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Adaptive glass sheet + shared sheet components
+// Glass sheet + shared sheet components
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GlassSheet extends StatelessWidget {
@@ -1264,10 +1472,7 @@ class _SheetHandle extends StatelessWidget {
 }
 
 class _SheetHeader extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
+  final IconData icon; final Color color; final String title; final String subtitle;
   const _SheetHeader({required this.icon, required this.color, required this.title, required this.subtitle});
 
   @override
@@ -1327,8 +1532,7 @@ class _GlassField extends StatelessWidget {
 }
 
 class _GlassOutlineBtn extends StatelessWidget {
-  final String label;
-  final VoidCallback? onTap;
+  final String label; final VoidCallback? onTap;
   const _GlassOutlineBtn({required this.label, this.onTap});
 
   @override
@@ -1351,11 +1555,7 @@ class _GlassOutlineBtn extends StatelessWidget {
 }
 
 class _GlassFillBtn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final bool loading;
-  final VoidCallback? onTap;
+  final String label; final IconData icon; final Color color; final bool loading; final VoidCallback? onTap;
   const _GlassFillBtn({required this.label, required this.icon, required this.color, this.loading = false, this.onTap});
 
   @override
@@ -1410,6 +1610,43 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
+class _TinyField extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String hint;
+  final TextInputType kbType;
+  final bool enabled;
+  final VoidCallback onChanged;
+  final String? prefixText;
+  const _TinyField({required this.ctrl, required this.hint, this.kbType = TextInputType.text, required this.enabled, required this.onChanged, this.prefixText});
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    return TextField(
+      controller: ctrl,
+      keyboardType: kbType,
+      enabled: enabled,
+      onChanged: (_) => onChanged(),
+      style: TextStyle(color: ac.textPrimary, fontSize: 12),
+      cursorColor: _indigo,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixText: prefixText,
+        prefixStyle: TextStyle(color: ac.textTertiary, fontSize: 11),
+        hintStyle: TextStyle(color: ac.textTertiary, fontSize: 12),
+        filled: true,
+        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
+        focusedBorder: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10)), borderSide: BorderSide(color: _indigo, width: 1.5)),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Empty / loading states
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1417,15 +1654,12 @@ class _ErrorBanner extends StatelessWidget {
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
   @override
-  Widget build(BuildContext context) => const Center(
-      child: CircularProgressIndicator(color: _indigo, strokeWidth: 2));
+  Widget build(BuildContext context) =>
+      const Center(child: CircularProgressIndicator(color: _indigo, strokeWidth: 2));
 }
 
 class _EmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onRetry;
+  final IconData icon; final String title; final String subtitle; final VoidCallback onRetry;
   const _EmptyState({required this.icon, required this.title, required this.subtitle, required this.onRetry});
 
   @override
