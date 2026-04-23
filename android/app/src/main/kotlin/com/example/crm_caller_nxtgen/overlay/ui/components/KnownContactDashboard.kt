@@ -1,10 +1,9 @@
 package com.example.crm_caller_nxtgen.overlay.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -142,8 +141,8 @@ fun KnownContactDashboard(
         // Inline expanded forms
         AnimatedVisibility(
             visible = activeSheet == ActiveSheet.OPPORTUNITY,
-            enter   = expandVertically() + fadeIn(),
-            exit    = shrinkVertically() + fadeOut(),
+            enter   = fadeIn(tween(100)),
+            exit    = fadeOut(tween(100)),
         ) {
             OpportunityForm(
                 onCancel = { onEvent(OverlayEvent.CancelSheet) },
@@ -155,8 +154,8 @@ fun KnownContactDashboard(
 
         AnimatedVisibility(
             visible = activeSheet == ActiveSheet.ADD_NOTE,
-            enter   = expandVertically() + fadeIn(),
-            exit    = shrinkVertically() + fadeOut(),
+            enter   = fadeIn(tween(100)),
+            exit    = fadeOut(tween(100)),
         ) {
             AddNoteInlineForm(
                 onCancel = { onEvent(OverlayEvent.CancelSheet) },
@@ -166,8 +165,8 @@ fun KnownContactDashboard(
 
         AnimatedVisibility(
             visible = activeSheet == ActiveSheet.QUOTE,
-            enter   = expandVertically() + fadeIn(),
-            exit    = shrinkVertically() + fadeOut(),
+            enter   = fadeIn(tween(100)),
+            exit    = fadeOut(tween(100)),
         ) {
             QuoteForm(
                 callerName = identity.displayName,

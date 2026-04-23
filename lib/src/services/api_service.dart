@@ -35,4 +35,21 @@ class ApiService {
       body: jsonEncode(body),
     );
   }
+
+  static Future<http.Response> put(String endpoint, Map body) async {
+    final baseUrl = await StorageService.getBaseUrl();
+    final sid = await StorageService.getSessionId();
+
+    if (baseUrl == null || sid == null) {
+      throw Exception("Not authenticated");
+    }
+
+    final url = Uri.parse(baseUrl).resolve(endpoint);
+
+    return await http.put(
+      url,
+      headers: {"Cookie": "sid=$sid", "Content-Type": "application/json"},
+      body: jsonEncode(body),
+    );
+  }
 }

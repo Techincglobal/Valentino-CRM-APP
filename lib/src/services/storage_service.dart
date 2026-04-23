@@ -42,4 +42,63 @@ class StorageService {
     await prefs.remove('crm_base_url');
     await prefs.remove('crm_sid');
   }
+
+  // ── Overlay schedule settings (SharedPreferences — readable by Kotlin) ─────
+
+  static Future<void> saveOverlayEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('crm_overlay_enabled', enabled);
+  }
+
+  static Future<bool> getOverlayEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('crm_overlay_enabled') ?? true;
+  }
+
+  static Future<void> saveOfficeHoursEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('crm_office_hours_enabled', enabled);
+  }
+
+  static Future<bool> getOfficeHoursEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('crm_office_hours_enabled') ?? false;
+  }
+
+  // Time stored as "HH:mm" string.
+  static Future<void> saveOfficeHoursStart(String time) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('crm_office_hours_start', time);
+  }
+
+  static Future<String> getOfficeHoursStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('crm_office_hours_start') ?? '09:00';
+  }
+
+  static Future<void> saveOfficeHoursEnd(String time) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('crm_office_hours_end', time);
+  }
+
+  static Future<String> getOfficeHoursEnd() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('crm_office_hours_end') ?? '17:00';
+  }
+
+  // Days stored as comma-separated ints: Mon=1 … Sun=7.
+  static Future<void> saveOfficeHoursDays(List<int> days) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('crm_office_hours_days', days.join(','));
+  }
+
+  static Future<List<int>> getOfficeHoursDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('crm_office_hours_days') ?? '1,2,3,4,5';
+    return raw
+        .split(',')
+        .map((s) => int.tryParse(s.trim()))
+        .whereType<int>()
+        .toList();
+  }
 }

@@ -132,6 +132,7 @@ class NativeCallOverlayService : Service() {
 
             ACTION_SHOW -> {
                 if (!hasOverlayPermission()) { stopSelf(); return START_NOT_STICKY }
+                if (!isOverlayAllowedNow())  { stopSelf(); return START_NOT_STICKY }
                 val phone = intent.getStringExtra(EXTRA_PHONE) ?: ""
                 if (phone.isNotBlank()) {
                     // Hold CPU alive for the entire call (up to 1 h)
@@ -460,6 +461,45 @@ class NativeCallOverlayService : Service() {
 
     private fun hasOverlayPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+
+    private fun isOverlayAllowedNow(): Boolean {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+
+        val enabled = prefs.getBoolean("flutter.crm_overlay_enabled", true)
+        if (!enabled) return false
+
+        val officeHoursOn = prefs.getBoolean("flutter.crm_office_hours_enabled", false)
+        if (!officeHoursOn) return true
+
+        val startStr = prefs.getString("flutter.crm_office_hours_start", "09:00") ?: "09:00"
+        val endStr   = prefs.getString("flutter.crm_office_hours_end",   "17:00") ?: "17:00"
+        val daysStr  = prefs.getString("flutter.crm_office_hours_days",  "1,2,3,4,5") ?: "1,2,3,4,5"
+
+        val now = java.util.Calendar.getInstance()
+        // Calendar.DAY_OF_WEEK: 1=Sun, 2=Mon…7=Sat → convert to Mon=1…Sun=7
+        val calDay    = now.get(java.util.Calendar.DAY_OF_WEEK)
+        val dayOfWeek = if (calDay == java.util.Calendar.SUNDAY) 7 else calDay - 1
+
+        val allowedDays = daysStr.split(",")
+            .mapNotNull { it.trim().toIntOrNull() }
+            .toSet()
+        if (dayOfWeek !in allowedDays) return false
+
+        fun parseMinutes(s: String, defaultHour: Int): Int {
+            val parts = s.split(":")
+            val h = parts.getOrNull(0)?.toIntOrNull() ?: defaultHour
+            val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            return h * 60 + m
+        }
+
+        val startMinutes = parseMinutes(startStr, 9)
+        val endMinutes   = parseMinutes(endStr,   17)
+        val nowMinutes   =
+            now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+            now.get(java.util.Calendar.MINUTE)
+
+        return nowMinutes in startMinutes until endMinutes
+    }
 
     private fun hasRecordAudioPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==

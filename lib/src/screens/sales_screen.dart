@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/sales_service.dart';
 import '../theme/app_theme.dart';
@@ -110,7 +109,8 @@ final _mockOpps = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SalesScreen extends StatefulWidget {
-  const SalesScreen({super.key});
+  final VoidCallback? onGoToQuotes;
+  const SalesScreen({super.key, this.onGoToQuotes});
 
   @override
   State<SalesScreen> createState() => _SalesScreenState();
@@ -185,7 +185,7 @@ class _SalesScreenState extends State<SalesScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.55),
-      builder: (_) => _QuoteSheet(opp: opp),
+      builder: (_) => _QuoteSheet(opp: opp, onGoToQuotes: widget.onGoToQuotes),
     );
   }
 
@@ -195,50 +195,18 @@ class _SalesScreenState extends State<SalesScreen>
     final ac = context.ac;
     return Scaffold(
       backgroundColor: ac.bgBase,
-      body: Stack(
-        children: [
-          // ── Background mesh glow ──────────────────────────────────────────
-          Positioned(
-            top: -80, left: -60,
-            child: Container(
-              width: 340, height: 340,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  const Color(0xFF4F46E5).withValues(alpha: 0.18),
-                  Colors.transparent,
-                ]),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 160, right: -80,
-            child: Container(
-              width: 240, height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  const Color(0xFF7C3AED).withValues(alpha: 0.12),
-                  Colors.transparent,
-                ]),
-              ),
-            ),
-          ),
-          // ── Content ───────────────────────────────────────────────────────
-          NestedScrollView(
-            headerSliverBuilder: (_, _) => [
-              SliverToBoxAdapter(child: _Header(summary: _summary)),
-              SliverToBoxAdapter(child: _GlassTabBar(controller: _tab, leads: _leads.length, opps: _opps.length)),
-            ],
-            body: TabBarView(
-              controller: _tab,
-              children: [
-                _LeadsTab(leads: _leads, loading: _loading, onRetry: _loadFromApi, onConvert: _showConvertForm),
-                _OppsTab(opps: _opps, loading: _loading, onRetry: _loadFromApi, onQuote: _showQuoteForm),
-              ],
-            ),
-          ),
+      body: NestedScrollView(
+        headerSliverBuilder: (_, _) => [
+          SliverToBoxAdapter(child: _Header(summary: _summary)),
+          SliverToBoxAdapter(child: _GlassTabBar(controller: _tab, leads: _leads.length, opps: _opps.length)),
         ],
+        body: TabBarView(
+          controller: _tab,
+          children: [
+            _LeadsTab(leads: _leads, loading: _loading, onRetry: _loadFromApi, onConvert: _showConvertForm),
+            _OppsTab(opps: _opps, loading: _loading, onRetry: _loadFromApi, onQuote: _showQuoteForm),
+          ],
+        ),
       ),
     );
   }
@@ -337,32 +305,22 @@ class _GlassStatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       flex: wide ? 2 : 1,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Colors.white.withValues(alpha: 0.10), Colors.white.withValues(alpha: 0.04)],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 4))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: color, size: 15),
-                const SizedBox(height: 8),
-                Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-                const SizedBox(height: 2),
-                Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 10, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 15),
+            const SizedBox(height: 8),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 10, fontWeight: FontWeight.w600)),
+          ],
         ),
       ),
     );
@@ -376,20 +334,14 @@ class _GlassIconBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
+      child: Icon(icon, color: color, size: 22),
     );
   }
 }
@@ -411,21 +363,17 @@ class _GlassTabBar extends StatelessWidget {
     return Container(
       color: ac.bgBase,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : ac.bgCard.withValues(alpha: 0.90),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: isDark
-                  ? Colors.white.withValues(alpha: 0.09)
-                  : ac.border),
-            ),
-            child: TabBar(
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : ac.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isDark
+              ? Colors.white.withValues(alpha: 0.09)
+              : ac.border),
+        ),
+        child: TabBar(
               controller: controller,
               indicator: BoxDecoration(
                 gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
@@ -453,9 +401,7 @@ class _GlassTabBar extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 }
 
@@ -933,8 +879,9 @@ class _ConvertSheetState extends State<_ConvertSheet> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _QuoteSheet extends StatefulWidget {
-  final Opportunity opp;
-  const _QuoteSheet({required this.opp});
+  final Opportunity  opp;
+  final VoidCallback? onGoToQuotes;
+  const _QuoteSheet({required this.opp, this.onGoToQuotes});
 
   @override
   State<_QuoteSheet> createState() => _QuoteSheetState();
@@ -994,9 +941,23 @@ class _QuoteSheetState extends State<_QuoteSheet> {
         items: _items.map((e) => e.toJson()).toList(),
       );
       if (!mounted) return;
+      final goToQuotes = widget.onGoToQuotes;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-          _successSnack(docname.isNotEmpty ? 'Quote created: $docname' : 'Quote created'));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(docname.isNotEmpty ? 'Quote created: $docname' : 'Quote created'),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        duration: const Duration(seconds: 4),
+        action: goToQuotes != null
+            ? SnackBarAction(
+                label: 'View Quotes',
+                textColor: Colors.white,
+                onPressed: goToQuotes,
+              )
+            : null,
+      ));
     } catch (e) {
       setState(() { _busy = false; _error = e.toString().replaceFirst('Exception: ', ''); });
     }
@@ -1004,152 +965,134 @@ class _QuoteSheetState extends State<_QuoteSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final inset  = MediaQuery.of(context).viewInsets.bottom;
-    final ac     = context.ac;
-    final isDark = context.isDark;
-    final maxH   = MediaQuery.of(context).size.height * 0.92;
+    final ac       = context.ac;
+    final isDark   = context.isDark;
+    final bottom   = MediaQuery.of(context).viewInsets.bottom
+                   + MediaQuery.of(context).padding.bottom;
 
     return _GlassSheet(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxH - inset),
+      child: SingleChildScrollView(
+        // keyboard pushes content up, buttons always visible above it
+        padding: EdgeInsets.fromLTRB(22, 0, 22, 24 + bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Fixed header ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            _SheetHandle(),
+            Row(children: [
+              Expanded(child: _SheetHeader(icon: Icons.receipt_long_rounded, color: _amber, title: 'Create Quotation', subtitle: widget.opp.partyName)),
+              _GlassChip(label: widget.opp.stage, color: _amber),
+            ]),
+            const SizedBox(height: 16),
+            if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 10)],
+            _GlassField(controller: _subjectCtrl, label: 'Subject *', enabled: !_busy),
+            const SizedBox(height: 12),
+            // ── Currency picker ───────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.bgInput,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+              ),
+              child: Row(
                 children: [
-                  _SheetHandle(),
-                  Row(children: [
-                    Expanded(child: _SheetHeader(icon: Icons.receipt_long_rounded, color: _amber, title: 'Create Quotation', subtitle: widget.opp.partyName)),
-                    _GlassChip(label: widget.opp.stage, color: _amber),
-                  ]),
-                  const SizedBox(height: 16),
-                  if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 10)],
-                  _GlassField(controller: _subjectCtrl, label: 'Subject *', enabled: !_busy),
-                  const SizedBox(height: 12),
-                  // ── Currency picker ──────────────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.bgInput,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.currency_exchange_rounded, color: _amber, size: 16),
-                        const SizedBox(width: 8),
-                        Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 13)),
-                        const Spacer(),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _currency,
-                            isDense: true,
-                            style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-                            dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-                            borderRadius: BorderRadius.circular(12),
-                            icon: Icon(Icons.keyboard_arrow_down_rounded, color: ac.textSecondary, size: 18),
-                            onChanged: _busy ? null : (v) => setState(() => _currency = v!),
-                            items: _currencies.map((c) => DropdownMenuItem(
-                              value: c.$1,
-                              child: Text('${c.$1} — ${c.$2}',
-                                  style: TextStyle(color: ac.textPrimary, fontSize: 13)),
-                            )).toList(),
-                          ),
-                        ),
-                      ],
+                  Icon(Icons.currency_exchange_rounded, color: _amber, size: 16),
+                  const SizedBox(width: 8),
+                  Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 13)),
+                  const Spacer(),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _currency,
+                      isDense: true,
+                      style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                      dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                      borderRadius: BorderRadius.circular(12),
+                      icon: Icon(Icons.keyboard_arrow_down_rounded, color: ac.textSecondary, size: 18),
+                      onChanged: _busy ? null : (v) => setState(() => _currency = v!),
+                      items: _currencies.map((c) => DropdownMenuItem(
+                        value: c.$1,
+                        child: Text('${c.$1} — ${c.$2}',
+                            style: TextStyle(color: ac.textPrimary, fontSize: 13)),
+                      )).toList(),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  // ── Line items header ────────────────────────────────────
-                  Row(
-                    children: [
-                      Text('LINE ITEMS', style: TextStyle(color: ac.textSecondary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: _busy ? null : _addItem,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: _indigo.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: _indigo.withValues(alpha: 0.28)),
-                          ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.add_rounded, color: _indigo, size: 13),
-                            const SizedBox(width: 4),
-                            const Text('Add Item', style: TextStyle(color: _indigo, fontSize: 11, fontWeight: FontWeight.w700)),
-                          ]),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
                 ],
               ),
             ),
-            // ── Scrollable items list ──────────────────────────────────────
-            Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_items.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                          'No items added yet. Tap "Add Item" to start.',
-                          style: TextStyle(color: ac.textTertiary, fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ..._items.asMap().entries.map((entry) {
-                      final i    = entry.key;
-                      final item = entry.value;
-                      return _ItemCard(
-                        no: i + 1,
-                        item: item,
-                        currency: _currency,
-                        enabled: !_busy,
-                        onRemove: () => _removeItem(i),
-                        onChanged: () => setState(() {}),
-                      );
-                    }),
-                    // ── Grand total ──────────────────────────────────────
-                    if (_items.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _amber.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _amber.withValues(alpha: 0.22)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Grand Total', style: TextStyle(color: ac.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
-                            Text(_fmtAmt(_grandTotal), style: const TextStyle(color: _amber, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    _GlassField(controller: _noteCtrl, label: 'Note (optional)', maxLines: 2, enabled: !_busy),
-                    const SizedBox(height: 16),
-                    Row(children: [
-                      Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
-                      const SizedBox(width: 12),
-                      Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Sending…' : 'Send Quote', icon: Icons.receipt_long_rounded, color: _amber, loading: _busy, onTap: _busy ? null : _submit)),
+            const SizedBox(height: 14),
+            // ── Line items header ─────────────────────────────────────────
+            Row(
+              children: [
+                Text('LINE ITEMS', style: TextStyle(color: ac.textSecondary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _busy ? null : _addItem,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _indigo.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _indigo.withValues(alpha: 0.28)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.add_rounded, color: _indigo, size: 13),
+                      const SizedBox(width: 4),
+                      const Text('Add Item', style: TextStyle(color: _indigo, fontSize: 11, fontWeight: FontWeight.w700)),
                     ]),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // ── Items ─────────────────────────────────────────────────────
+            if (_items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'No items added yet. Tap "Add Item" to start.',
+                  style: TextStyle(color: ac.textTertiary, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ..._items.asMap().entries.map((entry) {
+              return _ItemCard(
+                no:        entry.key + 1,
+                item:      entry.value,
+                currency:  _currency,
+                enabled:   !_busy,
+                onRemove:  () => _removeItem(entry.key),
+                onChanged: () => setState(() {}),
+              );
+            }),
+            // ── Grand total ───────────────────────────────────────────────
+            if (_items.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _amber.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _amber.withValues(alpha: 0.22)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Grand Total', style: TextStyle(color: ac.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(_fmtAmt(_grandTotal), style: const TextStyle(color: _amber, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
                   ],
                 ),
               ),
-            ),
+            ],
+            const SizedBox(height: 12),
+            _GlassField(controller: _noteCtrl, label: 'Note (optional)', maxLines: 2, enabled: !_busy),
+            const SizedBox(height: 16),
+            // ── Action buttons ────────────────────────────────────────────
+            Row(children: [
+              Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Sending…' : 'Send Quote', icon: Icons.receipt_long_rounded, color: _amber, loading: _busy, onTap: _busy ? null : _submit)),
+            ]),
           ],
         ),
       ),
@@ -1293,28 +1236,13 @@ class _GlassSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final ac     = context.ac;
     final isDark = context.isDark;
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? null : ac.bgCard,
-            gradient: isDark
-                ? LinearGradient(
-                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                    colors: [
-                      const Color(0xFF1A2235).withValues(alpha: 0.96),
-                      const Color(0xFF0D1526).withValues(alpha: 0.98),
-                    ],
-                  )
-                : null,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.12) : ac.border)),
-          ),
-          child: child,
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.12) : ac.border)),
       ),
+      child: child,
     );
   }
 }

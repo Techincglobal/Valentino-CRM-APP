@@ -14,6 +14,7 @@ const _emerald = Color(0xFF10B981);
 const _red     = Color(0xFFEF4444);
 const _amber   = Color(0xFFF59E0B);
 const _violet  = Color(0xFF8B5CF6);
+const _slate   = Color(0xFF94A3B8);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SettingsScreen
@@ -35,6 +36,14 @@ class _SettingsScreenState extends State<SettingsScreen>
   String _serverUrl = '';
   bool   _loading   = true;
 
+  // Overlay schedule state
+  bool          _overlayEnabled     = true;
+  bool          _officeHoursEnabled = false;
+  TimeOfDay     _officeStart        = const TimeOfDay(hour: 9,  minute: 0);
+  TimeOfDay     _officeEnd          = const TimeOfDay(hour: 17, minute: 0);
+  // true = day active; index 0=Mon … 6=Sun
+  List<bool>    _officeDays         = [true, true, true, true, true, false, false];
+
   @override
   void initState() {
     super.initState();
@@ -42,10 +51,97 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _loadSettings() async {
-    final url = await StorageService.getBaseUrl();
+    final results = await Future.wait([
+      StorageService.getBaseUrl(),
+      StorageService.getOverlayEnabled(),
+      StorageService.getOfficeHoursEnabled(),
+      StorageService.getOfficeHoursStart(),
+      StorageService.getOfficeHoursEnd(),
+      StorageService.getOfficeHoursDays(),
+    ]);
     if (!mounted) return;
-    setState(() { _serverUrl = url ?? ''; _loading = false; });
+    final url          = results[0] as String?;
+    final overlayOn    = results[1] as bool;
+    final officeOn     = results[2] as bool;
+    final startStr     = results[3] as String;
+    final endStr       = results[4] as String;
+    final days         = results[5] as List<int>;
+
+    final startParts = startStr.split(':');
+    final endParts   = endStr.split(':');
+
+    final activeDays = List<bool>.filled(7, false);
+    for (final d in days) {
+      if (d >= 1 && d <= 7) activeDays[d - 1] = true;
+    }
+
+    setState(() {
+      _serverUrl          = url ?? '';
+      _loading            = false;
+      _overlayEnabled     = overlayOn;
+      _officeHoursEnabled = officeOn;
+      _officeStart        = TimeOfDay(
+        hour:   int.tryParse(startParts.first) ?? 9,
+        minute: int.tryParse(startParts.last)  ?? 0,
+      );
+      _officeEnd          = TimeOfDay(
+        hour:   int.tryParse(endParts.first) ?? 17,
+        minute: int.tryParse(endParts.last)  ?? 0,
+      );
+      _officeDays = activeDays;
+    });
   }
+
+  Future<void> _setOverlayEnabled(bool v) async {
+    setState(() => _overlayEnabled = v);
+    await StorageService.saveOverlayEnabled(v);
+  }
+
+  Future<void> _setOfficeHoursEnabled(bool v) async {
+    setState(() => _officeHoursEnabled = v);
+    await StorageService.saveOfficeHoursEnabled(v);
+  }
+
+  Future<void> _pickTime({required bool isStart}) async {
+    final picked = await showTimePicker(
+      context:     context,
+      initialTime: isStart ? _officeStart : _officeEnd,
+      builder:     (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.dark(
+            primary:   _indigo,
+            surface:   const Color(0xFF1A2235),
+            onSurface: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (isStart) {
+      setState(() => _officeStart = picked);
+      final s = '${picked.hour.toString().padLeft(2,'0')}:${picked.minute.toString().padLeft(2,'0')}';
+      await StorageService.saveOfficeHoursStart(s);
+    } else {
+      setState(() => _officeEnd = picked);
+      final s = '${picked.hour.toString().padLeft(2,'0')}:${picked.minute.toString().padLeft(2,'0')}';
+      await StorageService.saveOfficeHoursEnd(s);
+    }
+  }
+
+  Future<void> _toggleDay(int index) async {
+    final updated = List<bool>.from(_officeDays)..[index] = !_officeDays[index];
+    setState(() => _officeDays = updated);
+    final activeDayNums = <int>[];
+    for (var i = 0; i < updated.length; i++) {
+      if (updated[i]) activeDayNums.add(i + 1);
+    }
+    await StorageService.saveOfficeHoursDays(activeDayNums);
+  }
+
+  String _fmtTime(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
 
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
@@ -173,6 +269,62 @@ class _SettingsScreenState extends State<SettingsScreen>
                         title: 'Data & Privacy',
                         subtitle: 'All data stored on your CRM server',
                       ),
+
+                      const SizedBox(height: 24),
+
+                      // ── Call Overlay section ─────────────────────────────
+                      _SectionLabel('CALL OVERLAY'),
+                      const SizedBox(height: 8),
+                      _ToggleTile(
+                        icon:      Icons.phone_in_talk_rounded,
+                        iconColor: _emerald,
+                        title:     'Show Call Overlay',
+                        subtitle:  _overlayEnabled
+                            ? 'Overlay shown on incoming calls'
+                            : 'Overlay disabled — calls will not show info',
+                        value:     _overlayEnabled,
+                        onChanged: _setOverlayEnabled,
+                      ),
+                      const SizedBox(height: 8),
+                      _ToggleTile(
+                        icon:      Icons.schedule_rounded,
+                        iconColor: _overlayEnabled ? _amber : _slate,
+                        title:     'Office Hours Only',
+                        subtitle:  _overlayEnabled
+                            ? (_officeHoursEnabled
+                                ? 'Overlay active ${_fmtTime(_officeStart)} – ${_fmtTime(_officeEnd)}'
+                                : 'Show overlay at all times')
+                            : 'Enable overlay first',
+                        value:     _overlayEnabled && _officeHoursEnabled,
+                        onChanged: _overlayEnabled ? _setOfficeHoursEnabled : null,
+                      ),
+                      if (_overlayEnabled && _officeHoursEnabled) ...[
+                        const SizedBox(height: 8),
+                        // Time range
+                        Row(children: [
+                          Expanded(
+                            child: _TimeTile(
+                              label:   'Start',
+                              time:    _officeStart,
+                              onTap:   () => _pickTime(isStart: true),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _TimeTile(
+                              label:   'End',
+                              time:    _officeEnd,
+                              onTap:   () => _pickTime(isStart: false),
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 8),
+                        // Days of week
+                        _DaySelector(
+                          activeDays: _officeDays,
+                          onToggle:   _toggleDay,
+                        ),
+                      ],
 
                       const SizedBox(height: 32),
 
@@ -507,6 +659,208 @@ class _SignOutButton extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toggle tile — GlassTile with a Switch trailing
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ToggleTile extends StatelessWidget {
+  final IconData   icon;
+  final Color      iconColor;
+  final String     title;
+  final String     subtitle;
+  final bool       value;
+  final void Function(bool)? onChanged;
+
+  const _ToggleTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    final active = onChanged != null;
+    return GestureDetector(
+      onTap: active ? () => onChanged!(!value) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? null : ac.bgCard,
+          gradient: isDark
+              ? const LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFF1A2235), Color(0xFF0D1526)],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.05), blurRadius: 10, offset: const Offset(0, 3)),
+          ],
+        ),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [iconColor.withValues(alpha: active ? 0.22 : 0.10), iconColor.withValues(alpha: active ? 0.10 : 0.04)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: iconColor.withValues(alpha: active ? 0.25 : 0.10)),
+            ),
+            child: Icon(icon, color: active ? iconColor : iconColor.withValues(alpha: 0.40), size: 18),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(color: active ? ac.textPrimary : ac.textTertiary, fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(color: ac.textSecondary, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+            ]),
+          ),
+          Switch(
+            value:           value,
+            onChanged:       active ? onChanged : null,
+            activeThumbColor: iconColor,
+            activeTrackColor: iconColor.withValues(alpha: 0.40),
+            inactiveThumbColor: ac.textTertiary,
+            inactiveTrackColor: isDark ? Colors.white.withValues(alpha: 0.10) : Colors.black.withValues(alpha: 0.08),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Time tile — tappable pill showing a time
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TimeTile extends StatelessWidget {
+  final String     label;
+  final TimeOfDay  time;
+  final VoidCallback onTap;
+  const _TimeTile({required this.label, required this.time, required this.onTap});
+
+  String _fmt(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: isDark ? null : ac.bgCard,
+          gradient: isDark
+              ? const LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFF1A2235), Color(0xFF0D1526)],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(color: ac.textTertiary, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+          const SizedBox(height: 6),
+          Row(children: [
+            Icon(Icons.access_time_rounded, size: 15, color: _amber),
+            const SizedBox(width: 6),
+            Text(_fmt(time), style: TextStyle(color: ac.textPrimary, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+            const Spacer(),
+            Icon(Icons.edit_rounded, size: 13, color: ac.textTertiary),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Day selector — 7 pill toggles Mon–Sun
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DaySelector extends StatelessWidget {
+  final List<bool>      activeDays; // length 7, index 0=Mon
+  final void Function(int) onToggle;
+  const _DaySelector({required this.activeDays, required this.onToggle});
+
+  static const _labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? null : ac.bgCard,
+        gradient: isDark
+            ? const LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [Color(0xFF1A2235), Color(0xFF0D1526)],
+              )
+            : null,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('ACTIVE DAYS', style: TextStyle(color: ac.textTertiary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(7, (i) {
+            final on = activeDays[i];
+            return GestureDetector(
+              onTap: () => onToggle(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  gradient: on
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          colors: [_indigo, Color(0xFF4F46E5)],
+                        )
+                      : null,
+                  color: on ? null : (isDark ? Colors.white.withValues(alpha: 0.06) : ac.bgInput),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: on ? _indigo.withValues(alpha: 0.60) : (isDark ? Colors.white.withValues(alpha: 0.09) : ac.border),
+                  ),
+                  boxShadow: on
+                      ? [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 8, offset: const Offset(0, 2))]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    _labels[i],
+                    style: TextStyle(
+                      color:      on ? Colors.white : ac.textTertiary,
+                      fontSize:   13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ]),
     );
   }
 }

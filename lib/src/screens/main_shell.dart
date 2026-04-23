@@ -9,8 +9,7 @@ import 'settings_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MainShell
-// Hosts all top-level pages in an IndexedStack so each page preserves its
-// scroll position and state when switching tabs.
+// IndexedStack keeps every page alive — no fade, no blackout.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MainShell extends StatefulWidget {
@@ -21,43 +20,17 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell>
-    with SingleTickerProviderStateMixin {
+class _MainShellState extends State<MainShell> {
   int _index = 0;
-  late final AnimationController _fadeController;
-  late Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    );
-    _fadeAnim = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    );
-    _fadeController.forward();
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    super.dispose();
-  }
 
   void _onTap(int i) {
     if (i == _index) return;
-    _fadeController.reverse().then((_) {
-      setState(() => _index = i);
-      _fadeController.forward();
-    });
+    setState(() => _index = i);
   }
 
   late final _pages = [
     HomeScreen(user: widget.user),
-    const SalesScreen(),
+    SalesScreen(onGoToQuotes: () => _onTap(2)),
     const QuotesScreen(),
     SettingsScreen(user: widget.user),
   ];
@@ -66,15 +39,13 @@ class _MainShellState extends State<MainShell>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // ── Pages ────────────────────────────────────────────────────────
-          FadeTransition(
-            opacity: _fadeAnim,
-            child: IndexedStack(index: _index, children: _pages),
-          ),
+          // ── Pages — instant switch, no animation ─────────────────────────
+          IndexedStack(index: _index, children: _pages),
 
-          // ── Floating glass nav bar ────────────────────────────────────────
+          // ── Floating glass nav bar — always on top ────────────────────────
           _GlassNavBar(currentIndex: _index, onTap: _onTap),
         ],
       ),
@@ -83,7 +54,8 @@ class _MainShellState extends State<MainShell>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _GlassNavBar  — iOS-style frosted pill floating at the bottom centre
+// _GlassNavBar  — frosted pill floating at the bottom centre
+// BackdropFilter is fine here — it's one static widget, not in a list.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GlassNavBar extends StatelessWidget {
@@ -95,7 +67,9 @@ class _GlassNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final bottom = MediaQuery.of(context).padding.bottom;
+    // viewPadding.bottom is never reduced by the keyboard — ensures the nav bar
+    // stays correctly positioned after overlay keyboard interactions end.
+    final bottom = MediaQuery.of(context).viewPadding.bottom;
 
     return Positioned(
       bottom: bottom + 18,
@@ -105,13 +79,13 @@ class _GlassNavBar extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(40),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: isDark
-                    ? const Color(0xFF0D1117).withValues(alpha: 0.80)
-                    : Colors.white.withValues(alpha: 0.88),
+                    ? const Color(0xFF0D1117).withValues(alpha: 0.82)
+                    : Colors.white.withValues(alpha: 0.90),
                 borderRadius: BorderRadius.circular(40),
                 border: Border.all(
                   color: isDark
@@ -120,43 +94,22 @@ class _GlassNavBar extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.14),
-                    blurRadius: 32,
-                    spreadRadius: -4,
-                    offset: const Offset(0, 10),
+                    color:      Colors.black.withValues(alpha: isDark ? 0.40 : 0.12),
+                    blurRadius: 20,
+                    offset:     const Offset(0, 8),
                   ),
                 ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _NavPill(
-                    icon:     Icons.home_rounded,
-                    label:    'Home',
-                    selected: currentIndex == 0,
-                    onTap:    () => onTap(0),
-                  ),
+                  _NavPill(icon: Icons.home_rounded,          label: 'Home',     selected: currentIndex == 0, onTap: () => onTap(0)),
                   const SizedBox(width: 4),
-                  _NavPill(
-                    icon:     Icons.trending_up_rounded,
-                    label:    'Pipeline',
-                    selected: currentIndex == 1,
-                    onTap:    () => onTap(1),
-                  ),
+                  _NavPill(icon: Icons.trending_up_rounded,   label: 'Pipeline', selected: currentIndex == 1, onTap: () => onTap(1)),
                   const SizedBox(width: 4),
-                  _NavPill(
-                    icon:     Icons.receipt_long_rounded,
-                    label:    'Quotes',
-                    selected: currentIndex == 2,
-                    onTap:    () => onTap(2),
-                  ),
+                  _NavPill(icon: Icons.receipt_long_rounded,  label: 'Quotes',   selected: currentIndex == 2, onTap: () => onTap(2)),
                   const SizedBox(width: 4),
-                  _NavPill(
-                    icon:     Icons.settings_rounded,
-                    label:    'Settings',
-                    selected: currentIndex == 3,
-                    onTap:    () => onTap(3),
-                  ),
+                  _NavPill(icon: Icons.settings_rounded,      label: 'Settings', selected: currentIndex == 3, onTap: () => onTap(3)),
                 ],
               ),
             ),
@@ -168,9 +121,7 @@ class _GlassNavBar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _NavPill — individual tab item
-// Selected: indigo pill that widens to show the label.
-// Unselected: icon-only, muted colour.
+// _NavPill — fast 150 ms spring feel
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _NavPill extends StatelessWidget {
@@ -193,57 +144,36 @@ class _NavPill extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeInOutCubic,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
         padding: EdgeInsets.symmetric(
           horizontal: selected ? 18 : 13,
-          vertical:   11,
+          vertical:   10,
         ),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.transparent,
+          color:        selected ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(32),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color:      AppColors.primary.withValues(alpha: 0.35),
-                    blurRadius: 12,
-                    offset:     const Offset(0, 4),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                icon,
-                key:   ValueKey(selected),
-                color: selected ? Colors.white : ac.textSecondary,
-                size:  20,
+            Icon(
+              icon,
+              color: selected ? Colors.white : ac.textSecondary,
+              size:  20,
+            ),
+            if (selected) ...[
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: const TextStyle(
+                  color:         Colors.white,
+                  fontSize:      13,
+                  fontWeight:    FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
               ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 280),
-              curve:    Curves.easeInOutCubic,
-              child: selected
-                  ? Row(
-                      children: [
-                        const SizedBox(width: 7),
-                        Text(
-                          label,
-                          style: const TextStyle(
-                            color:       Colors.white,
-                            fontSize:    13,
-                            fontWeight:  FontWeight.w600,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            ],
           ],
         ),
       ),

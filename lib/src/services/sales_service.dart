@@ -109,6 +109,83 @@ class Quotation {
   }
 }
 
+class QuotationItem {
+  final String itemCode;
+  final String itemName;
+  final double qty;
+  final double rate;
+  final double amount;
+
+  const QuotationItem({
+    required this.itemCode,
+    required this.itemName,
+    required this.qty,
+    required this.rate,
+    required this.amount,
+  });
+
+  factory QuotationItem.fromJson(Map<String, dynamic> j) => QuotationItem(
+        itemCode: j['item_code'] as String? ?? '',
+        itemName: j['item_name'] as String? ?? '',
+        qty:      ((j['qty'] ?? 1) as num).toDouble(),
+        rate:     ((j['rate'] ?? 0) as num).toDouble(),
+        amount:   ((j['amount'] ?? 0) as num).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'item_code': itemCode,
+        'item_name': itemName,
+        'qty':       qty,
+        'rate':      rate,
+      };
+}
+
+class QuotationDetail extends Quotation {
+  final int    docstatus;
+  final String currency;
+  final String validTill;
+  final String terms;
+  final List<QuotationItem> items;
+
+  const QuotationDetail({
+    required super.name,
+    required super.partyName,
+    required super.grandTotal,
+    required super.status,
+    required super.modified,
+    required this.docstatus,
+    required this.currency,
+    required this.validTill,
+    required this.terms,
+    required this.items,
+  });
+
+  bool get isDraft      => docstatus == 0;
+  bool get isSubmitted  => docstatus == 1;
+  bool get isCancelled  => docstatus == 2;
+
+  factory QuotationDetail.fromJson(Map<String, dynamic> j) {
+    final rawItems = (j['items'] as List?) ?? [];
+    return QuotationDetail(
+      name:       j['name'] as String? ?? '',
+      partyName:  (j['customer_name'] as String?)?.isNotEmpty == true
+          ? j['customer_name'] as String
+          : (j['party_name'] as String?) ?? 'Unknown',
+      grandTotal: ((j['grand_total'] ?? j['net_total'] ?? 0) as num).toDouble(),
+      status:     j['status'] as String? ?? 'Draft',
+      modified:   j['modified'] as String? ?? '',
+      docstatus:  (j['docstatus'] as int?) ?? 0,
+      currency:   j['currency'] as String? ?? 'LKR',
+      validTill:  j['valid_till'] as String? ?? '',
+      terms:      j['terms'] as String? ?? '',
+      items:      rawItems
+          .whereType<Map<String, dynamic>>()
+          .map(QuotationItem.fromJson)
+          .toList(),
+    );
+  }
+}
+
 class SalesOrder {
   final String name;
   final String customerName;
@@ -288,6 +365,51 @@ class SalesService {
     final body    = jsonDecode(resp.body) as Map<String, dynamic>;
     final message = body['message'] as Map<String, dynamic>? ?? body;
     return message['name'] as String? ?? '';
+  }
+
+  /// Fetch full quotation detail including line items.
+  static Future<QuotationDetail> getQuotationDetail(String name) async {
+    final resp = await ApiService.get('/api/resource/Quotation/${Uri.encodeComponent(name)}');
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to load quotation (${resp.statusCode})');
+    }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    return QuotationDetail.fromJson(data);
+  }
+
+  /// Update editable fields on a draft quotation.
+  static Future<void> updateQuotation(
+      String name, Map<String, dynamic> data) async {
+    final resp = await ApiService.put(
+      '/api/resource/Quotation/${Uri.encodeComponent(name)}',
+      data,
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to update quotation (${resp.statusCode})');
+    }
+  }
+
+  /// Submit a draft quotation (docstatus 0 → 1).
+  static Future<void> submitQuotation(String name) async {
+    final resp = await ApiService.post(
+      '/api/method/frappe.client.submit',
+      {'doc': jsonEncode({'doctype': 'Quotation', 'name': name})},
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to submit quotation (${resp.statusCode})');
+    }
+  }
+
+  /// Cancel a submitted quotation (docstatus 1 → 2).
+  static Future<void> cancelQuotation(String name) async {
+    final resp = await ApiService.post(
+      '/api/method/frappe.client.cancel',
+      {'doctype': 'Quotation', 'name': name},
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Failed to cancel quotation (${resp.statusCode})');
+    }
   }
 
   /// Quotes & Orders summary.

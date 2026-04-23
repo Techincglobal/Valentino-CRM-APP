@@ -61,11 +61,9 @@ fun OverlayRoot(
 
     MaterialTheme(colorScheme = OverlayTheme) {
         AnimatedContent(
-            targetState = state,
-            transitionSpec = {
-                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
-            },
-            label = "OverlayRoot",
+            targetState   = state,
+            transitionSpec = { fadeIn(tween(80)) togetherWith fadeOut(tween(80)) },
+            label          = "OverlayRoot",
         ) { currentState ->
             when (currentState) {
 
