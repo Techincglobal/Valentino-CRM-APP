@@ -8,6 +8,8 @@ import 'api_service.dart';
 class Opportunity {
   final String name;
   final String partyName;
+  final String partyDocname;  // actual Frappe party docname (Lead/Customer)
+  final String partyType;     // "Lead" or "Customer"
   final double amount;
   final String stage;
   final String status;
@@ -17,6 +19,8 @@ class Opportunity {
   const Opportunity({
     required this.name,
     required this.partyName,
+    this.partyDocname = '',
+    this.partyType = 'Lead',
     required this.amount,
     required this.stage,
     required this.status,
@@ -29,6 +33,8 @@ class Opportunity {
         partyName: (j['customer_name'] as String?)?.trim().isNotEmpty == true
             ? j['customer_name'] as String
             : (j['lead_name'] as String?) ?? 'Unknown',
+        partyDocname: j['party_name'] as String? ?? '',
+        partyType: j['opportunity_from'] as String? ?? 'Lead',
         amount: ((j['opportunity_amount'] ?? j['expected_revenue'] ?? 0) as num)
             .toDouble(),
         stage: j['stage'] as String? ?? '',
@@ -243,7 +249,7 @@ class QuotesSummary {
 
 class SalesService {
   static const _oppFields =
-      '["name","lead_name","customer_name","opportunity_amount",'
+      '["name","lead_name","customer_name","party_name","opportunity_from","opportunity_amount",'
       '"stage","status","expected_closing","modified"]';
 
   static const _leadFields =
@@ -395,8 +401,8 @@ class SalesService {
   /// Submit a draft quotation (docstatus 0 → 1).
   static Future<void> submitQuotation(String name) async {
     final resp = await ApiService.post(
-      '/api/method/frappe.client.submit',
-      {'doc': jsonEncode({'doctype': 'Quotation', 'name': name})},
+      '/api/method/nxtgen_crm_mobile.api.submit_quotation',
+      {'name': name},
     );
     if (resp.statusCode != 200) {
       throw Exception('Failed to submit quotation (${resp.statusCode})');
@@ -406,8 +412,8 @@ class SalesService {
   /// Cancel a submitted quotation (docstatus 1 → 2).
   static Future<void> cancelQuotation(String name) async {
     final resp = await ApiService.post(
-      '/api/method/frappe.client.cancel',
-      {'doctype': 'Quotation', 'name': name},
+      '/api/method/nxtgen_crm_mobile.api.cancel_quotation',
+      {'name': name},
     );
     if (resp.statusCode != 200) {
       throw Exception('Failed to cancel quotation (${resp.statusCode})');
@@ -549,6 +555,8 @@ class SalesServiceOps {
     return Opportunity(
       name:            msg['name']               as String? ?? '',
       partyName:       msg['party_name']          as String? ?? partyName,
+      partyDocname:    msg['party_name']          as String? ?? leadDocname,
+      partyType:       msg['opportunity_from']    as String? ?? 'Lead',
       amount:          ((msg['opportunity_amount'] ?? 0) as num).toDouble(),
       stage:           msg['stage']              as String? ?? stage,
       status:          msg['opp_status']          as String? ?? 'Open',

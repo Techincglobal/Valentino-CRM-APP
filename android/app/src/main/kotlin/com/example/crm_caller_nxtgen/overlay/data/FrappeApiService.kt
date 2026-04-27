@@ -8,23 +8,23 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Frappe API configuration
-// Stored in SharedPreferences "FlutterSharedPreferences" so Flutter can set them.
-// Keys use flutter. prefix to match flutter_shared_preferences convention.
+// Reads the SAME keys that the Flutter app writes via StorageService:
+//   crm_base_url  → the server base URL
+//   crm_sid       → the Frappe session cookie (set by login)
+// flutter_shared_preferences stores every key with "flutter." prefix.
 // ─────────────────────────────────────────────────────────────────────────────
 
 data class FrappeConfig(
     val serverUrl: String,     // e.g. "https://crm.mycompany.com"
-    val apiKey: String,
-    val apiSecret: String,
+    val sid: String,           // Frappe session id cookie
 ) {
-    val isValid: Boolean get() = serverUrl.isNotBlank() && apiKey.isNotBlank() && apiSecret.isNotBlank()
-    val authHeader: String get() = "token $apiKey:$apiSecret"
+    val isValid: Boolean get() = serverUrl.isNotBlank() && sid.isNotBlank()
+    val cookieHeader: String get() = "sid=$sid"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -66,13 +66,12 @@ class FrappeApiService(private val context: Context) {
 
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
-    // Read config from SharedPreferences (set by Flutter main app settings screen)
+    // Read config from SharedPreferences — matches what Flutter's StorageService writes
     fun getConfig(): FrappeConfig {
-        // flutter_shared_preferences stores strings as "flutter.key"
-        val url    = prefs.getString("flutter.frappe_server_url", "") ?: ""
-        val key    = prefs.getString("flutter.frappe_api_key", "") ?: ""
-        val secret = prefs.getString("flutter.frappe_api_secret", "") ?: ""
-        return FrappeConfig(url.trimEnd('/'), key, secret)
+        // flutter_shared_preferences stores strings as "flutter.<key>"
+        val url = prefs.getString("flutter.crm_base_url", "") ?: ""
+        val sid = prefs.getString("flutter.crm_sid", "") ?: ""
+        return FrappeConfig(url.trimEnd('/'), sid)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -89,7 +88,7 @@ class FrappeApiService(private val context: Context) {
 
         val request = Request.Builder()
             .url(url)
-            .header("Authorization", config.authHeader)
+            .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
             .get()
             .build()
@@ -138,7 +137,7 @@ class FrappeApiService(private val context: Context) {
 
         val request = Request.Builder()
             .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_lead_with_note")
-            .header("Authorization", config.authHeader)
+            .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
             .post(body.toString().toRequestBody(JSON))
             .build()
@@ -177,17 +176,15 @@ class FrappeApiService(private val context: Context) {
         if (!config.isValid) throw IllegalStateException("Frappe not configured")
 
         val body = JSONObject().apply {
-            put("opportunity_from", "Lead")
-            put("party_name",       leadDocname)
-            put("expected_revenue", expectedValue)
-            put("sales_stage",      stage)
-            put("source",           "Call")
-            if (note.isNotBlank()) put("notes", note)
+            put("lead_docname",       leadDocname)
+            put("opportunity_amount", expectedValue)
+            put("stage",              stage)
+            if (note.isNotBlank()) put("note", note)
         }
 
         val request = Request.Builder()
-            .url("${config.serverUrl}/api/resource/CRM Opportunity")
-            .header("Authorization", config.authHeader)
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_opportunity")
+            .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
             .post(body.toString().toRequestBody(JSON))
             .build()
@@ -197,8 +194,9 @@ class FrappeApiService(private val context: Context) {
             throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
         }
 
-        val data = JSONObject(response.body?.string() ?: "{}").getJSONObject("data")
-        FrappeOpportunityResult(docname = data.optString("name"))
+        val msg = JSONObject(response.body?.string() ?: "{}").optJSONObject("message")
+            ?: throw RuntimeException("Invalid response")
+        FrappeOpportunityResult(docname = msg.optString("name"))
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -216,20 +214,18 @@ class FrappeApiService(private val context: Context) {
         val config = getConfig()
         if (!config.isValid) throw IllegalStateException("Frappe not configured")
 
-        // Frappe CRM uses "Issue" as the complaints/tickets doctype.
-        // Adjust the doctype name if your instance uses a custom one.
         val body = JSONObject().apply {
-            put("subject",       "Call Complaint — $category")
-            put("description",   details)
-            put("priority",      priority)
-            put("raised_by",     callerName)
-            put("raised_by_mobile", normalisePhone(phone))
-            if (!leadDocname.isNullOrBlank()) put("lead", leadDocname)
+            put("category",    category)
+            put("details",     details)
+            put("priority",    priority)
+            put("caller_name", callerName)
+            put("phone",       normalisePhone(phone))
+            if (!leadDocname.isNullOrBlank()) put("lead_docname", leadDocname)
         }
 
         val request = Request.Builder()
-            .url("${config.serverUrl}/api/resource/Issue")
-            .header("Authorization", config.authHeader)
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_complaint")
+            .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
             .post(body.toString().toRequestBody(JSON))
             .build()
@@ -239,8 +235,9 @@ class FrappeApiService(private val context: Context) {
             throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
         }
 
-        val data = JSONObject(response.body?.string() ?: "{}").getJSONObject("data")
-        FrappeComplaintResult(docname = data.optString("name"))
+        val msg = JSONObject(response.body?.string() ?: "{}").optJSONObject("message")
+            ?: throw RuntimeException("Invalid response")
+        FrappeComplaintResult(docname = msg.optString("name"))
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -269,7 +266,7 @@ class FrappeApiService(private val context: Context) {
 
         val request = Request.Builder()
             .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_quotation")
-            .header("Authorization", config.authHeader)
+            .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
             .post(body.toString().toRequestBody(JSON))
             .build()

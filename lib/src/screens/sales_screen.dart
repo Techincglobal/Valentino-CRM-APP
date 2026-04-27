@@ -215,6 +215,7 @@ class _SalesScreenState extends State<SalesScreen>
       if (idx >= 0) {
         _opps[idx] = Opportunity(
           name: opp.name, partyName: opp.partyName,
+          partyDocname: opp.partyDocname, partyType: opp.partyType,
           amount: opp.amount, stage: stage,
           status: opp.status, expectedClosing: opp.expectedClosing,
           modified: opp.modified,
@@ -989,8 +990,10 @@ class _QuoteSheetState extends State<_QuoteSheet> {
     setState(() { _busy = true; _error = null; });
     try {
       final docname = await SalesService.createQuotation(
-        leadDocname: widget.opp.name,
-        partyType: 'Lead',
+        leadDocname: widget.opp.partyDocname.isNotEmpty
+            ? widget.opp.partyDocname
+            : widget.opp.name,
+        partyType: widget.opp.partyType,
         subject: subject,
         amount: _grandTotal,
         note: _noteCtrl.text.trim(),

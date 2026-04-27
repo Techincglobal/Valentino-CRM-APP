@@ -103,6 +103,8 @@ class OverlayStateMachine(
             // ── Backend results ───────────────────────────────────────────────
 
             is OverlayEvent.IdentityResolved -> {
+                // Guard: if call ended before lookup finished, don't revert PostCall/Idle
+                if (current is OverlayState.PostCall || current is OverlayState.Idle) return
                 val phone = current.phoneNumber ?: return
                 // Always start minimised — user taps the pill to expand
                 _state.value = OverlayState.KnownCaller(
@@ -114,6 +116,8 @@ class OverlayStateMachine(
             }
 
             is OverlayEvent.IdentityNotFound -> {
+                // Guard: if call ended before lookup finished, don't revert PostCall/Idle
+                if (current is OverlayState.PostCall || current is OverlayState.Idle) return
                 val phone = current.phoneNumber ?: return
                 // Always start minimised — user taps the pill to expand
                 _state.value = OverlayState.UnknownCaller(
