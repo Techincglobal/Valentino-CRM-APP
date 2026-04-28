@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/caller_service.dart';
 import '../services/sales_service.dart';
 import '../theme/app_theme.dart';
 
@@ -172,6 +173,16 @@ class _SalesScreenState extends State<SalesScreen>
     }
   }
 
+  void _showCreateLeadForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => _CreateLeadSheet(onCreated: _loadFromApi),
+    );
+  }
+
   void _showConvertForm(CrmLead lead) {
     showModalBottomSheet(
       context: context,
@@ -244,6 +255,18 @@ class _SalesScreenState extends State<SalesScreen>
     final ac = context.ac;
     return Scaffold(
       backgroundColor: ac.bgBase,
+      floatingActionButton: AnimatedBuilder(
+        animation: _tab,
+        builder: (_, _) => _tab.index == 0
+            ? FloatingActionButton.extended(
+                onPressed: _showCreateLeadForm,
+                backgroundColor: _indigo,
+                icon: const Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
+                label: const Text('New Lead',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+              )
+            : const SizedBox.shrink(),
+      ),
       body: NestedScrollView(
         headerSliverBuilder: (_, _) => [
           SliverToBoxAdapter(child: _Header(summary: _summary)),
@@ -1365,6 +1388,116 @@ class _ItemSearchSheetState extends State<_ItemSearchSheet> {
             ),
           ),
       ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Create Lead sheet — wired to CallerService.createLead → Frappe api.py
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CreateLeadSheet extends StatefulWidget {
+  final VoidCallback onCreated;
+  const _CreateLeadSheet({required this.onCreated});
+
+  @override
+  State<_CreateLeadSheet> createState() => _CreateLeadSheetState();
+}
+
+class _CreateLeadSheetState extends State<_CreateLeadSheet> {
+  final _nameCtrl   = TextEditingController();
+  final _phoneCtrl  = TextEditingController();
+  final _emailCtrl  = TextEditingController();
+  final _noteCtrl   = TextEditingController();
+  bool    _busy   = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _emailCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Name is required');
+      return;
+    }
+    setState(() { _busy = true; _error = null; });
+    try {
+      final result = await CallerService.createLead(
+        firstName: name,
+        email:     _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+        mobile:    _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+        note:      _noteCtrl.text.trim().isNotEmpty  ? _noteCtrl.text.trim()  : null,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onCreated();
+      final leadName = result['lead_name'] as String? ?? '';
+      final created  = result['created'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(created
+            ? 'Lead created: $leadName'
+            : 'Lead already exists: $leadName'),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+    } catch (e) {
+      setState(() {
+        _busy  = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inset = MediaQuery.of(context).viewInsets.bottom;
+    return _GlassSheet(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SheetHandle(),
+            _SheetHeader(
+              icon: Icons.person_add_rounded,
+              color: _indigo,
+              title: 'New Lead',
+              subtitle: 'Add a contact to your CRM',
+            ),
+            const SizedBox(height: 20),
+            if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
+            _GlassField(controller: _nameCtrl,  label: 'Full Name *',            enabled: !_busy),
+            const SizedBox(height: 12),
+            _GlassField(controller: _phoneCtrl, label: 'Phone Number',           keyboardType: TextInputType.phone,  enabled: !_busy),
+            const SizedBox(height: 12),
+            _GlassField(controller: _emailCtrl, label: 'Email Address',          keyboardType: TextInputType.emailAddress, enabled: !_busy),
+            const SizedBox(height: 12),
+            _GlassField(controller: _noteCtrl,  label: 'Note (optional)',        maxLines: 2, enabled: !_busy),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: _GlassFillBtn(
+                label:   _busy ? 'Creating…' : 'Create Lead',
+                icon:    Icons.person_add_rounded,
+                color:   _indigo,
+                loading: _busy,
+                onTap:   _busy ? null : _submit,
+              )),
+            ]),
+          ],
+        ),
+      ),
     );
   }
 }
