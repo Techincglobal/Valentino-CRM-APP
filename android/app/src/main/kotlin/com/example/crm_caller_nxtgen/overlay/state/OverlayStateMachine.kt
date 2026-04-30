@@ -179,9 +179,10 @@ class OverlayStateMachine(
             }
 
             is OverlayEvent.SubmitNote -> {
-                val phone = current.phoneNumber ?: return
+                val phone    = current.phoneNumber ?: return
+                val identity = current.knownIdentity
                 scope.launch {
-                    runCatching { repository.saveNote(phone, event.content) }
+                    runCatching { repository.saveNote(phone, event.content, identity) }
                     if (current is OverlayState.KnownCaller)
                         _state.value = current.copy(activeSheet = ActiveSheet.NONE)
                     emitEffect(OverlaySideEffect.ShowToast("Note saved"))
@@ -294,12 +295,27 @@ class OverlayStateMachine(
             // ── Lead submission ───────────────────────────────────────────────
 
             is OverlayEvent.SubmitLead -> {
-                if (current !is OverlayState.UnknownCaller) return
                 if (event.name.isBlank()) return
-                val phone = current.phoneNumber
-                val wasRecording = current.isRecording
 
-                _state.value = OverlayState.SubmittingLead(phone, current.callPhase)
+                // Accept from UnknownCaller (during call) OR PostCall with Unknown identity (after call)
+                val phone: String
+                val phase: CallPhase
+                val wasRecording: Boolean
+                when {
+                    current is OverlayState.UnknownCaller -> {
+                        phone        = current.phoneNumber
+                        phase        = current.callPhase
+                        wasRecording = current.isRecording
+                    }
+                    current is OverlayState.PostCall && current.identity is CallerIdentity.Unknown -> {
+                        phone        = current.phoneNumber
+                        phase        = CallPhase.ENDED
+                        wasRecording = false
+                    }
+                    else -> return
+                }
+
+                _state.value = OverlayState.SubmittingLead(phone, phase)
                 activeJob = scope.launch {
                     val result = runCatching {
                         repository.createLead(
@@ -315,7 +331,7 @@ class OverlayStateMachine(
                             _state.value = OverlayState.KnownCaller(
                                 phoneNumber = phone,
                                 identity    = identity,
-                                callPhase   = current.callPhase,
+                                callPhase   = phase,
                                 isExpanded  = true,
                                 activeSheet = ActiveSheet.NONE,
                                 isRecording = wasRecording,
@@ -323,7 +339,7 @@ class OverlayStateMachine(
                             emitEffect(OverlaySideEffect.ShowToast("Lead created: ${identity.name}"))
                         },
                         onFailure = { err ->
-                            _state.value = OverlayState.UnknownCaller(phone, current.callPhase, isExpanded = true)
+                            _state.value = OverlayState.UnknownCaller(phone, phase, isExpanded = true)
                             emitEffect(OverlaySideEffect.ShowToast("Failed: ${err.message}"))
                         }
                     )

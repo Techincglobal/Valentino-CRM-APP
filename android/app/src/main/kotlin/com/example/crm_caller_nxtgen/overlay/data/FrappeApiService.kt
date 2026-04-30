@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 data class FrappeConfig(
     val serverUrl: String,     // e.g. "https://crm.mycompany.com"
     val sid: String,           // Frappe session id cookie
+    val csrfToken: String,     // X-Frappe-CSRF-Token — required for POST/PUT/DELETE
 ) {
     val isValid: Boolean get() = serverUrl.isNotBlank() && sid.isNotBlank()
     val cookieHeader: String get() = "sid=$sid"
@@ -68,10 +69,11 @@ class FrappeApiService(private val context: Context) {
 
     // Read config from SharedPreferences — matches what Flutter's StorageService writes
     fun getConfig(): FrappeConfig {
-        // flutter_shared_preferences stores strings as "flutter.<key>"
-        val url = prefs.getString("flutter.crm_base_url", "") ?: ""
-        val sid = prefs.getString("flutter.crm_sid", "") ?: ""
-        return FrappeConfig(url.trimEnd('/'), sid)
+        // flutter_shared_preferences stores strings with "flutter." prefix
+        val url  = prefs.getString("flutter.crm_base_url",    "") ?: ""
+        val sid  = prefs.getString("flutter.crm_sid",         "") ?: ""
+        val csrf = prefs.getString("flutter.crm_csrf_token",  "") ?: ""
+        return FrappeConfig(url.trimEnd('/'), sid, csrf)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -139,6 +141,7 @@ class FrappeApiService(private val context: Context) {
             .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_lead_with_note")
             .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
             .post(body.toString().toRequestBody(JSON))
             .build()
 
@@ -186,6 +189,7 @@ class FrappeApiService(private val context: Context) {
             .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_opportunity")
             .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
             .post(body.toString().toRequestBody(JSON))
             .build()
 
@@ -227,6 +231,7 @@ class FrappeApiService(private val context: Context) {
             .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_complaint")
             .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
             .post(body.toString().toRequestBody(JSON))
             .build()
 
@@ -268,6 +273,7 @@ class FrappeApiService(private val context: Context) {
             .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_quotation")
             .header("Cookie", config.cookieHeader)
             .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
             .post(body.toString().toRequestBody(JSON))
             .build()
 
@@ -279,6 +285,31 @@ class FrappeApiService(private val context: Context) {
         val data = JSONObject(response.body?.string() ?: "{}")
         val msg  = data.optJSONObject("message") ?: data
         FrappeQuotationResult(docname = msg.optString("name", ""))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ADD NOTE  →  nxtgen_crm_mobile.api.add_call_note
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun addNote(doctype: String, docname: String, noteContent: String) = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.isValid) return@withContext
+
+        val body = JSONObject().apply {
+            put("doctype",      doctype)
+            put("docname",      docname)
+            put("note_content", noteContent)
+        }
+
+        val request = Request.Builder()
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.add_call_note")
+            .header("Cookie", config.cookieHeader)
+            .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
+            .post(body.toString().toRequestBody(JSON))
+            .build()
+
+        httpClient.newCall(request).execute().close()
     }
 
     // ─────────────────────────────────────────────────────────────────────────

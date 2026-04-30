@@ -192,19 +192,51 @@ class FrappeRepository(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // SAVE NOTE
+    // SAVE NOTE — saves locally then syncs to Frappe
     // ─────────────────────────────────────────────────────────────────────────
 
-    suspend fun saveNote(phone: String, content: String) = withContext(Dispatchers.IO) {
+    suspend fun saveNote(
+        phone:    String,
+        content:  String,
+        identity: CallerIdentity? = null,
+    ) = withContext(Dispatchers.IO) {
         if (content.isBlank()) return@withContext
-        db.noteDao().insertNote(NoteEntity(
+
+        val entity = NoteEntity(
             id          = UUID.randomUUID().toString(),
             phoneNumber = phone,
             content     = content,
             entityType  = "CALL_LOG",
             timestamp   = System.currentTimeMillis(),
             isSynced    = false,
-        ))
+        )
+        db.noteDao().insertNote(entity)
+
+        // Resolve docname: prefer identity, fall back to local Room cache
+        try {
+            val docname: String?
+            val doctype: String
+            when {
+                identity is CallerIdentity.Lead && identity.docname.isNotBlank() -> {
+                    docname = identity.docname
+                    doctype = "Lead"
+                }
+                identity is CallerIdentity.Customer && identity.leadDocname.isNotBlank() -> {
+                    docname = identity.leadDocname
+                    doctype = "Lead"
+                }
+                else -> {
+                    val local = db.leadDao().getLeadByPhone(phone)
+                        ?: db.leadDao().getLeadByPhone(phone.takeLast(10))
+                    docname = local?.frappeDocname?.ifBlank { null }
+                    doctype = "Lead"
+                }
+            }
+            if (!docname.isNullOrBlank() && api.getConfig().isValid) {
+                api.addNote(doctype, docname, content)
+                db.noteDao().updateNote(entity.copy(isSynced = true))
+            }
+        } catch (_: Exception) { /* SyncWorker will retry unsynced notes */ }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

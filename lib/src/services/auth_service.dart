@@ -30,13 +30,19 @@ class AuthService {
           throw Exception('No session received from server.');
         }
 
-        final sid = _extractSid(cookies);
+        final sid = _extractCookieValue(cookies, 'sid');
         if (sid == null) {
           throw Exception('Could not read session from server response.');
         }
 
         await StorageService.saveBaseUrl(baseUrl);
         await StorageService.saveSessionId(sid);
+
+        // Extract and persist CSRF token — required for all POST/PUT/DELETE
+        final csrf = _extractCookieValue(cookies, 'csrf_token');
+        if (csrf != null && csrf.isNotEmpty) {
+          await StorageService.saveCsrfToken(csrf);
+        }
 
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final fullName = data['full_name'] as String?;
@@ -102,10 +108,14 @@ class AuthService {
     return 'Login failed (HTTP $statusCode). Please try again.';
   }
 
-  static String? _extractSid(String cookieHeader) {
-    for (final part in cookieHeader.split(';')) {
-      if (part.trim().startsWith('sid=')) {
-        return part.trim().substring(4);
+  /// Extracts a named cookie value from a combined Set-Cookie header string.
+  /// Handles Dart http library joining multiple Set-Cookie headers with ', '.
+  static String? _extractCookieValue(String cookieHeader, String name) {
+    for (final segment in cookieHeader.split(RegExp(r'[;,]'))) {
+      final trimmed = segment.trim();
+      if (trimmed.startsWith('$name=')) {
+        final value = trimmed.substring(name.length + 1).trim();
+        if (value.isNotEmpty) return value;
       }
     }
     return null;

@@ -28,6 +28,19 @@ class StorageService {
     return prefs.getString('crm_sid') ?? await _storage.read(key: 'sid');
   }
 
+  static Future<void> saveCsrfToken(String token) async {
+    await _storage.write(key: 'csrf_token', value: token);
+    // Also write to SharedPreferences so native Kotlin overlay can read it
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('crm_csrf_token', token);
+  }
+
+  static Future<String?> getCsrfToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('crm_csrf_token') ??
+        await _storage.read(key: 'csrf_token');
+  }
+
   static Future<void> saveFullName(String name) async {
     await _storage.write(key: 'full_name', value: name);
   }
@@ -41,6 +54,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('crm_base_url');
     await prefs.remove('crm_sid');
+    await prefs.remove('crm_csrf_token');
   }
 
   // ── Overlay schedule settings (SharedPreferences — readable by Kotlin) ─────
