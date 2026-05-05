@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ComplaintEntity::class,
         NoteEntity::class,
     ],
-    version = 3,             // bumped from 2 → 3 for new columns
+    version = 4,             // bumped from 3 → 4 for cachedAt + latestNote on leads
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,6 +48,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE leads ADD COLUMN cachedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE leads ADD COLUMN latestNote TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -55,7 +62,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "crm_caller_database",
                 )
-                    .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                 INSTANCE = instance
                 instance

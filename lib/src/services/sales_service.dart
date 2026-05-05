@@ -512,6 +512,45 @@ class CompanyDefaults {
       );
 }
 
+class QuotationDefaults {
+  final String company;
+  final String currency;
+  final String symbol;
+  final String sellingPriceList;
+  final String termsContent;
+  final String partyName;
+  final String partyEmail;
+  final String partyPhone;
+
+  const QuotationDefaults({
+    required this.company,
+    required this.currency,
+    required this.symbol,
+    required this.sellingPriceList,
+    required this.termsContent,
+    required this.partyName,
+    required this.partyEmail,
+    required this.partyPhone,
+  });
+
+  factory QuotationDefaults.fromJson(Map<String, dynamic> j) => QuotationDefaults(
+        company:           j['company']            as String? ?? '',
+        currency:          j['currency']           as String? ?? 'LKR',
+        symbol:            j['symbol']             as String? ?? 'Rs.',
+        sellingPriceList:  j['selling_price_list'] as String? ?? '',
+        termsContent:      j['terms_content']      as String? ?? '',
+        partyName:         j['party_name']         as String? ?? '',
+        partyEmail:        j['party_email']        as String? ?? '',
+        partyPhone:        j['party_phone']        as String? ?? '',
+      );
+
+  static const empty = QuotationDefaults(
+    company: '', currency: 'LKR', symbol: 'Rs.',
+    sellingPriceList: '', termsContent: '',
+    partyName: '', partyEmail: '', partyPhone: '',
+  );
+}
+
 class FrappeItem {
   final String itemCode;
   final String itemName;
@@ -556,6 +595,26 @@ class SalesServiceOps {
       return CompanyDefaults.fromJson(msg);
     } catch (_) {
       return const CompanyDefaults(company: '', currency: 'LKR', symbol: 'Rs.');
+    }
+  }
+
+  /// Fetch everything the Create Quotation form needs in a single call:
+  /// currency, selling price list, default terms, and party contact info.
+  static Future<QuotationDefaults> getQuotationDefaults({
+    required String leadDocname,
+    required String partyType,
+  }) async {
+    try {
+      final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.get_quotation_defaults',
+        {'lead_docname': leadDocname, 'party_type': partyType},
+      );
+      if (resp.statusCode != 200) return QuotationDefaults.empty;
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final msg  = body['message'] as Map<String, dynamic>? ?? {};
+      return QuotationDefaults.fromJson(msg);
+    } catch (_) {
+      return QuotationDefaults.empty;
     }
   }
 
@@ -621,15 +680,20 @@ class SalesServiceOps {
   }
 
   /// Search Frappe Item master; returns up to [limit] matching items.
-  static Future<List<FrappeItem>> searchItems(String query, {int limit = 15}) async {
+  /// Pass [priceList] to get the selling price list rate instead of standard_rate.
+  static Future<List<FrappeItem>> searchItems(
+    String query, {
+    int limit = 15,
+    String priceList = '',
+  }) async {
     try {
+      final body = <String, dynamic>{'query': query, 'limit': limit};
+      if (priceList.isNotEmpty) body['price_list'] = priceList;
       final resp = await ApiService.post(
-        '/api/method/nxtgen_crm_mobile.api.search_items',
-        {'query': query, 'limit': limit},
-      );
+        '/api/method/nxtgen_crm_mobile.api.search_items', body);
       if (resp.statusCode != 200) return [];
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['message'] as List?) ?? [];
+      final respBody = jsonDecode(resp.body) as Map<String, dynamic>;
+      final list = (respBody['message'] as List?) ?? [];
       return list.whereType<Map<String, dynamic>>().map(FrappeItem.fromJson).toList();
     } catch (_) {
       return [];

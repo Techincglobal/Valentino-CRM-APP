@@ -238,6 +238,11 @@ private fun ContactReadOnlyCard(identity: CallerIdentity) {
         is CallerIdentity.Customer -> identity.phone
         else -> ""
     }
+    val latestNote = when (identity) {
+        is CallerIdentity.Lead     -> identity.latestNote
+        is CallerIdentity.Customer -> identity.latestNote
+        else -> ""
+    }
 
     Box(
         modifier = Modifier
@@ -283,6 +288,36 @@ private fun ContactReadOnlyCard(identity: CallerIdentity) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Phone", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     Text(phone, color = TextSecondary, fontSize = 11.sp)
+                }
+            }
+
+            // Last note banner — shown when a teammate has already left a note for this contact
+            if (latestNote.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Amber500.copy(alpha = 0.07f))
+                        .border(1.dp, Amber500.copy(alpha = 0.28f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text          = "LAST NOTE",
+                            color         = Amber500,
+                            fontSize      = 9.sp,
+                            fontWeight    = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                        )
+                        Text(
+                            text       = latestNote,
+                            color      = TextPrimary,
+                            fontSize   = 12.sp,
+                            maxLines   = 3,
+                            lineHeight = 17.sp,
+                        )
+                    }
                 }
             }
         }

@@ -7,7 +7,9 @@ import com.example.crm_caller_nxtgen.core.db.LeadEntity
 import com.example.crm_caller_nxtgen.core.db.NoteEntity
 import com.example.crm_caller_nxtgen.core.db.OpportunityEntity
 import com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -33,6 +35,11 @@ class FrappeRepository(private val context: Context) {
     }
 
     private val api by lazy { FrappeApiService(context) }
+
+    init {
+        // Refresh CSRF token eagerly so the first POST is never blocked by a stale token.
+        CoroutineScope(Dispatchers.IO).launch { api.refreshCsrfToken() }
+    }
 
     // Call session tracking (phone → callAnsweredAt timestamp)
     private val sessionStarts = mutableMapOf<String, Long>()
@@ -63,39 +70,67 @@ class FrappeRepository(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // LOOKUP
+    // LOOKUP  — local-first with 6h TTL network refresh
+    //
+    // ┌─ cache hit + fresh (< 6h)  → return instantly from Room
+    // ├─ cache hit + stale (> 6h)  → network refresh, update Room, return fresh
+    // ├─ cache miss                → network lookup, insert into Room, return
+    // └─ network failure           → return stale cache if available, else null
     // ─────────────────────────────────────────────────────────────────────────
 
-    suspend fun lookupIdentityByPhone(phone: String): CallerIdentity? = withContext(Dispatchers.IO) {
-        // 1. Local Room lookup (instant)
-        val localLead = db.leadDao().getLeadByPhone(phone)
-            ?: db.leadDao().getLeadByPhone(phone.takeLast(10))  // partial match fallback
+    private val CACHE_TTL_MS = 6L * 60 * 60 * 1000  // 6 hours
 
-        if (localLead != null) {
+    suspend fun lookupIdentityByPhone(phone: String): CallerIdentity? = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+
+        val localLead = db.leadDao().getLeadByPhone(phone)
+            ?: db.leadDao().getLeadByPhone(phone.takeLast(10))
+
+        // Fast path: synced + cache is fresh
+        if (localLead != null && localLead.isSynced &&
+            localLead.cachedAt > 0 && (now - localLead.cachedAt) < CACHE_TTL_MS) {
             return@withContext localLead.toCallerIdentity()
         }
 
-        // 2. Network lookup (requires Frappe config to be set up in Flutter settings)
-        try {
-            val remote = api.lookupLeadByPhone(phone) ?: return@withContext null
-
-            // Cache the result locally
-            val entity = LeadEntity(
-                id            = UUID.randomUUID().toString(),
-                frappeDocname = remote.docname,
-                phoneNumber   = phone,
-                name          = remote.leadName,
-                email         = remote.email,
-                company       = remote.companyName,
-                status        = remote.status,
-                isSynced      = true,  // came from server
-            )
-            db.leadDao().insertLead(entity)
-            return@withContext entity.toCallerIdentity()
-
+        // Network refresh
+        return@withContext try {
+            val remote = api.lookupLeadByPhone(phone)
+            if (remote == null) {
+                // Server says unknown — return whatever we have locally (may be null)
+                localLead?.toCallerIdentity()
+            } else {
+                val entity = if (localLead != null) {
+                    // Refresh existing cache entry in place
+                    localLead.copy(
+                        frappeDocname = remote.docname,
+                        name          = remote.leadName,
+                        email         = remote.email,
+                        company       = remote.companyName,
+                        status        = remote.status,
+                        isSynced      = true,
+                        cachedAt      = now,
+                        latestNote    = remote.latestNote,
+                    )
+                } else {
+                    LeadEntity(
+                        id            = UUID.randomUUID().toString(),
+                        frappeDocname = remote.docname,
+                        phoneNumber   = phone,
+                        name          = remote.leadName,
+                        email         = remote.email,
+                        company       = remote.companyName,
+                        status        = remote.status,
+                        isSynced      = true,
+                        cachedAt      = now,
+                        latestNote    = remote.latestNote,
+                    )
+                }
+                db.leadDao().insertLead(entity)  // REPLACE strategy handles both insert + update
+                entity.toCallerIdentity()
+            }
         } catch (_: Exception) {
-            // Network unavailable — treat as unknown, SyncWorker can catch up
-            return@withContext null
+            // Network unavailable — serve stale cache so the overlay still shows context
+            localLead?.toCallerIdentity()
         }
     }
 
@@ -111,16 +146,17 @@ class FrappeRepository(private val context: Context) {
         note: String,
     ): CallerIdentity.Lead = withContext(Dispatchers.IO) {
 
-        // Duplicate guard: refuse to create if phone already exists locally
         val existing = db.leadDao().getLeadByPhone(phone)
-        if (existing != null) return@withContext existing.toCallerIdentity() as CallerIdentity.Lead
 
-        val localId = UUID.randomUUID().toString()
+        // Already synced with Frappe — skip creation to avoid duplicates
+        if (existing != null && existing.isSynced && existing.frappeDocname.isNotBlank()) {
+            return@withContext existing.toCallerIdentity() as CallerIdentity.Lead
+        }
 
-        // Optimistic local save — UI immediately shows as created
-        val entity = LeadEntity(
-            id            = localId,
-            frappeDocname = "",        // filled after network succeeds
+        // Use existing unsynced entity (failed previous attempt) or create a new one
+        val entity = existing ?: LeadEntity(
+            id            = UUID.randomUUID().toString(),
+            frappeDocname = "",
             phoneNumber   = phone,
             name          = name,
             email         = email,
@@ -128,7 +164,9 @@ class FrappeRepository(private val context: Context) {
             status        = "Lead",
             isSynced      = false,
         )
-        db.leadDao().insertLead(entity)
+        if (existing == null) {
+            db.leadDao().insertLead(entity)
+        }
 
         // Save note if provided
         if (note.isNotBlank()) {
@@ -142,16 +180,19 @@ class FrappeRepository(private val context: Context) {
             ))
         }
 
-        // Network sync (best-effort — failure does not block the return)
-        try {
-            val remote = api.createLead(name, email, company, phone, note)
-            val synced = entity.copy(frappeDocname = remote.docname, isSynced = true)
-            db.leadDao().updateLead(synced)
-            synced.toCallerIdentity() as CallerIdentity.Lead
-        } catch (_: Exception) {
-            // Return optimistic identity — SyncWorker will sync later
-            entity.toCallerIdentity() as CallerIdentity.Lead
-        }
+        // Ensure CSRF token is fresh before the POST — stale tokens cause silent 403s.
+        api.refreshCsrfToken()
+
+        // Network sync — throw on failure so the UI can show a proper error.
+        // The local save above is kept regardless, so SyncWorker can retry later.
+        val remote = api.createLead(name, email, company, phone, note)
+        val synced = entity.copy(
+            frappeDocname = remote.docname,
+            isSynced      = true,
+            cachedAt      = System.currentTimeMillis(),
+        )
+        db.leadDao().updateLead(synced)
+        synced.toCallerIdentity() as CallerIdentity.Lead
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -356,4 +397,5 @@ fun LeadEntity.toCallerIdentity(): CallerIdentity.Lead = CallerIdentity.Lead(
     phone        = phoneNumber,
     status       = status,
     isCustomer   = status == "Converted",
+    latestNote   = latestNote,
 )

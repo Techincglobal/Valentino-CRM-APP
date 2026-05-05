@@ -23,6 +23,7 @@ sealed class CallerIdentity {
         val status: String = "Lead", // "New", "Lead", "Interested", "Converted"
         val hasOpportunity: Boolean = false,
         val isCustomer: Boolean = false,
+        val latestNote: String = "", // most recent note from Frappe — shown on incoming call
     ) : CallerIdentity()
 
     /** Phone matched a Customer in Frappe. */
@@ -33,6 +34,7 @@ sealed class CallerIdentity {
         val company: String,
         val email: String = "",
         val phone: String,
+        val latestNote: String = "", // most recent note from Frappe — shown on incoming call
     ) : CallerIdentity()
 }
 

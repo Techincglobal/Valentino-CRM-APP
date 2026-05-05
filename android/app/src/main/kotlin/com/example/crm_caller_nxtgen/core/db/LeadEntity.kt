@@ -13,4 +13,6 @@ data class LeadEntity(
     val company: String? = null,
     val status: String,                   // "New", "Lead", "Interested", "Converted"
     val isSynced: Boolean,
+    val cachedAt: Long = 0L,             // epoch-ms when last refreshed from server
+    val latestNote: String = "",          // most recent note from Frappe — shown on call
 )

@@ -1,5 +1,10 @@
 package com.example.crm_caller_nxtgen.overlay.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +21,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Warning
@@ -36,25 +44,59 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dark glass palette
+// Palette
 // ─────────────────────────────────────────────────────────────────────────────
 private val AccentIndigo  = Color(0xFF6366F1)
 private val AccentAmber   = Color(0xFFF59E0B)
 private val AccentRed     = Color(0xFFEF4444)
+private val AccentGreen   = Color(0xFF22C55E)
 private val TextPrimary   = Color(0xFFF8FAFC)
 private val TextSecondary = Color(0xFF94A3B8)
 private val TextMuted     = Color(0xFF64748B)
-private val DarkInput     = Color(0xFF1E293B)  // Field background
-private val GlassBorder   = Color(0x1AFFFFFF)  // White 10%
-private val DividerColor  = Color(0x14FFFFFF)  // White 8%
+private val DarkInput     = Color(0xFF1E293B)
+private val GlassBorder   = Color(0x1AFFFFFF)
+private val DividerColor  = Color(0x14FFFFFF)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Validation helpers
+// ─────────────────────────────────────────────────────────────────────────────
+private val EMAIL_RE = Regex("^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$")
+
+private fun validateName(v: String): String? = when {
+    v.isBlank()  -> "Name is required"
+    v.length < 2 -> "Name must be at least 2 characters"
+    else         -> null
+}
+
+private fun validateEmail(v: String): String? {
+    if (v.isBlank()) return null          // email is optional
+    if (!v.contains('@'))
+        return "Missing @ — e.g. name@company.com"
+    val parts = v.split('@')
+    if (parts.size != 2 || parts[1].isBlank())
+        return "Add the domain after @ — e.g. name@company.com"
+    if (!parts[1].contains('.'))
+        return "Add a domain extension — e.g. .com or .net"
+    if (!EMAIL_RE.matches(v))
+        return "Invalid email — e.g. name@company.com"
+    return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main form
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun UnknownCallerForm(
@@ -68,128 +110,189 @@ fun UnknownCallerForm(
     var company by remember { mutableStateOf("") }
     var note    by remember { mutableStateOf("") }
 
-    val fieldColors = darkFieldColors(AccentIndigo)
+    var nameError  by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+
+    // touched flags — only show errors after the user has left a field
+    var nameTouched  by remember { mutableStateOf(false) }
+    var emailTouched by remember { mutableStateOf(false) }
+
+    fun submit() {
+        // Force-touch both validated fields
+        nameTouched  = true
+        emailTouched = true
+        nameError    = validateName(name.trim())
+        emailError   = validateEmail(email.trim())
+        if (nameError == null && emailError == null) {
+            onSubmit(name.trim(), email.trim(), company.trim(), note.trim())
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
 
-        // ── Phone number banner ───────────────────────────────────────────────
-        PhoneNumberBanner(phone)
+        // ── Caller banner ─────────────────────────────────────────────────────
+        CallerBanner(phone)
 
         Spacer(Modifier.height(14.dp))
         HorizontalDivider(color = DividerColor, thickness = 1.dp)
         Spacer(Modifier.height(14.dp))
 
-        // ── Section label ─────────────────────────────────────────────────────
+        // ── Section header ────────────────────────────────────────────────────
         Row(
             verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .size(width = 3.dp, height = 14.dp)
+                    .size(width = 3.dp, height = 16.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(AccentIndigo),
             )
             Text(
-                text          = "NEW LEAD",
+                text          = "CREATE NEW LEAD",
                 color         = AccentIndigo,
                 fontSize      = 11.sp,
-                fontWeight    = FontWeight.Bold,
-                letterSpacing = 1.2.sp,
+                fontWeight    = FontWeight.ExtraBold,
+                letterSpacing = 1.4.sp,
             )
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // ── Full name ─────────────────────────────────────────────────────────
-        OutlinedTextField(
+        // ── Full name (required) ──────────────────────────────────────────────
+        val nameValid = nameTouched && nameError == null && name.isNotBlank()
+        ValidatedField(
             value         = name,
-            onValueChange = { name = it },
-            label         = { Text("Full name *") },
-            leadingIcon   = {
-                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+            onValueChange = {
+                name = it
+                if (nameTouched) nameError = validateName(it.trim())
             },
-            modifier   = Modifier.fillMaxWidth(),
-            colors     = fieldColors,
-            shape      = RoundedCornerShape(12.dp),
-            singleLine = true,
+            onFocusLost   = {
+                nameTouched = true
+                nameError   = validateName(name.trim())
+            },
+            label         = "Full name *",
+            icon          = Icons.Default.Person,
+            error         = if (nameTouched) nameError else null,
+            isValid       = nameValid,
+            keyboardOptions = KeyboardOptions(
+                keyboardType    = KeyboardType.Text,
+                capitalization  = KeyboardCapitalization.Words,
+            ),
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // ── Email ─────────────────────────────────────────────────────────────
-        OutlinedTextField(
-            value           = email,
-            onValueChange   = { email = it },
-            label           = { Text("Email") },
-            leadingIcon     = {
-                Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(18.dp))
+        // ── Email (optional, validated if entered) ────────────────────────────
+        val emailValid = emailTouched && emailError == null && email.isNotBlank()
+        ValidatedField(
+            value         = email,
+            onValueChange = {
+                email = it
+                if (emailTouched) emailError = validateEmail(it.trim())
             },
-            modifier        = Modifier.fillMaxWidth(),
-            colors          = fieldColors,
-            shape           = RoundedCornerShape(12.dp),
-            singleLine      = true,
+            onFocusLost   = {
+                emailTouched = true
+                emailError   = validateEmail(email.trim())
+            },
+            label         = "Email (optional)",
+            icon          = Icons.Default.Email,
+            error         = if (emailTouched) emailError else null,
+            isValid       = emailValid,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            placeholder   = "e.g. name@company.com",
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // ── Company ───────────────────────────────────────────────────────────
-        OutlinedTextField(
+        // ── Company (optional, no validation) ────────────────────────────────
+        ValidatedField(
             value         = company,
             onValueChange = { company = it },
-            label         = { Text("Company") },
-            modifier      = Modifier.fillMaxWidth(),
-            colors        = fieldColors,
-            shape         = RoundedCornerShape(12.dp),
-            singleLine    = true,
+            onFocusLost   = {},
+            label         = "Company (optional)",
+            icon          = Icons.Default.Business,
+            error         = null,
+            isValid       = company.isNotBlank(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType   = KeyboardType.Text,
+                capitalization = KeyboardCapitalization.Words,
+            ),
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // ── Quick note ────────────────────────────────────────────────────────
+        // ── Note (optional, no validation) ───────────────────────────────────
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
-            label         = { Text("Quick note") },
-            placeholder   = { Text("What's this call about?", color = TextMuted) },
-            modifier      = Modifier.fillMaxWidth(),
-            colors        = fieldColors,
-            shape         = RoundedCornerShape(12.dp),
-            maxLines      = 3,
-            minLines      = 2,
+            label         = { Text("Quick note (optional)", color = TextSecondary, fontSize = 13.sp) },
+            placeholder   = { Text("What's this call about?", color = TextMuted, fontSize = 13.sp) },
+            leadingIcon   = {
+                Icon(Icons.Default.Notes, contentDescription = null,
+                    tint = TextSecondary, modifier = Modifier.size(18.dp))
+            },
+            modifier  = Modifier.fillMaxWidth(),
+            colors    = fieldColors(AccentIndigo),
+            shape     = RoundedCornerShape(12.dp),
+            maxLines  = 3,
+            minLines  = 2,
         )
 
         Spacer(Modifier.height(12.dp))
 
         // ── Record toggle ─────────────────────────────────────────────────────
-        RecordToggleButton(isRecording = isRecording, onClick = { onEvent(OverlayEvent.ToggleRecording) })
+        RecordToggleButton(
+            isRecording = isRecording,
+            onClick     = { onEvent(OverlayEvent.ToggleRecording) },
+        )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // ── Save as Lead button ───────────────────────────────────────────────
-        Button(
-            onClick  = { onSubmit(name.trim(), email.trim(), company.trim(), note.trim()) },
+        // ── Create Lead button ────────────────────────────────────────────────
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
-            enabled  = name.isNotBlank(),
-            colors   = ButtonDefaults.buttonColors(
-                containerColor         = AccentIndigo,
-                disabledContainerColor = AccentIndigo.copy(alpha = 0.30f),
-            ),
-            shape = RoundedCornerShape(12.dp),
+                .height(52.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(AccentIndigo, Color(0xFF8B5CF6))
+                    )
+                )
+                .then(
+                    if (name.isBlank()) Modifier.background(AccentIndigo.copy(alpha = 0.35f))
+                    else Modifier
+                ),
         ) {
-            Text(
-                text          = "Create Lead & Save",
-                fontWeight    = FontWeight.Bold,
-                color         = Color.White,
-                fontSize      = 14.sp,
-                letterSpacing = 0.3.sp,
-            )
+            Button(
+                onClick  = ::submit,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled  = name.isNotBlank(),
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor         = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                ),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Person,
+                    contentDescription = null,
+                    tint               = Color.White,
+                    modifier           = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text          = "Create Lead & Save",
+                    fontWeight    = FontWeight.Bold,
+                    color         = Color.White,
+                    fontSize      = 15.sp,
+                    letterSpacing = 0.3.sp,
+                )
+            }
         }
 
-        // ── Log Complaint — secondary text button ─────────────────────────────
+        // ── Log Complaint ─────────────────────────────────────────────────────
         TextButton(
             onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
             modifier = Modifier.fillMaxWidth(),
@@ -197,13 +300,13 @@ fun UnknownCallerForm(
             Icon(
                 imageVector        = Icons.Default.Warning,
                 contentDescription = null,
-                tint               = AccentRed.copy(alpha = 0.8f),
+                tint               = AccentRed.copy(alpha = 0.75f),
                 modifier           = Modifier.size(14.dp),
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                text       = "Log a Complaint",
-                color      = AccentRed.copy(alpha = 0.8f),
+                text       = "Log a Complaint Instead",
+                color      = AccentRed.copy(alpha = 0.75f),
                 fontSize   = 12.sp,
                 fontWeight = FontWeight.Medium,
             )
@@ -212,11 +315,126 @@ fun UnknownCallerForm(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phone number banner — dark glass style
+// Reusable validated field
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun PhoneNumberBanner(phone: String) {
+private fun ValidatedField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onFocusLost: () -> Unit,
+    label: String,
+    icon: ImageVector,
+    error: String?,
+    isValid: Boolean,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    placeholder: String? = null,
+) {
+    val hasError = error != null
+    val borderColor = when {
+        hasError -> AccentRed
+        isValid  -> AccentGreen
+        else     -> GlassBorder
+    }
+
+    Column {
+        OutlinedTextField(
+            value         = value,
+            onValueChange = onValueChange,
+            label         = {
+                Text(label, fontSize = 13.sp,
+                    color = when {
+                        hasError -> AccentRed
+                        isValid  -> AccentGreen
+                        else     -> TextSecondary
+                    })
+            },
+            placeholder = if (placeholder != null) {
+                { Text(placeholder, color = TextMuted, fontSize = 13.sp) }
+            } else null,
+            leadingIcon = {
+                Icon(
+                    imageVector        = icon,
+                    contentDescription = null,
+                    tint               = when {
+                        hasError -> AccentRed
+                        isValid  -> AccentGreen
+                        else     -> TextSecondary
+                    },
+                    modifier = Modifier.size(18.dp),
+                )
+            },
+            trailingIcon = when {
+                hasError -> { ->
+                    Icon(Icons.Default.Warning, contentDescription = "Error",
+                        tint = AccentRed, modifier = Modifier.size(18.dp))
+                }
+                isValid -> { ->
+                    Icon(Icons.Default.Check, contentDescription = "Valid",
+                        tint = AccentGreen, modifier = Modifier.size(18.dp))
+                }
+                else -> null
+            },
+            isError         = hasError,
+            modifier        = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { if (!it.isFocused) onFocusLost() },
+            colors          = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor        = if (hasError) AccentRed else if (isValid) AccentGreen else AccentIndigo,
+                unfocusedBorderColor      = borderColor,
+                focusedTextColor          = TextPrimary,
+                unfocusedTextColor        = TextPrimary,
+                focusedLabelColor         = if (hasError) AccentRed else if (isValid) AccentGreen else AccentIndigo,
+                unfocusedLabelColor       = if (hasError) AccentRed else if (isValid) AccentGreen else TextSecondary,
+                cursorColor               = if (hasError) AccentRed else AccentIndigo,
+                focusedContainerColor     = DarkInput,
+                unfocusedContainerColor   = DarkInput,
+                errorBorderColor          = AccentRed,
+                errorLabelColor           = AccentRed,
+                errorLeadingIconColor     = AccentRed,
+                errorCursorColor          = AccentRed,
+                focusedLeadingIconColor   = if (hasError) AccentRed else if (isValid) AccentGreen else AccentIndigo,
+                unfocusedLeadingIconColor = if (hasError) AccentRed else if (isValid) AccentGreen else TextSecondary,
+            ),
+            shape           = RoundedCornerShape(12.dp),
+            singleLine      = true,
+            keyboardOptions = keyboardOptions,
+        )
+
+        // Animated error message
+        AnimatedVisibility(
+            visible = hasError,
+            enter   = fadeIn() + expandVertically(),
+            exit    = fadeOut() + shrinkVertically(),
+        ) {
+            Row(
+                modifier              = Modifier.padding(start = 14.dp, top = 4.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint               = AccentRed,
+                    modifier           = Modifier.size(12.dp),
+                )
+                Text(
+                    text       = error ?: "",
+                    color      = AccentRed,
+                    fontSize   = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Caller banner
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun CallerBanner(phone: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -231,7 +449,7 @@ private fun PhoneNumberBanner(phone: String) {
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(AccentAmber.copy(alpha = 0.12f))
                     .border(1.5.dp, AccentAmber.copy(alpha = 0.35f), CircleShape),
@@ -244,7 +462,7 @@ private fun PhoneNumberBanner(phone: String) {
                     modifier           = Modifier.size(20.dp),
                 )
             }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     text       = if (phone == "Hidden") "Hidden Number" else phone,
                     color      = TextPrimary,
@@ -252,9 +470,9 @@ private fun PhoneNumberBanner(phone: String) {
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text     = "Not in your CRM",
+                    text     = "Not in your CRM — create a lead below",
                     color    = TextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                 )
             }
         }
@@ -262,11 +480,14 @@ private fun PhoneNumberBanner(phone: String) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dark-themed field colours
+// Field colour helper (used by the note field which has no validation state)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-fun darkFieldColors(accent: Color) = OutlinedTextFieldDefaults.colors(
+fun darkFieldColors(accent: Color, error: Color = AccentRed) = fieldColors(accent, error)
+
+@Composable
+fun fieldColors(accent: Color, error: Color = AccentRed) = OutlinedTextFieldDefaults.colors(
     focusedBorderColor        = accent,
     unfocusedBorderColor      = GlassBorder,
     focusedTextColor          = TextPrimary,
@@ -283,4 +504,8 @@ fun darkFieldColors(accent: Color) = OutlinedTextFieldDefaults.colors(
     focusedLeadingIconColor   = accent,
     unfocusedLeadingIconColor = TextSecondary,
     disabledLeadingIconColor  = TextMuted,
+    errorBorderColor          = error,
+    errorLabelColor           = error,
+    errorLeadingIconColor     = error,
+    errorCursorColor          = error,
 )

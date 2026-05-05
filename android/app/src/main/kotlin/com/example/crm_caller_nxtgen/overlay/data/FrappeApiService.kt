@@ -44,6 +44,7 @@ data class FrappeLeadResult(
     val email: String,
     val mobileNo: String,
     val status: String,
+    val latestNote: String = "",
 )
 
 data class FrappeOpportunityResult(val docname: String)
@@ -82,6 +83,70 @@ class FrappeApiService(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // CSRF REFRESH
+    // Frappe issues a fresh csrf_token cookie on every GET response.
+    // Call this before any POST/PUT so the stored token is always current.
+    // Writes the new value back to SharedPreferences so Flutter reads it too.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun refreshCsrfToken(): Boolean = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.isValid) return@withContext false
+        return@withContext try {
+            val request = Request.Builder()
+                .url("${config.serverUrl}/api/method/frappe.auth.get_logged_user")
+                .header("Cookie", config.cookieHeader)
+                .header("Accept", "application/json")
+                .get()
+                .build()
+            val response = httpClient.newCall(request).execute()
+            // Frappe puts the fresh CSRF in the Set-Cookie response header
+            val setCookie = response.headers("Set-Cookie").joinToString(";")
+            val match = Regex("csrf_token=([^;,\\s]+)").find(setCookie)
+            val newCsrf = match?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() }
+            if (newCsrf != null) {
+                prefs.edit().putString("flutter.crm_csrf_token", newCsrf).apply()
+                Log.d(TAG, "CSRF token refreshed")
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "CSRF refresh failed: ${e.message}")
+            false
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Parse a Frappe error body into a short human-readable message
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun parseFrappeError(body: String, httpCode: Int): String {
+        return try {
+            val json = JSONObject(body)
+            // Frappe wraps errors in _server_messages (JSON-encoded list of JSON strings)
+            val serverMsgs = json.optString("_server_messages")
+            if (serverMsgs.isNotBlank()) {
+                val arr = org.json.JSONArray(serverMsgs)
+                if (arr.length() > 0) {
+                    val inner = JSONObject(arr.getString(0))
+                    val msg = inner.optString("message").trim()
+                    if (msg.isNotBlank()) return msg
+                }
+            }
+            // Plain exception string
+            val exc = json.optString("exception")
+            if (exc.isNotBlank()) {
+                // "frappe.exceptions.SomeError: actual message" → "actual message"
+                return exc.substringAfter(": ").ifBlank { exc }
+            }
+            "Server error ($httpCode)"
+        } catch (_: Exception) {
+            "Server error ($httpCode)"
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // LOOKUP: find lead by phone number via get_caller_details API
     // Returns null when not found.
     // ─────────────────────────────────────────────────────────────────────────
@@ -117,6 +182,7 @@ class FrappeApiService(private val context: Context) {
                 email       = msg.optString("email_id"),
                 mobileNo    = msg.optString("mobile_no").ifBlank { msg.optString("phone") },
                 status      = "Lead",
+                latestNote  = msg.optString("latest_note"),
             )
         } catch (_: Exception) { null }
     }
@@ -182,11 +248,11 @@ class FrappeApiService(private val context: Context) {
         )
 
         if (!response.isSuccessful) {
-            throw RuntimeException("Frappe error ${response.code}: $rawBody")
+            throw RuntimeException(parseFrappeError(rawBody, response.code))
         }
 
         val msg = JSONObject(rawBody).optJSONObject("message")
-            ?: throw RuntimeException("Invalid response — no 'message' key. Full body: $rawBody")
+            ?: throw RuntimeException("Unexpected response from server")
 
         FrappeLeadResult(
             docname     = msg.optString("lead_name"),

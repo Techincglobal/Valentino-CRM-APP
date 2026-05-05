@@ -975,8 +975,12 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   final _subjectCtrl = TextEditingController();
   final _noteCtrl    = TextEditingController();
   final _items       = <_QuoteItem>[];
-  String  _currency      = 'LKR';
-  bool    _busy          = false;
+  String  _currency         = 'LKR';
+  String  _sellingPriceList = '';
+  String  _partyEmail       = '';
+  String  _partyPhone       = '';
+  bool    _loadingDefaults  = true;
+  bool    _busy             = false;
   String? _error;
   String? _subjectError;
 
@@ -985,13 +989,28 @@ class _QuoteSheetState extends State<_QuoteSheet> {
     super.initState();
     _subjectCtrl.text = 'Quotation for ${widget.opp.partyName}';
     _items.add(_QuoteItem());
-    _loadDefaultCurrency();
+    _loadDefaults();
   }
 
-  Future<void> _loadDefaultCurrency() async {
-    final defaults = await SalesServiceOps.getCompanyDefaults();
-    if (!mounted || defaults.currency.isEmpty) return;
-    setState(() => _currency = defaults.currency);
+  Future<void> _loadDefaults() async {
+    final partyDocname = widget.opp.partyDocname.isNotEmpty
+        ? widget.opp.partyDocname
+        : widget.opp.name;
+    final defaults = await SalesServiceOps.getQuotationDefaults(
+      leadDocname: partyDocname,
+      partyType:   widget.opp.partyType,
+    );
+    if (!mounted) return;
+    setState(() {
+      if (defaults.currency.isNotEmpty) _currency = defaults.currency;
+      _sellingPriceList = defaults.sellingPriceList;
+      _partyEmail       = defaults.partyEmail;
+      _partyPhone       = defaults.partyPhone;
+      if (defaults.termsContent.isNotEmpty && _noteCtrl.text.isEmpty) {
+        _noteCtrl.text = defaults.termsContent;
+      }
+      _loadingDefaults = false;
+    });
   }
 
   @override
@@ -1070,6 +1089,23 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               Expanded(child: _SheetHeader(icon: Icons.receipt_long_rounded, color: _amber, title: 'Create Quotation', subtitle: widget.opp.partyName)),
               _GlassChip(label: widget.opp.stage, color: _amber),
             ]),
+            // Contact info pulled from Frappe
+            if (_partyPhone.isNotEmpty || _partyEmail.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                if (_partyPhone.isNotEmpty) ...[
+                  Icon(Icons.phone_rounded, size: 12, color: ac.textTertiary),
+                  const SizedBox(width: 4),
+                  Text(_partyPhone, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                  const SizedBox(width: 14),
+                ],
+                if (_partyEmail.isNotEmpty) ...[
+                  Icon(Icons.email_outlined, size: 12, color: ac.textTertiary),
+                  const SizedBox(width: 4),
+                  Flexible(child: Text(_partyEmail, style: TextStyle(color: ac.textSecondary, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                ],
+              ]),
+            ],
             const SizedBox(height: 16),
             if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 10)],
             _GlassField(
@@ -1077,7 +1113,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               errorText: _subjectError, onChanged: () => setState(() => _subjectError = null),
             ),
             const SizedBox(height: 12),
-            // Currency picker
+            // Currency picker — shows spinner while defaults are loading
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
@@ -1090,23 +1126,38 @@ class _QuoteSheetState extends State<_QuoteSheet> {
                 const SizedBox(width: 8),
                 Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 13)),
                 const Spacer(),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _currencies.any((c) => c.$1 == _currency) ? _currency : 'LKR',
-                    isDense: true,
-                    style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-                    dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-                    borderRadius: BorderRadius.circular(12),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: ac.textSecondary, size: 18),
-                    onChanged: _busy ? null : (v) => setState(() => _currency = v!),
-                    items: _currencies.map((c) => DropdownMenuItem(
-                      value: c.$1,
-                      child: Text('${c.$1} — ${c.$2}', style: TextStyle(color: ac.textPrimary, fontSize: 13)),
-                    )).toList(),
+                if (_loadingDefaults)
+                  const SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: _amber))
+                else
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _currencies.any((c) => c.$1 == _currency) ? _currency : 'LKR',
+                      isDense: true,
+                      style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                      dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                      borderRadius: BorderRadius.circular(12),
+                      icon: Icon(Icons.keyboard_arrow_down_rounded, color: ac.textSecondary, size: 18),
+                      onChanged: _busy ? null : (v) => setState(() => _currency = v!),
+                      items: _currencies.map((c) => DropdownMenuItem(
+                        value: c.$1,
+                        child: Text('${c.$1} — ${c.$2}', style: TextStyle(color: ac.textPrimary, fontSize: 13)),
+                      )).toList(),
+                    ),
                   ),
-                ),
               ]),
             ),
+            // Show selling price list badge when available
+            if (!_loadingDefaults && _sellingPriceList.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                const SizedBox(width: 2),
+                Icon(Icons.price_check_rounded, size: 11, color: ac.textTertiary),
+                const SizedBox(width: 4),
+                Text('Price list: $_sellingPriceList',
+                    style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+              ]),
+            ],
             const SizedBox(height: 14),
             // Line items header
             Row(children: [
@@ -1140,6 +1191,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               no: entry.key + 1,
               item: entry.value,
               currency: _currency,
+              priceList: _sellingPriceList,
               enabled: !_busy,
               onRemove: () => _removeItem(entry.key),
               onChanged: () => setState(() {}),
@@ -1171,7 +1223,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               ),
             ],
             const SizedBox(height: 12),
-            _GlassField(controller: _noteCtrl, label: 'Terms / Notes (optional)', maxLines: 2, enabled: !_busy),
+            _GlassField(controller: _noteCtrl, label: 'Terms & Notes', maxLines: 4, enabled: !_busy),
             const SizedBox(height: 16),
             Row(children: [
               Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
@@ -1193,12 +1245,14 @@ class _ItemCard extends StatelessWidget {
   final int                       no;
   final _QuoteItem                item;
   final String                    currency;
+  final String                    priceList;
   final bool                      enabled;
   final VoidCallback              onRemove;
   final VoidCallback              onChanged;
   final void Function(FrappeItem) onSearchPick;
   const _ItemCard({
     required this.no, required this.item, required this.currency,
+    this.priceList = '',
     required this.enabled, required this.onRemove, required this.onChanged,
     required this.onSearchPick,
   });
@@ -1209,7 +1263,7 @@ class _ItemCard extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.55),
-      builder: (_) => const _ItemSearchSheet(),
+      builder: (_) => _ItemSearchSheet(priceList: priceList),
     );
     if (picked != null) onSearchPick(picked);
   }
@@ -1296,7 +1350,8 @@ class _ItemCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ItemSearchSheet extends StatefulWidget {
-  const _ItemSearchSheet();
+  final String priceList;
+  const _ItemSearchSheet({this.priceList = ''});
 
   @override
   State<_ItemSearchSheet> createState() => _ItemSearchSheetState();
@@ -1318,7 +1373,7 @@ class _ItemSearchSheetState extends State<_ItemSearchSheet> {
 
   Future<void> _search(String q) async {
     setState(() => _loading = true);
-    final items = await SalesServiceOps.searchItems(q);
+    final items = await SalesServiceOps.searchItems(q, priceList: widget.priceList);
     if (!mounted) return;
     setState(() { _results = items; _loading = false; });
   }

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
@@ -38,14 +39,11 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.ac.bgBase,
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // ── Pages — instant switch, no animation ─────────────────────────
           IndexedStack(index: _index, children: _pages),
-
-          // ── Floating glass nav bar — always on top ────────────────────────
           _GlassNavBar(currentIndex: _index, onTap: _onTap),
         ],
       ),
@@ -54,8 +52,10 @@ class _MainShellState extends State<MainShell> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _GlassNavBar  — frosted pill floating at the bottom centre
-// BackdropFilter is fine here — it's one static widget, not in a list.
+// _GlassNavBar
+// iOS:     ClipRRect + BackdropFilter (blur works in release builds on iOS)
+// Android: Solid gradient pill — BackdropFilter renders invisible in Android
+//          release APKs due to a known Flutter/Skia compositor bug.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GlassNavBar extends StatelessWidget {
@@ -67,54 +67,96 @@ class _GlassNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    // viewPadding.bottom is never reduced by the keyboard — ensures the nav bar
-    // stays correctly positioned after overlay keyboard interactions end.
     final bottom = MediaQuery.of(context).viewPadding.bottom;
+
+    final pills = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _NavPill(icon: Icons.home_rounded,         label: 'Home',     selected: currentIndex == 0, onTap: () => onTap(0)),
+        const SizedBox(width: 4),
+        _NavPill(icon: Icons.trending_up_rounded,  label: 'Pipeline', selected: currentIndex == 1, onTap: () => onTap(1)),
+        const SizedBox(width: 4),
+        _NavPill(icon: Icons.receipt_long_rounded, label: 'Quotes',   selected: currentIndex == 2, onTap: () => onTap(2)),
+        const SizedBox(width: 4),
+        _NavPill(icon: Icons.settings_rounded,     label: 'Settings', selected: currentIndex == 3, onTap: () => onTap(3)),
+      ],
+    );
+
+    final Widget pill;
+
+    if (Platform.isIOS) {
+      // iOS: real frosted glass
+      pill = ClipRRect(
+        borderRadius: BorderRadius.circular(40),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF0D1117).withValues(alpha: 0.88)
+                  : Colors.white.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : Colors.black.withValues(alpha: 0.07),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color:      Colors.black.withValues(alpha: isDark ? 0.45 : 0.14),
+                  blurRadius: 24,
+                  offset:     const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: pills,
+          ),
+        ),
+      );
+    } else {
+      // Android: solid gradient pill — blur is unreliable in release APKs
+      pill = Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [const Color(0xFF1C2333), const Color(0xFF0D1117)]
+                : [Colors.white, const Color(0xFFF0F3FF)],
+          ),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : AppColors.primary.withValues(alpha: 0.12),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color:      Colors.black.withValues(alpha: isDark ? 0.60 : 0.12),
+              blurRadius: 28,
+              spreadRadius: 0,
+              offset:     const Offset(0, 8),
+            ),
+            BoxShadow(
+              color:      AppColors.primary.withValues(alpha: isDark ? 0.08 : 0.06),
+              blurRadius: 12,
+              offset:     const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: pills,
+      );
+    }
 
     return Positioned(
       bottom: bottom + 18,
       left: 0,
       right: 0,
-      child: Center(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(40),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF0D1117).withValues(alpha: 0.82)
-                    : Colors.white.withValues(alpha: 0.90),
-                borderRadius: BorderRadius.circular(40),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.09)
-                      : Colors.black.withValues(alpha: 0.06),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color:      Colors.black.withValues(alpha: isDark ? 0.40 : 0.12),
-                    blurRadius: 20,
-                    offset:     const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _NavPill(icon: Icons.home_rounded,          label: 'Home',     selected: currentIndex == 0, onTap: () => onTap(0)),
-                  const SizedBox(width: 4),
-                  _NavPill(icon: Icons.trending_up_rounded,   label: 'Pipeline', selected: currentIndex == 1, onTap: () => onTap(1)),
-                  const SizedBox(width: 4),
-                  _NavPill(icon: Icons.receipt_long_rounded,  label: 'Quotes',   selected: currentIndex == 2, onTap: () => onTap(2)),
-                  const SizedBox(width: 4),
-                  _NavPill(icon: Icons.settings_rounded,      label: 'Settings', selected: currentIndex == 3, onTap: () => onTap(3)),
-                ],
-              ),
-            ),
-          ),
-        ),
+      child: RepaintBoundary(
+        child: Center(child: pill),
       ),
     );
   }
