@@ -2,6 +2,7 @@ package com.example.crm_caller_nxtgen.overlay.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,6 +10,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,15 +150,43 @@ class FrappeApiService(private val context: Context) {
             .post(body.toString().toRequestBody(JSON))
             .build()
 
+        val requestBodyStr = body.toString()
+        Log.d(TAG, "╔══ CREATE LEAD REQUEST ══════════════════════════════════")
+        Log.d(TAG, "║  URL  : ${request.url}")
+        Log.d(TAG, "║  Body : $requestBodyStr")
+        Log.d(TAG, "╚════════════════════════════════════════════════════════")
+
         val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            val errBody = response.body?.string() ?: ""
-            throw RuntimeException("Frappe error ${response.code}: $errBody")
+        val rawBody = response.body?.string() ?: ""
+
+        val statusLine = "${response.code} ${response.message}"
+        if (response.isSuccessful) {
+            Log.d(TAG, "╔══ CREATE LEAD RESPONSE ✅ ══════════════════════════════")
+            Log.d(TAG, "║  Status : $statusLine")
+            Log.d(TAG, "║  Body   : $rawBody")
+            Log.d(TAG, "╚════════════════════════════════════════════════════════")
+        } else {
+            Log.e(TAG, "╔══ CREATE LEAD ERROR ❌ ═════════════════════════════════")
+            Log.e(TAG, "║  Status : $statusLine")
+            Log.e(TAG, "║  Body   : $rawBody")
+            Log.e(TAG, "╚════════════════════════════════════════════════════════")
         }
 
-        val responseBody = response.body?.string() ?: throw RuntimeException("Empty response")
-        val msg = JSONObject(responseBody).optJSONObject("message")
-            ?: throw RuntimeException("Invalid response")
+        writeApiLog(
+            label = "CREATE LEAD",
+            url = request.url.toString(),
+            requestBody = requestBodyStr,
+            statusCode = response.code,
+            responseBody = rawBody,
+            isError = !response.isSuccessful,
+        )
+
+        if (!response.isSuccessful) {
+            throw RuntimeException("Frappe error ${response.code}: $rawBody")
+        }
+
+        val msg = JSONObject(rawBody).optJSONObject("message")
+            ?: throw RuntimeException("Invalid response — no 'message' key. Full body: $rawBody")
 
         FrappeLeadResult(
             docname     = msg.optString("lead_name"),
@@ -324,4 +357,56 @@ class FrappeApiService(private val context: Context) {
 
     private fun String.encodeUrl(): String =
         java.net.URLEncoder.encode(this, "UTF-8")
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // API log writer — appends each call to crm_api_log.md in app files dir
+    // Read via:  adb shell run-as com.example.crm_caller_nxtgen cat files/crm_api_log.md
+    // Or pull:   adb pull /data/data/com.example.crm_caller_nxtgen/files/crm_api_log.md
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun writeApiLog(
+        label: String,
+        url: String,
+        requestBody: String,
+        statusCode: Int,
+        responseBody: String,
+        isError: Boolean,
+    ) {
+        try {
+            val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val icon = if (isError) "❌" else "✅"
+            val entry = buildString {
+                appendLine()
+                appendLine("## $icon $label — $ts")
+                appendLine()
+                appendLine("**URL:** `$url`")
+                appendLine()
+                appendLine("**Request Body:**")
+                appendLine("```json")
+                appendLine(try { JSONObject(requestBody).toString(2) } catch (_: Exception) { requestBody })
+                appendLine("```")
+                appendLine()
+                appendLine("**Response — HTTP $statusCode:**")
+                appendLine("```json")
+                appendLine(try { JSONObject(responseBody).toString(2) } catch (_: Exception) { responseBody })
+                appendLine("```")
+                appendLine()
+                appendLine("---")
+            }
+
+            val logFile = File(context.filesDir, "crm_api_log.md")
+            // Prepend header on first write
+            if (!logFile.exists()) {
+                logFile.writeText("# CRM API Log\n\n")
+            }
+            logFile.appendText(entry)
+            Log.d(TAG, "API log written → ${logFile.absolutePath}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write API log file: ${e.message}")
+        }
+    }
+
+    companion object {
+        private const val TAG = "FrappeApi"
+    }
 }

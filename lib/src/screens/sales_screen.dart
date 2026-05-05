@@ -825,9 +825,10 @@ class _ConvertSheetState extends State<_ConvertSheet> {
   final _valueCtrl   = TextEditingController();
   final _closingCtrl = TextEditingController();
   final _noteCtrl    = TextEditingController();
-  String _stage    = 'Prospecting';
-  bool   _busy     = false;
+  String  _stage      = 'Prospecting';
+  bool    _busy       = false;
   String? _error;
+  String? _valueError;
 
   @override
   void initState() {
@@ -861,8 +862,12 @@ class _ConvertSheetState extends State<_ConvertSheet> {
   }
 
   Future<void> _submit() async {
+    setState(() { _valueError = null; _error = null; });
     final value = double.tryParse(_valueCtrl.text.trim());
-    if (value == null) { setState(() => _error = 'Enter a valid number for expected value'); return; }
+    if (value == null || value < 0) {
+      setState(() => _valueError = 'Enter a valid positive number');
+      return;
+    }
     setState(() { _busy = true; _error = null; });
     try {
       await SalesServiceOps.createOpportunity(
@@ -899,7 +904,11 @@ class _ConvertSheetState extends State<_ConvertSheet> {
             _SheetHeader(icon: Icons.trending_up_rounded, color: _indigo, title: 'Convert to Opportunity', subtitle: widget.lead.displayName),
             const SizedBox(height: 20),
             if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
-            _GlassField(controller: _valueCtrl, label: 'Expected Value *', keyboardType: TextInputType.number, enabled: !_busy),
+            _GlassField(
+              controller: _valueCtrl, label: 'Expected Value *',
+              keyboardType: TextInputType.number, enabled: !_busy,
+              errorText: _valueError, onChanged: () => setState(() => _valueError = null),
+            ),
             const SizedBox(height: 12),
             // Closing date picker
             GestureDetector(
@@ -966,9 +975,10 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   final _subjectCtrl = TextEditingController();
   final _noteCtrl    = TextEditingController();
   final _items       = <_QuoteItem>[];
-  String  _currency  = 'LKR';
-  bool    _busy      = false;
+  String  _currency      = 'LKR';
+  bool    _busy          = false;
   String? _error;
+  String? _subjectError;
 
   @override
   void initState() {
@@ -1007,7 +1017,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
 
   Future<void> _submit() async {
     final subject    = _subjectCtrl.text.trim();
-    if (subject.isEmpty) { setState(() => _error = 'Subject is required'); return; }
+    if (subject.isEmpty) { setState(() => _subjectError = 'Subject is required'); return; }
     final validItems = _items.where((i) => i.itemCodeCtrl.text.trim().isNotEmpty).toList();
     if (validItems.isEmpty) { setState(() => _error = 'Add at least one item with an item code'); return; }
     setState(() { _busy = true; _error = null; });
@@ -1062,7 +1072,10 @@ class _QuoteSheetState extends State<_QuoteSheet> {
             ]),
             const SizedBox(height: 16),
             if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 10)],
-            _GlassField(controller: _subjectCtrl, label: 'Subject *', enabled: !_busy),
+            _GlassField(
+              controller: _subjectCtrl, label: 'Subject *', enabled: !_busy,
+              errorText: _subjectError, onChanged: () => setState(() => _subjectError = null),
+            ),
             const SizedBox(height: 12),
             // Currency picker
             Container(
@@ -1409,8 +1422,13 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
   final _phoneCtrl  = TextEditingController();
   final _emailCtrl  = TextEditingController();
   final _noteCtrl   = TextEditingController();
-  bool    _busy   = false;
+  bool    _busy       = false;
   String? _error;
+  String? _nameError;
+  String? _phoneError;
+  String? _emailError;
+
+  static final _emailRe = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
 
   @override
   void dispose() {
@@ -1422,11 +1440,39 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
   }
 
   Future<void> _submit() async {
+    setState(() { _nameError = null; _phoneError = null; _emailError = null; _error = null; });
+
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Name is required');
+      setState(() => _nameError = 'Full name is required');
       return;
     }
+    if (name.length < 2) {
+      setState(() => _nameError = 'Name must be at least 2 characters');
+      return;
+    }
+
+    final phone = _phoneCtrl.text.trim();
+    if (phone.isNotEmpty) {
+      final digits = phone.replaceAll(RegExp(r'\D'), '');
+      if (digits.length < 10) {
+        setState(() => _phoneError = 'Must have at least 10 digits');
+        return;
+      }
+    }
+
+    final email = _emailCtrl.text.trim();
+    if (email.isNotEmpty) {
+      if (!email.contains('@')) {
+        setState(() => _emailError = 'Email must contain @');
+        return;
+      }
+      if (!_emailRe.hasMatch(email)) {
+        setState(() => _emailError = 'Enter a valid email (e.g. you@example.com)');
+        return;
+      }
+    }
+
     setState(() { _busy = true; _error = null; });
     try {
       final result = await CallerService.createLead(
@@ -1476,13 +1522,24 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
             ),
             const SizedBox(height: 20),
             if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
-            _GlassField(controller: _nameCtrl,  label: 'Full Name *',            enabled: !_busy),
+            _GlassField(
+              controller: _nameCtrl, label: 'Full Name *', enabled: !_busy,
+              errorText: _nameError, onChanged: () => setState(() => _nameError = null),
+            ),
             const SizedBox(height: 12),
-            _GlassField(controller: _phoneCtrl, label: 'Phone Number',           keyboardType: TextInputType.phone,  enabled: !_busy),
+            _GlassField(
+              controller: _phoneCtrl, label: 'Phone Number',
+              keyboardType: TextInputType.phone, enabled: !_busy,
+              errorText: _phoneError, onChanged: () => setState(() => _phoneError = null),
+            ),
             const SizedBox(height: 12),
-            _GlassField(controller: _emailCtrl, label: 'Email Address',          keyboardType: TextInputType.emailAddress, enabled: !_busy),
+            _GlassField(
+              controller: _emailCtrl, label: 'Email Address',
+              keyboardType: TextInputType.emailAddress, enabled: !_busy,
+              errorText: _emailError, onChanged: () => setState(() => _emailError = null),
+            ),
             const SizedBox(height: 12),
-            _GlassField(controller: _noteCtrl,  label: 'Note (optional)',        maxLines: 2, enabled: !_busy),
+            _GlassField(controller: _noteCtrl, label: 'Note (optional)', maxLines: 2, enabled: !_busy),
             const SizedBox(height: 20),
             Row(children: [
               Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
@@ -1639,28 +1696,51 @@ class _GlassField extends StatelessWidget {
   final TextInputType keyboardType;
   final int maxLines;
   final bool enabled;
-  const _GlassField({required this.controller, required this.label, this.keyboardType = TextInputType.text, this.maxLines = 1, this.enabled = true});
+  final String? errorText;
+  final VoidCallback? onChanged;
+  const _GlassField({
+    required this.controller,
+    required this.label,
+    this.keyboardType = TextInputType.text,
+    this.maxLines = 1,
+    this.enabled = true,
+    this.errorText,
+    this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final ac     = context.ac;
-    final isDark = context.isDark;
+    final ac       = context.ac;
+    final isDark   = context.isDark;
+    final hasError = errorText != null;
+    const red      = Color(0xFFEF4444);
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
       enabled: enabled,
+      onChanged: onChanged != null ? (_) => onChanged!() : null,
       style: TextStyle(color: ac.textPrimary, fontSize: 14),
       cursorColor: _indigo,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: ac.textSecondary, fontSize: 13),
+        labelStyle: TextStyle(color: hasError ? red : ac.textSecondary, fontSize: 13),
         filled: true,
         fillColor: isDark ? Colors.white.withValues(alpha: 0.06) : ac.bgInput,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
-        focusedBorder: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(14)), borderSide: BorderSide(color: _indigo, width: 1.5)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: hasError ? red : (isDark ? Colors.white.withValues(alpha: 0.10) : ac.border)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: hasError ? red : _indigo, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: red, width: 1.5)),
+        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: red, width: 1.5)),
         disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.border.withValues(alpha: 0.4))),
+        errorText: errorText,
+        errorStyle: const TextStyle(color: red, fontSize: 11, height: 1.3),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       ),
     );

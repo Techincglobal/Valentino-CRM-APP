@@ -26,4 +26,10 @@ interface LeadDao {
 
     @Query("SELECT * FROM leads WHERE isSynced = 0")
     suspend fun getUnsyncedLeads(): List<LeadEntity>
+
+    @Query("DELETE FROM leads WHERE phoneNumber = :phoneNumber OR phoneNumber = :phoneShort")
+    suspend fun deleteLeadByPhone(phoneNumber: String, phoneShort: String)
+
+    @Query("DELETE FROM leads")
+    suspend fun deleteAllLeads()
 }

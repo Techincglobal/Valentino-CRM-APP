@@ -192,6 +192,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       final testPhone = isKnown ? '555-KNOWN' : '555-UNKNOWN';
 
+      // Clear the local Room cache for the test number so each unknown-call
+      // simulation always starts fresh, even if a lead was created last time.
+      if (!isKnown && Platform.isAndroid) {
+        try {
+          await _nativeOverlayChannel.invokeMethod('clearLocalLeadByPhone', testPhone);
+        } catch (_) {}
+      }
+
       await prefs.setString('crm_caller_phone', testPhone);
       await prefs.setString('crm_caller_name', name);
       await prefs.setString('crm_caller_type', type);
@@ -307,7 +315,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               loading: _loading,
               onLookup: () {
                 final phone = _phoneController.text.trim();
-                if (phone.isNotEmpty) _handleIncomingNumber(phone);
+                if (phone.isEmpty) {
+                  _showError('Please enter a phone number.');
+                  return;
+                }
+                final digits = phone.replaceAll(RegExp(r'\D'), '');
+                if (digits.length < 10) {
+                  _showError('Phone number must have at least 10 digits.');
+                  return;
+                }
+                _handleIncomingNumber(phone);
               },
             ),
             const SizedBox(height: 16),

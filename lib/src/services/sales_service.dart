@@ -1,6 +1,34 @@
 import 'dart:convert';
 import 'api_service.dart';
 
+/// Extracts a human-readable message from a Frappe error response body.
+/// Frappe wraps thrown exceptions in _server_messages (JSON list of JSON strings).
+String _parseFrappeError(String body, String fallback) {
+  try {
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    final raw  = json['_server_messages'] as String?;
+    if (raw != null && raw.isNotEmpty) {
+      final list = jsonDecode(raw) as List?;
+      if (list != null && list.isNotEmpty) {
+        try {
+          final inner = jsonDecode(list.first as String) as Map?;
+          final msg   = inner?['message'] as String?;
+          if (msg != null && msg.isNotEmpty) return msg;
+        } catch (_) {
+          final s = list.first.toString();
+          if (s.isNotEmpty) return s;
+        }
+      }
+    }
+    final exc = json['exception'] as String?;
+    if (exc != null && exc.isNotEmpty) {
+      final i = exc.indexOf(': ');
+      return i >= 0 ? exc.substring(i + 2).trim() : exc;
+    }
+  } catch (_) {}
+  return fallback;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Models
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,20 +56,25 @@ class Opportunity {
     required this.modified,
   });
 
-  factory Opportunity.fromJson(Map<String, dynamic> j) => Opportunity(
-        name: j['name'] as String? ?? '',
-        partyName: (j['customer_name'] as String?)?.trim().isNotEmpty == true
-            ? j['customer_name'] as String
-            : (j['lead_name'] as String?) ?? 'Unknown',
-        partyDocname: j['party_name'] as String? ?? '',
-        partyType: j['opportunity_from'] as String? ?? 'Lead',
-        amount: ((j['opportunity_amount'] ?? j['expected_revenue'] ?? 0) as num)
-            .toDouble(),
-        stage: j['stage'] as String? ?? '',
-        status: j['status'] as String? ?? 'Open',
-        expectedClosing: j['expected_closing'] as String? ?? '',
-        modified: j['modified'] as String? ?? '',
-      );
+  factory Opportunity.fromJson(Map<String, dynamic> j) {
+    final customerName = (j['customer_name'] as String?)?.trim() ?? '';
+    final title        = (j['title']         as String?)?.trim() ?? '';
+    final partyName    = (j['party_name']     as String?)?.trim() ?? '';
+    return Opportunity(
+      name:            j['name'] as String? ?? '',
+      partyName:       customerName.isNotEmpty ? customerName
+                     : title.isNotEmpty        ? title
+                     : partyName.isNotEmpty    ? partyName
+                     : 'Unknown',
+      partyDocname:    partyName,
+      partyType:       j['opportunity_from'] as String? ?? 'Lead',
+      amount:          ((j['opportunity_amount'] ?? j['expected_revenue'] ?? 0) as num).toDouble(),
+      stage:           j['stage']            as String? ?? '',
+      status:          j['status']           as String? ?? 'Open',
+      expectedClosing: j['expected_closing'] as String? ?? '',
+      modified:        j['modified']         as String? ?? '',
+    );
+  }
 }
 
 class CrmLead {
@@ -249,7 +282,7 @@ class QuotesSummary {
 
 class SalesService {
   static const _oppFields =
-      '["name","lead_name","customer_name","party_name","opportunity_from","opportunity_amount",'
+      '["name","title","customer_name","party_name","opportunity_from","opportunity_amount",'
       '"stage","status","expected_closing","modified"]';
 
   static const _leadFields =
@@ -368,7 +401,7 @@ class SalesService {
       },
     );
     if (resp.statusCode != 200) {
-      throw Exception('Failed to create quotation (${resp.statusCode})');
+      throw Exception(_parseFrappeError(resp.body, 'Failed to create quotation (${resp.statusCode})'));
     }
     final body    = jsonDecode(resp.body) as Map<String, dynamic>;
     final message = body['message'] as Map<String, dynamic>? ?? body;
@@ -379,7 +412,7 @@ class SalesService {
   static Future<QuotationDetail> getQuotationDetail(String name) async {
     final resp = await ApiService.get('/api/resource/Quotation/${Uri.encodeComponent(name)}');
     if (resp.statusCode != 200) {
-      throw Exception('Failed to load quotation (${resp.statusCode})');
+      throw Exception(_parseFrappeError(resp.body, 'Failed to load quotation (${resp.statusCode})'));
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
@@ -394,7 +427,7 @@ class SalesService {
       data,
     );
     if (resp.statusCode != 200) {
-      throw Exception('Failed to update quotation (${resp.statusCode})');
+      throw Exception(_parseFrappeError(resp.body, 'Failed to update quotation (${resp.statusCode})'));
     }
   }
 
@@ -405,7 +438,7 @@ class SalesService {
       {'name': name},
     );
     if (resp.statusCode != 200) {
-      throw Exception('Failed to submit quotation (${resp.statusCode})');
+      throw Exception(_parseFrappeError(resp.body, 'Failed to submit quotation (${resp.statusCode})'));
     }
   }
 
@@ -416,7 +449,7 @@ class SalesService {
       {'name': name},
     );
     if (resp.statusCode != 200) {
-      throw Exception('Failed to cancel quotation (${resp.statusCode})');
+      throw Exception(_parseFrappeError(resp.body, 'Failed to cancel quotation (${resp.statusCode})'));
     }
   }
 
@@ -538,30 +571,28 @@ class SalesServiceOps {
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.create_opportunity',
       {
-        'lead_docname':        leadDocname,
-        'opportunity_amount':  amount,
-        'stage':               stage,
-        'expected_closing':    closingDate,
-        'note':                note,
+        'lead_docname':       leadDocname,
+        'opportunity_amount': amount,
+        'stage':              stage,
+        'expected_closing':   closingDate,
+        'note':               note,
       },
     );
     if (resp.statusCode != 200) {
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final exc  = body['exception'] as String? ?? body['message']?.toString() ?? '';
-      throw Exception(exc.isNotEmpty ? exc : 'Failed to create opportunity (${resp.statusCode})');
+      throw Exception(_parseFrappeError(resp.body, 'Failed to create opportunity (${resp.statusCode})'));
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
     final msg  = body['message'] as Map<String, dynamic>? ?? {};
     return Opportunity(
       name:            msg['name']               as String? ?? '',
-      partyName:       msg['party_name']          as String? ?? partyName,
-      partyDocname:    msg['party_name']          as String? ?? leadDocname,
-      partyType:       msg['opportunity_from']    as String? ?? 'Lead',
+      partyName:       msg['customer_name']       as String? ?? partyName,
+      partyDocname:    leadDocname,                // always the actual Lead docname
+      partyType:       'Lead',
       amount:          ((msg['opportunity_amount'] ?? 0) as num).toDouble(),
-      stage:           msg['stage']              as String? ?? stage,
-      status:          msg['opp_status']          as String? ?? 'Open',
-      expectedClosing: msg['expected_closing']    as String? ?? closingDate,
-      modified:        msg['modified']            as String? ?? DateTime.now().toIso8601String().substring(0, 10),
+      stage:           msg['stage']               as String? ?? stage,
+      status:          msg['opp_status']           as String? ?? 'Open',
+      expectedClosing: msg['expected_closing']     as String? ?? closingDate,
+      modified:        msg['modified']             as String? ?? DateTime.now().toIso8601String().substring(0, 10),
     );
   }
 
@@ -571,18 +602,22 @@ class SalesServiceOps {
       '/api/method/nxtgen_crm_mobile.api.update_lead',
       {'docname': docname, 'status': status},
     );
-    if (resp.statusCode != 200) throw Exception('Failed to update lead status');
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to update lead status'));
+    }
   }
 
   /// Update an Opportunity's stage (and optionally amount / closing date).
   static Future<void> updateOpportunityStage(
       String docname, String stage, {double? amount, String? closingDate}) async {
-    final body = <String, dynamic>{'docname': docname, 'stage': stage};
-    if (amount     != null) body['opportunity_amount'] = amount;
-    if (closingDate != null) body['expected_closing']  = closingDate;
+    final payload = <String, dynamic>{'docname': docname, 'stage': stage};
+    if (amount      != null) payload['opportunity_amount'] = amount;
+    if (closingDate != null) payload['expected_closing']   = closingDate;
     final resp = await ApiService.post(
-      '/api/method/nxtgen_crm_mobile.api.update_opportunity', body);
-    if (resp.statusCode != 200) throw Exception('Failed to update opportunity');
+      '/api/method/nxtgen_crm_mobile.api.update_opportunity', payload);
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to update opportunity'));
+    }
   }
 
   /// Search Frappe Item master; returns up to [limit] matching items.

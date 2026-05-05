@@ -43,13 +43,25 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
+  static final _emailRe = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
+
   Future<void> _login() async {
     final usr = _userCtrl.text.trim();
     final pwd = _passCtrl.text.trim();
-    if (usr.isEmpty || pwd.isEmpty) {
-      _showError(usr.isEmpty
-          ? 'Please enter your username or email.'
-          : 'Please enter your password.');
+    if (usr.isEmpty) {
+      _showError('Please enter your username or email.');
+      return;
+    }
+    if (usr.contains('@') && !_emailRe.hasMatch(usr)) {
+      _showError('Enter a valid email address (e.g. you@example.com).');
+      return;
+    }
+    if (pwd.isEmpty) {
+      _showError('Please enter your password.');
+      return;
+    }
+    if (pwd.length < 6) {
+      _showError('Password must be at least 6 characters.');
       return;
     }
     final baseUrl = await StorageService.getBaseUrl();

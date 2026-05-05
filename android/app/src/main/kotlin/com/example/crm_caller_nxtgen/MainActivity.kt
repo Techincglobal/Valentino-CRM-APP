@@ -11,12 +11,18 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.crm_caller_nxtgen.overlay.data.FrappeRepository
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : FlutterActivity() {
     private var pendingOpenPhone: String? = null
+    private val repository by lazy { FrappeRepository(applicationContext) }
+    private val mainScope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -232,6 +238,24 @@ class MainActivity : FlutterActivity() {
                 "openOemBatterySettings" -> {
                     openOemBatterySettings()
                     result.success(true)
+                }
+
+                // Clears a single lead from local Room cache by phone number.
+                // Call this before re-simulating an unknown call for that number.
+                "clearLocalLeadByPhone" -> {
+                    val phone = call.arguments as? String ?: ""
+                    mainScope.launch {
+                        repository.clearLocalLeadByPhone(phone)
+                        result.success(true)
+                    }
+                }
+
+                // Nuclear option: wipe ALL locally cached leads so every number is unknown again.
+                "clearAllLocalLeads" -> {
+                    mainScope.launch {
+                        repository.clearAllLocalLeads()
+                        result.success(true)
+                    }
                 }
 
                 else -> result.notImplemented()

@@ -51,6 +51,18 @@ class FrappeRepository(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // TEST DATA CLEANUP
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun clearLocalLeadByPhone(phone: String) = withContext(Dispatchers.IO) {
+        db.leadDao().deleteLeadByPhone(phone, phone.takeLast(10))
+    }
+
+    suspend fun clearAllLocalLeads() = withContext(Dispatchers.IO) {
+        db.leadDao().deleteAllLeads()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // LOOKUP
     // ─────────────────────────────────────────────────────────────────────────
 
