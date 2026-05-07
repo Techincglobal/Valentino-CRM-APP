@@ -32,6 +32,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -56,18 +57,12 @@ import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Palette
+// Brand accent colours (not theme-sensitive)
 // ─────────────────────────────────────────────────────────────────────────────
-private val AccentIndigo  = Color(0xFF6366F1)
-private val AccentAmber   = Color(0xFFF59E0B)
-private val AccentRed     = Color(0xFFEF4444)
-private val AccentGreen   = Color(0xFF22C55E)
-private val TextPrimary   = Color(0xFFF8FAFC)
-private val TextSecondary = Color(0xFF94A3B8)
-private val TextMuted     = Color(0xFF64748B)
-private val DarkInput     = Color(0xFF1E293B)
-private val GlassBorder   = Color(0x1AFFFFFF)
-private val DividerColor  = Color(0x14FFFFFF)
+private val AccentIndigo = Color(0xFF6366F1)
+private val AccentAmber  = Color(0xFFF59E0B)
+private val AccentRed    = Color(0xFFEF4444)
+private val AccentGreen  = Color(0xFF22C55E)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -134,7 +129,7 @@ fun UnknownCallerForm(
         CallerBanner(phone)
 
         Spacer(Modifier.height(14.dp))
-        HorizontalDivider(color = DividerColor, thickness = 1.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f), thickness = 1.dp)
         Spacer(Modifier.height(14.dp))
 
         // ── Section header ────────────────────────────────────────────────────
@@ -226,11 +221,11 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
-            label         = { Text("Quick note (optional)", color = TextSecondary, fontSize = 13.sp) },
-            placeholder   = { Text("What's this call about?", color = TextMuted, fontSize = 13.sp) },
+            label         = { Text("Quick note (optional)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
+            placeholder   = { Text("What's this call about?", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 13.sp) },
             leadingIcon   = {
                 Icon(Icons.Default.Notes, contentDescription = null,
-                    tint = TextSecondary, modifier = Modifier.size(18.dp))
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             },
             modifier  = Modifier.fillMaxWidth(),
             colors    = fieldColors(AccentIndigo),
@@ -331,10 +326,13 @@ private fun ValidatedField(
     placeholder: String? = null,
 ) {
     val hasError = error != null
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val surfaceVariant   = MaterialTheme.colorScheme.surfaceVariant
+    val onSurface        = MaterialTheme.colorScheme.onSurface
     val borderColor = when {
         hasError -> AccentRed
         isValid  -> AccentGreen
-        else     -> GlassBorder
+        else     -> onSurface.copy(alpha = 0.08f)
     }
 
     Column {
@@ -346,11 +344,11 @@ private fun ValidatedField(
                     color = when {
                         hasError -> AccentRed
                         isValid  -> AccentGreen
-                        else     -> TextSecondary
+                        else     -> onSurfaceVariant
                     })
             },
             placeholder = if (placeholder != null) {
-                { Text(placeholder, color = TextMuted, fontSize = 13.sp) }
+                { Text(placeholder, color = onSurfaceVariant.copy(alpha = 0.6f), fontSize = 13.sp) }
             } else null,
             leadingIcon = {
                 Icon(
@@ -359,7 +357,7 @@ private fun ValidatedField(
                     tint               = when {
                         hasError -> AccentRed
                         isValid  -> AccentGreen
-                        else     -> TextSecondary
+                        else     -> onSurfaceVariant
                     },
                     modifier = Modifier.size(18.dp),
                 )
@@ -382,19 +380,19 @@ private fun ValidatedField(
             colors          = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor        = if (hasError) AccentRed else if (isValid) AccentGreen else AccentIndigo,
                 unfocusedBorderColor      = borderColor,
-                focusedTextColor          = TextPrimary,
-                unfocusedTextColor        = TextPrimary,
+                focusedTextColor          = onSurface,
+                unfocusedTextColor        = onSurface,
                 focusedLabelColor         = if (hasError) AccentRed else if (isValid) AccentGreen else AccentIndigo,
-                unfocusedLabelColor       = if (hasError) AccentRed else if (isValid) AccentGreen else TextSecondary,
+                unfocusedLabelColor       = if (hasError) AccentRed else if (isValid) AccentGreen else onSurfaceVariant,
                 cursorColor               = if (hasError) AccentRed else AccentIndigo,
-                focusedContainerColor     = DarkInput,
-                unfocusedContainerColor   = DarkInput,
+                focusedContainerColor     = surfaceVariant,
+                unfocusedContainerColor   = surfaceVariant,
                 errorBorderColor          = AccentRed,
                 errorLabelColor           = AccentRed,
                 errorLeadingIconColor     = AccentRed,
                 errorCursorColor          = AccentRed,
                 focusedLeadingIconColor   = if (hasError) AccentRed else if (isValid) AccentGreen else AccentIndigo,
-                unfocusedLeadingIconColor = if (hasError) AccentRed else if (isValid) AccentGreen else TextSecondary,
+                unfocusedLeadingIconColor = if (hasError) AccentRed else if (isValid) AccentGreen else onSurfaceVariant,
             ),
             shape           = RoundedCornerShape(12.dp),
             singleLine      = true,
@@ -465,13 +463,13 @@ private fun CallerBanner(phone: String) {
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     text       = if (phone == "Hidden") "Hidden Number" else phone,
-                    color      = TextPrimary,
+                    color      = MaterialTheme.colorScheme.onSurface,
                     fontSize   = 16.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
                     text     = "Not in your CRM — create a lead below",
-                    color    = TextSecondary,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                 )
             }
@@ -489,21 +487,21 @@ fun darkFieldColors(accent: Color, error: Color = AccentRed) = fieldColors(accen
 @Composable
 fun fieldColors(accent: Color, error: Color = AccentRed) = OutlinedTextFieldDefaults.colors(
     focusedBorderColor        = accent,
-    unfocusedBorderColor      = GlassBorder,
-    focusedTextColor          = TextPrimary,
-    unfocusedTextColor        = TextPrimary,
-    disabledTextColor         = TextMuted,
-    disabledBorderColor       = GlassBorder,
-    disabledLabelColor        = TextMuted,
+    unfocusedBorderColor      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+    focusedTextColor          = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor        = MaterialTheme.colorScheme.onSurface,
+    disabledTextColor         = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+    disabledBorderColor       = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+    disabledLabelColor        = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
     focusedLabelColor         = accent,
-    unfocusedLabelColor       = TextSecondary,
+    unfocusedLabelColor       = MaterialTheme.colorScheme.onSurfaceVariant,
     cursorColor               = accent,
-    focusedContainerColor     = DarkInput,
-    unfocusedContainerColor   = DarkInput,
-    disabledContainerColor    = DarkInput.copy(alpha = 0.6f),
+    focusedContainerColor     = MaterialTheme.colorScheme.surfaceVariant,
+    unfocusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
+    disabledContainerColor    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
     focusedLeadingIconColor   = accent,
-    unfocusedLeadingIconColor = TextSecondary,
-    disabledLeadingIconColor  = TextMuted,
+    unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    disabledLeadingIconColor  = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
     errorBorderColor          = error,
     errorLabelColor           = error,
     errorLeadingIconColor     = error,

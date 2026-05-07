@@ -49,6 +49,17 @@ class StorageService {
     return await _storage.read(key: 'full_name');
   }
 
+  // Clears session credentials only — base URL is intentionally preserved so
+  // the user lands on the login screen (not site setup) after signing out.
+  static Future<void> clearSession() async {
+    await _storage.delete(key: 'sid');
+    await _storage.delete(key: 'csrf_token');
+    await _storage.delete(key: 'full_name');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('crm_sid');
+    await prefs.remove('crm_csrf_token');
+  }
+
   static Future<void> clearAll() async {
     await _storage.deleteAll();
     final prefs = await SharedPreferences.getInstance();

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,14 +45,7 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 import kotlinx.coroutines.delay
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Dark glass palette
-// ─────────────────────────────────────────────────────────────────────────────
-private val DarkPillBg    = Color(0xFF1A2235)
-private val GlassBorder   = Color(0x1AFFFFFF) // White 10%
-private val DividerColor  = Color(0x14FFFFFF) // White 8%
-private val TextPrimary   = Color(0xFFF8FAFC)
-private val TextSecondary = Color(0xFF94A3B8)
+private val Red500 = Color(0xFFEF4444)
 
 @Composable
 fun MinimizedTopPill(
@@ -69,14 +64,20 @@ fun MinimizedTopPill(
             delay(800)
         }
     }
-    val dotAlpha by animateFloatAsState(targetValue = if (pulseState) 1f else 0.3f, animationSpec = tween(600), label = "pulse")
+    val dotAlpha by animateFloatAsState(
+        targetValue   = if (pulseState) 1f else 0.25f,
+        animationSpec = tween(600),
+        label         = "pulse",
+    )
+
+    val isDark = isSystemInDarkTheme()
 
     val (titleText, dotColor, badgeText) = when (state) {
-        is OverlayState.LoadingIdentity -> Triple("Identifying...", Color(0xFF60A5FA), "")
-        is OverlayState.UnknownCaller   -> Triple(state.phoneNumber, Color(0xFFF59E0B), "UNKNOWN")
+        is OverlayState.LoadingIdentity -> Triple("Identifying…",       Color(0xFF60A5FA), "")
+        is OverlayState.UnknownCaller   -> Triple(state.phoneNumber,     Color(0xFFF59E0B), "UNKNOWN")
         is OverlayState.KnownCaller     -> Triple(state.identity.displayName, Color(0xFF10B981), "CRM")
-        is OverlayState.PostCall        -> Triple("Call Ended", Color(0xFF64748B), "CLOSED")
-        else -> Triple("CRM Overlay", TextSecondary, "")
+        is OverlayState.PostCall        -> Triple("Call Ended",          Color(0xFF94A3B8), "ENDED")
+        else                            -> Triple("CRM Overlay",         Color(0xFF94A3B8), "")
     }
 
     Box(
@@ -94,33 +95,39 @@ fun MinimizedTopPill(
                 )
             }
             .shadow(
-                elevation    = 18.dp,
+                elevation    = 16.dp,
                 shape        = RoundedCornerShape(40.dp),
-                ambientColor = Color.Black.copy(alpha = 0.30f),
-                spotColor    = Color.Black.copy(alpha = 0.40f),
+                ambientColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.10f),
+                spotColor    = dotColor.copy(alpha = if (isDark) 0.20f else 0.08f),
             )
             .clip(RoundedCornerShape(40.dp))
-            .background(DarkPillBg)
-            .border(1.dp, GlassBorder, RoundedCornerShape(40.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.12f else 0.07f),
+                RoundedCornerShape(40.dp),
+            )
             .clickable(onClick = onExpand)
             .padding(end = 4.dp),
     ) {
-        // Specular highlight strip at top of pill
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp))
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.White.copy(alpha = 0.06f),
-                        0.4f to Color.Transparent,
-                    )
-                ),
-        )
+        // Subtle top specular in dark mode only
+        if (isDark) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            0f   to Color.White.copy(alpha = 0.06f),
+                            0.5f to Color.Transparent,
+                        )
+                    ),
+            )
+        }
 
         Row(
-            modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier              = Modifier.padding(start = 14.dp, top = 9.dp, bottom = 9.dp),
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
             // Pulsing status dot
@@ -134,66 +141,49 @@ fun MinimizedTopPill(
 
             Spacer(Modifier.width(10.dp))
 
-            // Main caller identity text
+            // Caller name / number
             Text(
                 text       = titleText,
-                color      = TextPrimary,
+                color      = MaterialTheme.colorScheme.onSurface,
                 fontSize   = 14.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 maxLines   = 1,
             )
 
             Spacer(Modifier.width(8.dp))
 
-            // Time or ringing
-            if (durationSecs > 0 || state is OverlayState.PostCall) {
-                Text(
-                    text       = SessionTimerManager.formatDuration(durationSecs),
-                    color      = TextSecondary,
-                    fontSize   = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.width(10.dp))
-            } else {
-                Text(
-                    text       = "Ringing…",
-                    color      = TextSecondary,
-                    fontSize   = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.width(10.dp))
+            // Timer or "Ringing"
+            val timerLabel = if (durationSecs > 0 || state is OverlayState.PostCall)
+                SessionTimerManager.formatDuration(durationSecs)
+            else
+                "Ringing…"
+
+            Text(
+                text       = timerLabel,
+                color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize   = 13.sp,
+                fontWeight = FontWeight.Medium,
+            )
+
+            Spacer(Modifier.width(10.dp))
+
+            // REC badge or type badge
+            when {
+                isRecording -> {
+                    PillBadge(label = "REC", color = Red500)
+                    Spacer(Modifier.width(8.dp))
+                }
+                badgeText.isNotBlank() -> {
+                    PillBadge(label = badgeText, color = dotColor)
+                    Spacer(Modifier.width(8.dp))
+                }
             }
 
-            // Badge: REC or type badge
-            if (isRecording) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFEF4444).copy(alpha = 0.15f))
-                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.30f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Text("REC", color = Color(0xFFEF4444), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.width(8.dp))
-            } else if (badgeText.isNotBlank()) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(dotColor.copy(alpha = 0.12f))
-                        .border(1.dp, dotColor.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    Text(badgeText, color = dotColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.width(8.dp))
-            }
-
-            // Vertical divider
+            // Vertical rule
             Box(
                 modifier = Modifier
                     .size(1.dp, 18.dp)
-                    .background(DividerColor),
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.12f else 0.07f)),
             )
 
             Spacer(Modifier.width(2.dp))
@@ -206,10 +196,28 @@ fun MinimizedTopPill(
                 Icon(
                     imageVector        = Icons.Default.Close,
                     contentDescription = "Close",
-                    tint               = TextSecondary,
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier           = Modifier.size(16.dp),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PillBadge(label: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = 0.12f))
+            .border(1.dp, color.copy(alpha = 0.28f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text       = label,
+            color      = color,
+            fontSize   = 10.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }

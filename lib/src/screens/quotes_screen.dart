@@ -3,29 +3,20 @@ import '../services/sales_service.dart';
 import '../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Public interface — lets MainShell trigger a data refresh cross-file.
+// ─────────────────────────────────────────────────────────────────────────────
+
+abstract class QuotesScreenController {
+  void refreshQuotes();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Brand tokens — always legible on the dark header
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _amber = Color(0xFFF59E0B);
 const _teal  = Color(0xFF14B8A6);
 const _slate = Color(0xFF94A3B8);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Mock data (used when API returns nothing)
-// ─────────────────────────────────────────────────────────────────────────────
-
-final _mockQuotes = [
-  Quotation(name: 'QTN-2024-00001', partyName: 'Ashan Perera',      grandTotal: 450000,   status: 'Draft',     modified: '2024-04-18'),
-  Quotation(name: 'QTN-2024-00002', partyName: 'TechCo Solutions',  grandTotal: 1200000,  status: 'Submitted', modified: '2024-04-17'),
-  Quotation(name: 'QTN-2024-00003', partyName: 'Sunset Interiors',  grandTotal: 185000,   status: 'Expired',   modified: '2024-04-14'),
-  Quotation(name: 'QTN-2024-00004', partyName: 'Nimal Silva',        grandTotal: 78500,    status: 'Draft',     modified: '2024-04-12'),
-];
-
-final _mockOrders = [
-  SalesOrder(name: 'SAL-ORD-2024-00001', customerName: 'TechCo Solutions', grandTotal: 1200000, status: 'To Deliver',  deliveryStatus: 'Not Delivered',   modified: '2024-04-16'),
-  SalesOrder(name: 'SAL-ORD-2024-00002', customerName: 'Ashan Perera',     grandTotal: 320000,  status: 'Completed',  deliveryStatus: 'Fully Delivered', modified: '2024-04-10'),
-  SalesOrder(name: 'SAL-ORD-2024-00003', customerName: 'Priya Fernando',   grandTotal: 95000,   status: 'Draft',      deliveryStatus: 'Not Delivered',   modified: '2024-04-08'),
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QuotesScreen
@@ -39,15 +30,20 @@ class QuotesScreen extends StatefulWidget {
 }
 
 class _QuotesScreenState extends State<QuotesScreen>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin
+    implements QuotesScreenController {
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void refreshQuotes() => _loadFromApi();
+
   late final TabController _tab;
 
-  List<Quotation>  _quotes  = List.of(_mockQuotes);
-  List<SalesOrder> _orders  = List.of(_mockOrders);
-  QuotesSummary    _summary = SalesService.summariseQuotes(_mockQuotes, _mockOrders);
+  // TEMP_DISABLE: mock fallback — restore List.of(_mockQuotes/_mockOrders) for dev
+  List<Quotation>  _quotes  = const [];
+  List<SalesOrder> _orders  = const [];
+  QuotesSummary    _summary = const QuotesSummary(totalQuotes: 0, draftQuotes: 0, openOrders: 0, totalValue: 0);
   bool _loading = false;
 
   @override
@@ -64,11 +60,26 @@ class _QuotesScreenState extends State<QuotesScreen>
   }
 
   Future<void> _openQuoteDetail(Quotation quote) async {
-    final refreshed = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<dynamic>(
       context:           context,
       isScrollControlled: true,
       backgroundColor:   Colors.transparent,
       builder:           (_) => _QuoteDetailSheet(quote: quote),
+    );
+    if (result == 'order') {
+      _tab.animateTo(1);
+      _loadFromApi();
+    } else if (result == true) {
+      _loadFromApi();
+    }
+  }
+
+  Future<void> _openOrderDetail(SalesOrder order) async {
+    final refreshed = await showModalBottomSheet<bool>(
+      context:            context,
+      isScrollControlled: true,
+      backgroundColor:    Colors.transparent,
+      builder:            (_) => _SODetailSheet(order: order),
     );
     if (refreshed == true) _loadFromApi();
   }
@@ -84,8 +95,9 @@ class _QuotesScreenState extends State<QuotesScreen>
       final quotes = results[0] as List<Quotation>;
       final orders = results[1] as List<SalesOrder>;
       setState(() {
-        _quotes  = quotes.isNotEmpty ? quotes : List.of(_mockQuotes);
-        _orders  = orders.isNotEmpty ? orders : List.of(_mockOrders);
+        // TEMP_DISABLE: mock fallback — restore ternaries with _mockQuotes/_mockOrders for dev
+        _quotes  = quotes;
+        _orders  = orders;
         _summary = SalesService.summariseQuotes(_quotes, _orders);
         _loading = false;
       });
@@ -116,7 +128,7 @@ class _QuotesScreenState extends State<QuotesScreen>
           controller: _tab,
           children: [
             _QuotesTab(quotes: _quotes, loading: _loading, onRetry: _loadFromApi, onTap: _openQuoteDetail),
-            _OrdersTab(orders: _orders, loading: _loading, onRetry: _loadFromApi),
+            _OrdersTab(orders: _orders, loading: _loading, onRetry: _loadFromApi, onTap: _openOrderDetail),
           ],
         ),
       ),
@@ -141,14 +153,17 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
+    final top    = MediaQuery.of(context).padding.top;
+    final isDark = context.isDark;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A1200), Color(0xFF0A0F1E), Color(0xFF001A1A)],
-          stops:  [0.0, 0.55, 1.0],
+          colors: isDark
+              ? [const Color(0xFF1A1200), const Color(0xFF0A0F1E), const Color(0xFF001A1A)]
+              : [const Color(0xFF78350F), const Color(0xFF92400E), const Color(0xFF451A03)],
+          stops:  const [0.0, 0.55, 1.0],
         ),
       ),
       child: Column(
@@ -165,14 +180,14 @@ class _Header extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color:  _amber.withValues(alpha: 0.18),
+                          color:  Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: _amber.withValues(alpha: 0.28)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                         ),
                         child: const Text(
                           'DOCUMENTS',
                           style: TextStyle(
-                            color: _amber, fontSize: 9,
+                            color: Colors.white, fontSize: 9,
                             fontWeight: FontWeight.w900, letterSpacing: 1.8,
                           ),
                         ),
@@ -190,7 +205,7 @@ class _Header extends StatelessWidget {
                       Text(
                         'Quotations · Sales Orders',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.45),
+                          color: Colors.white.withValues(alpha: 0.60),
                           fontSize: 13,
                         ),
                       ),
@@ -253,9 +268,9 @@ class _GlassStatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +288,7 @@ class _GlassStatCard extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.50),
+                color: Colors.white.withValues(alpha: 0.65),
                 fontSize: 10, fontWeight: FontWeight.w600,
               ),
             ),
@@ -294,11 +309,11 @@ class _GlassIconBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
       ),
-      child: Icon(icon, color: color, size: 22),
+      child: Icon(icon, color: Colors.white, size: 22),
     );
   }
 }
@@ -583,10 +598,16 @@ class _QuoteCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _OrdersTab extends StatelessWidget {
-  final List<SalesOrder> orders;
-  final bool             loading;
-  final VoidCallback     onRetry;
-  const _OrdersTab({required this.orders, required this.loading, required this.onRetry});
+  final List<SalesOrder>          orders;
+  final bool                      loading;
+  final VoidCallback              onRetry;
+  final void Function(SalesOrder) onTap;
+  const _OrdersTab({
+    required this.orders,
+    required this.loading,
+    required this.onRetry,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -606,7 +627,7 @@ class _OrdersTab extends StatelessWidget {
       child: ListView.builder(
         padding:     const EdgeInsets.fromLTRB(16, 12, 16, 120),
         itemCount:   orders.length,
-        itemBuilder: (_, i) => _OrderCard(order: orders[i]),
+        itemBuilder: (_, i) => _OrderCard(order: orders[i], onTap: onTap),
       ),
     );
   }
@@ -617,8 +638,9 @@ class _OrdersTab extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _OrderCard extends StatelessWidget {
-  final SalesOrder order;
-  const _OrderCard({required this.order});
+  final SalesOrder                order;
+  final void Function(SalesOrder) onTap;
+  const _OrderCard({required this.order, required this.onTap});
 
   static const _statusColors = {
     'Draft':      Color(0xFF94A3B8),
@@ -650,105 +672,109 @@ class _OrderCard extends StatelessWidget {
     final ac     = context.ac;
     final isDark = context.isDark;
     final color  = _color;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDark ? null : ac.bgCard,
-        gradient: isDark
-            ? const LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF1A2235), Color(0xFF0D1526)],
-              )
-            : null,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.07)
-              : ac.border,
-        ),
-        boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.10), blurRadius: 20, offset: const Offset(0, 6)),
-          BoxShadow(
-            color:      Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-            blurRadius: 12, offset: const Offset(0, 3),
+    return GestureDetector(
+      onTap: () => onTap(order),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: isDark ? null : ac.bgCard,
+          gradient: isDark
+              ? const LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFF1A2235), Color(0xFF0D1526)],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.07)
+                : ac.border,
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Specular highlight
-          Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                Colors.transparent,
-                Colors.white.withValues(alpha: isDark ? 0.12 : 0.40),
-                Colors.transparent,
-              ]),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(color: color.withValues(alpha: 0.10), blurRadius: 20, offset: const Offset(0, 6)),
+            BoxShadow(
+              color:      Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 12, offset: const Offset(0, 3),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Row(
-              children: [
-                _GlassAvatar(initials: order.initials, color: color),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        order.customerName,
-                        style: TextStyle(
-                          color: ac.textPrimary, fontSize: 15,
-                          fontWeight: FontWeight.w700, letterSpacing: -0.3,
-                        ),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        order.name,
-                        style: TextStyle(
-                          color: ac.textTertiary, fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(children: [
-                        _GlassChip(label: order.status, color: color),
-                        const SizedBox(width: 6),
-                        if (order.deliveryStatus.isNotEmpty)
-                          _GlassChip(label: order.deliveryStatus, color: _dColor),
-                        const Spacer(),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Specular highlight
+            Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  Colors.transparent,
+                  Colors.white.withValues(alpha: isDark ? 0.12 : 0.40),
+                  Colors.transparent,
+                ]),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              child: Row(
+                children: [
+                  _GlassAvatar(initials: order.initials, color: color),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          _fmt(order.grandTotal),
-                          style: const TextStyle(
-                            color: _teal, fontSize: 15,
-                            fontWeight: FontWeight.w800, letterSpacing: -0.4,
+                          order.customerName,
+                          style: TextStyle(
+                            color: ac.textPrimary, fontSize: 15,
+                            fontWeight: FontWeight.w700, letterSpacing: -0.3,
+                          ),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          order.name,
+                          style: TextStyle(
+                            color: ac.textTertiary, fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ]),
-                      if (order.modified.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Row(children: [
-                          Icon(Icons.access_time_rounded, size: 11, color: ac.textTertiary),
-                          const SizedBox(width: 4),
+                          _GlassChip(label: order.status, color: color),
+                          const SizedBox(width: 6),
+                          if (order.deliveryStatus.isNotEmpty)
+                            _GlassChip(label: order.deliveryStatus, color: _dColor),
+                          const Spacer(),
                           Text(
-                            order.modified.length >= 10
-                                ? order.modified.substring(0, 10)
-                                : order.modified,
-                            style: TextStyle(color: ac.textTertiary, fontSize: 11),
+                            _fmt(order.grandTotal),
+                            style: const TextStyle(
+                              color: _teal, fontSize: 15,
+                              fontWeight: FontWeight.w800, letterSpacing: -0.4,
+                            ),
                           ),
                         ]),
+                        if (order.modified.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(children: [
+                            Icon(Icons.access_time_rounded, size: 11, color: ac.textTertiary),
+                            const SizedBox(width: 4),
+                            Text(
+                              order.modified.length >= 10
+                                  ? order.modified.substring(0, 10)
+                                  : order.modified,
+                              style: TextStyle(color: ac.textTertiary, fontSize: 11),
+                            ),
+                          ]),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  Icon(Icons.chevron_right_rounded, color: ac.textTertiary, size: 18),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -868,6 +894,30 @@ class _QuoteDetailSheetState extends State<_QuoteDetailSheet> {
     } catch (e) {
       if (!mounted) return;
       _showSnack('Cancel failed: $e');
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  Future<void> _makeSalesOrder() async {
+    final d = _detail;
+    if (d == null) return;
+    final confirmed = await _confirm(
+      title: 'Create Sales Order?',
+      body:  'This will convert ${d.name} into a confirmed Sales Order.',
+      label: 'Create Order',
+      color: const Color(0xFF10B981),
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _acting = true);
+    try {
+      final soName = await SalesServiceOps.makeSOFromQuotation(d.name);
+      if (!mounted) return;
+      _showSnack('Sales Order created: $soName', isError: false);
+      Navigator.pop(context, 'order');
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Failed: ${e.toString().replaceFirst("Exception: ", "")}');
     } finally {
       if (mounted) setState(() => _acting = false);
     }
@@ -1186,6 +1236,15 @@ class _QuoteDetailSheetState extends State<_QuoteDetailSheet> {
                 onTap:   _submit,
               ),
             ],
+            if (d.isSubmitted) ...[
+              const SizedBox(height: 10),
+              _ActionButton(
+                label:  'Make Sales Order',
+                icon:   Icons.shopping_cart_checkout_rounded,
+                color:  const Color(0xFF10B981),
+                onTap:  _makeSalesOrder,
+              ),
+            ],
             if (canCancel) ...[
               const SizedBox(height: 10),
               _ActionButton(
@@ -1201,6 +1260,422 @@ class _QuoteDetailSheetState extends State<_QuoteDetailSheet> {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sales Order detail sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SODetailSheet extends StatefulWidget {
+  final SalesOrder order;
+  const _SODetailSheet({required this.order});
+
+  @override
+  State<_SODetailSheet> createState() => _SODetailSheetState();
+}
+
+class _SODetailSheetState extends State<_SODetailSheet> {
+  SalesOrderDetail? _detail;
+  bool   _loadingDetail = true;
+  bool   _acting        = false;
+  String _error         = '';
+
+  static const _statusColors = {
+    'Draft':      Color(0xFF94A3B8),
+    'To Deliver': Color(0xFF6366F1),
+    'To Bill':    Color(0xFFF59E0B),
+    'Completed':  Color(0xFF10B981),
+    'Cancelled':  Color(0xFFEF4444),
+  };
+  static const _deliveryColors = {
+    'Not Delivered':    Color(0xFF94A3B8),
+    'Partly Delivered': Color(0xFFF59E0B),
+    'Fully Delivered':  Color(0xFF10B981),
+  };
+  static const _billingColors = {
+    'Not Billed':    Color(0xFF94A3B8),
+    'Partly Billed': Color(0xFFF59E0B),
+    'Fully Billed':  Color(0xFF10B981),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDetail();
+  }
+
+  Future<void> _fetchDetail() async {
+    setState(() { _loadingDetail = true; _error = ''; });
+    try {
+      final d = await SalesServiceOps.getSalesOrderDetail(widget.order.name);
+      if (!mounted) return;
+      setState(() { _detail = d; _loadingDetail = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loadingDetail = false; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _submit() async {
+    final d = _detail;
+    if (d == null) return;
+    final confirmed = await _confirm(
+      title: 'Confirm Sales Order?',
+      body:  'Submit ${d.name} to confirm this sales order with the customer.',
+      label: 'Confirm',
+      color: const Color(0xFF10B981),
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _acting = true);
+    try {
+      await SalesServiceOps.submitSalesOrder(d.name);
+      if (!mounted) return;
+      _showSnack('Sales Order confirmed', isError: false);
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Failed: ${e.toString().replaceFirst("Exception: ", "")}');
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  Future<void> _cancel() async {
+    final d = _detail;
+    if (d == null) return;
+    final confirmed = await _confirm(
+      title: 'Cancel Sales Order?',
+      body:  'This will cancel ${d.name}. This action cannot be undone.',
+      label: 'Cancel Order',
+      color: const Color(0xFFEF4444),
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _acting = true);
+    try {
+      await SalesServiceOps.cancelSalesOrder(d.name);
+      if (!mounted) return;
+      _showSnack('Sales Order cancelled', isError: false);
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Failed: ${e.toString().replaceFirst("Exception: ", "")}');
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String body,
+    required String label,
+    required Color  color,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _ConfirmDialog(
+        title: title, body: body, confirmLabel: label, confirmColor: color,
+        onCancel:  () => Navigator.pop(ctx, false),
+        onConfirm: () => Navigator.pop(ctx, true),
+      ),
+    );
+    return result == true;
+  }
+
+  void _showSnack(String msg, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content:         Text(msg),
+      backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+      behavior:        SnackBarBehavior.floating,
+      shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin:          const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    ));
+  }
+
+  String _fmt(double v, {String? currency}) {
+    if (v == 0) return '—';
+    final c = currency ?? _detail?.currency ?? 'Rs.';
+    if (v >= 10000000) return '$c ${(v / 10000000).toStringAsFixed(1)}Cr';
+    if (v >= 100000)   return '$c ${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000)     return '$c ${(v / 1000).toStringAsFixed(0)}K';
+    return '$c ${v.toStringAsFixed(0)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    final bottom = MediaQuery.of(context).viewInsets.bottom +
+        MediaQuery.of(context).padding.bottom;
+    final maxH   = MediaQuery.of(context).size.height * 0.88;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : ac.border,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 6),
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : Colors.black.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Flexible(
+            child: _loadingDetail
+                ? _buildLoading()
+                : _error.isNotEmpty
+                    ? _buildError()
+                    : _buildContent(ac, isDark, bottom),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoading() => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 60),
+    child: Center(child: CircularProgressIndicator(color: _teal, strokeWidth: 2.5)),
+  );
+
+  Widget _buildError() => Padding(
+    padding: const EdgeInsets.all(32),
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.error_outline_rounded, color: context.ac.textTertiary, size: 40),
+      const SizedBox(height: 14),
+      Text('Could not load sales order', style: TextStyle(color: context.ac.textPrimary, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 6),
+      Text(_error, style: TextStyle(color: context.ac.textSecondary, fontSize: 12), textAlign: TextAlign.center),
+      const SizedBox(height: 20),
+      GestureDetector(
+        onTap: _fetchDetail,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+          decoration: BoxDecoration(
+            color: _teal.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _teal.withValues(alpha: 0.30)),
+          ),
+          child: const Text('Retry', style: TextStyle(color: _teal, fontWeight: FontWeight.w600)),
+        ),
+      ),
+    ]),
+  );
+
+  Widget _buildContent(AdaptiveColors ac, bool isDark, double bottomInset) {
+    final d           = _detail!;
+    final statusColor = _statusColors[d.status] ?? _slate;
+    final dColor      = _deliveryColors[d.deliveryStatus] ?? _slate;
+    final bColor      = _billingColors[d.billingStatus] ?? _slate;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + bottomInset),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──────────────────────────────────────────────────────
+          Row(children: [
+            _GlassAvatar(initials: d.initials, color: statusColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(d.customerName,
+                    style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.4),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 3),
+                Row(children: [
+                  _GlassChip(label: d.status, color: statusColor),
+                  const SizedBox(width: 6),
+                  Text(d.name, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                ]),
+              ]),
+            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(_fmt(d.grandTotal),
+                  style: const TextStyle(color: _teal, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+              Text(d.currency, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+            ]),
+          ]),
+
+          const SizedBox(height: 18),
+
+          // ── Status chips ─────────────────────────────────────────────────
+          if (d.deliveryStatus.isNotEmpty || d.billingStatus.isNotEmpty)
+            Wrap(spacing: 8, runSpacing: 6, children: [
+              if (d.deliveryStatus.isNotEmpty)
+                _GlassChip(label: 'Delivery: ${d.deliveryStatus}', color: dColor),
+              if (d.billingStatus.isNotEmpty)
+                _GlassChip(label: 'Billing: ${d.billingStatus}', color: bColor),
+            ]),
+
+          const SizedBox(height: 18),
+
+          // ── Details row ──────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color:        isDark ? const Color(0xFF1A2235) : ac.bgCard,
+              borderRadius: BorderRadius.circular(16),
+              border:       Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
+            ),
+            child: Column(children: [
+              if (d.transactionDate.isNotEmpty)
+                _DetailRow(
+                  icon:  Icons.calendar_today_rounded,
+                  label: 'Order Date',
+                  value: d.transactionDate.length >= 10 ? d.transactionDate.substring(0, 10) : d.transactionDate,
+                  ac:    ac,
+                ),
+              if (d.deliveryDate.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _DetailRow(
+                  icon:  Icons.local_shipping_outlined,
+                  label: 'Delivery Date',
+                  value: d.deliveryDate.length >= 10 ? d.deliveryDate.substring(0, 10) : d.deliveryDate,
+                  ac:    ac,
+                ),
+              ],
+              const SizedBox(height: 10),
+              _DetailRow(
+                icon:  Icons.currency_exchange_rounded,
+                label: 'Currency',
+                value: d.currency,
+                ac:    ac,
+              ),
+            ]),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Line items ───────────────────────────────────────────────────
+          if (d.items.isNotEmpty) ...[
+            _SectionHeader(label: 'LINE ITEMS', ac: ac),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color:        isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                borderRadius: BorderRadius.circular(16),
+                border:       Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
+              ),
+              child: Column(
+                children: d.items.asMap().entries.map((e) {
+                  final i    = e.key;
+                  final item = e.value;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      border: i < d.items.length - 1
+                          ? Border(bottom: BorderSide(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.06)
+                                  : ac.borderLight,
+                            ))
+                          : null,
+                    ),
+                    child: Row(children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(item.itemName.isNotEmpty ? item.itemName : item.itemCode,
+                              style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          if (item.itemCode.isNotEmpty && item.itemName.isNotEmpty)
+                            Text(item.itemCode, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                        ]),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(_fmt(item.amount),
+                            style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
+                        Text('${item.qty.toStringAsFixed(item.qty % 1 == 0 ? 0 : 1)} × ${_fmt(item.rate)}',
+                            style: TextStyle(color: ac.textTertiary, fontSize: 10)),
+                      ]),
+                    ]),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Grand total row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(children: [
+                Text('GRAND TOTAL', style: TextStyle(color: ac.textTertiary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                const Spacer(),
+                Text(_fmt(d.grandTotal),
+                    style: const TextStyle(color: _teal, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+              ]),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // ── Actions ──────────────────────────────────────────────────────
+          if (_acting)
+            const Center(child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: CircularProgressIndicator(color: _teal, strokeWidth: 2.5),
+            ))
+          else ...[
+            if (d.isDraft) ...[
+              _ActionButton(
+                label:  'Confirm Sales Order',
+                icon:   Icons.check_circle_outline_rounded,
+                color:  const Color(0xFF10B981),
+                onTap:  _submit,
+              ),
+              const SizedBox(height: 10),
+              _ActionButton(
+                label:    'Cancel Order',
+                icon:     Icons.cancel_outlined,
+                color:    const Color(0xFFEF4444),
+                outlined: true,
+                onTap:    _cancel,
+              ),
+            ] else if (d.isSubmitted) ...[
+              _ActionButton(
+                label:    'Cancel Order',
+                icon:     Icons.cancel_outlined,
+                color:    const Color(0xFFEF4444),
+                outlined: true,
+                onTap:    _cancel,
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final String   value;
+  final AdaptiveColors ac;
+  const _DetailRow({required this.icon, required this.label, required this.value, required this.ac});
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Icon(icon, size: 15, color: ac.textSecondary),
+    const SizedBox(width: 10),
+    Text(label, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+    const Spacer(),
+    Text(value, style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+  ]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

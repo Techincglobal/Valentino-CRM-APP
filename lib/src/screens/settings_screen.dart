@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import 'login_screen.dart';
 import 'site_setup_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,16 +104,23 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _pickTime({required bool isStart}) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final picked = await showTimePicker(
       context:     context,
       initialTime: isStart ? _officeStart : _officeEnd,
       builder:     (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary:   _indigo,
-            surface:   const Color(0xFF1A2235),
-            onSurface: Colors.white,
-          ),
+          colorScheme: isDark
+              ? ColorScheme.dark(
+                  primary:   _indigo,
+                  surface:   const Color(0xFF1A2235),
+                  onSurface: Colors.white,
+                )
+              : ColorScheme.light(
+                  primary:   _indigo,
+                  surface:   Colors.white,
+                  onSurface: const Color(0xFF0F172A),
+                ),
         ),
         child: child!,
       ),
@@ -156,10 +164,10 @@ class _SettingsScreenState extends State<SettingsScreen>
       ),
     );
     if (confirmed != true || !mounted) return;
-    await StorageService.clearAll();
+    await StorageService.clearSession();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const SiteSetupScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,
     );
   }
@@ -360,13 +368,16 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0D1240), Color(0xFF0A0F1E), Color(0xFF14102E)],
-          stops: [0.0, 0.55, 1.0],
+          colors: isDark
+              ? [const Color(0xFF0D1240), const Color(0xFF0A0F1E), const Color(0xFF14102E)]
+              : [const Color(0xFF3730A3), const Color(0xFF4F46E5), const Color(0xFF6366F1)],
+          stops: const [0.0, 0.55, 1.0],
         ),
       ),
       child: Padding(
@@ -381,12 +392,12 @@ class _ProfileHeader extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: _violet.withValues(alpha: 0.18),
+                    color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _violet.withValues(alpha: 0.28)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
                   ),
                   child: const Text('ACCOUNT',
-                      style: TextStyle(color: _violet, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
+                      style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
                 ),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),

@@ -233,6 +233,9 @@ class SalesOrder {
   final double grandTotal;
   final String status;
   final String deliveryStatus;
+  final String billingStatus;
+  final String currency;
+  final String transactionDate;
   final String modified;
 
   const SalesOrder({
@@ -241,18 +244,24 @@ class SalesOrder {
     required this.grandTotal,
     required this.status,
     required this.deliveryStatus,
+    this.billingStatus    = '',
+    this.currency         = 'LKR',
+    this.transactionDate  = '',
     required this.modified,
   });
 
   factory SalesOrder.fromJson(Map<String, dynamic> j) => SalesOrder(
-        name:           j['name'] as String? ?? '',
-        customerName:   (j['customer_name'] as String?)?.trim().isNotEmpty == true
+        name:            j['name'] as String? ?? '',
+        customerName:    (j['customer_name'] as String?)?.trim().isNotEmpty == true
             ? j['customer_name'] as String
             : 'Unknown',
-        grandTotal:     ((j['grand_total'] ?? 0) as num).toDouble(),
-        status:         j['status'] as String? ?? 'Draft',
-        deliveryStatus: j['delivery_status'] as String? ?? '',
-        modified:       j['modified'] as String? ?? '',
+        grandTotal:      ((j['grand_total'] ?? 0) as num).toDouble(),
+        status:          j['status'] as String? ?? 'Draft',
+        deliveryStatus:  j['delivery_status'] as String? ?? '',
+        billingStatus:   j['billing_status'] as String? ?? '',
+        currency:        j['currency'] as String? ?? 'LKR',
+        transactionDate: j['transaction_date'] as String? ?? '',
+        modified:        j['modified'] as String? ?? '',
       );
 
   String get initials {
@@ -260,6 +269,54 @@ class SalesOrder {
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+}
+
+class SalesOrderDetail extends SalesOrder {
+  final int    docstatus;
+  final String deliveryDate;
+  final List<QuotationItem> items;
+
+  const SalesOrderDetail({
+    required super.name,
+    required super.customerName,
+    required super.grandTotal,
+    required super.status,
+    required super.deliveryStatus,
+    required super.billingStatus,
+    required super.currency,
+    required super.transactionDate,
+    required super.modified,
+    required this.docstatus,
+    this.deliveryDate = '',
+    required this.items,
+  });
+
+  bool get isDraft     => docstatus == 0;
+  bool get isSubmitted => docstatus == 1;
+  bool get isCancelled => docstatus == 2;
+
+  factory SalesOrderDetail.fromJson(Map<String, dynamic> j) {
+    final rawItems = (j['items'] as List?) ?? [];
+    return SalesOrderDetail(
+      name:            j['name'] as String? ?? '',
+      customerName:    (j['customer_name'] as String?)?.trim().isNotEmpty == true
+          ? j['customer_name'] as String
+          : 'Unknown',
+      grandTotal:      ((j['grand_total'] ?? j['net_total'] ?? 0) as num).toDouble(),
+      status:          j['status'] as String? ?? 'Draft',
+      deliveryStatus:  j['delivery_status'] as String? ?? '',
+      billingStatus:   j['billing_status'] as String? ?? '',
+      currency:        j['currency'] as String? ?? 'LKR',
+      transactionDate: j['transaction_date'] as String? ?? '',
+      modified:        j['modified'] as String? ?? '',
+      docstatus:       (j['docstatus'] as int?) ?? 0,
+      deliveryDate:    j['delivery_date'] as String? ?? '',
+      items:           rawItems
+          .whereType<Map<String, dynamic>>()
+          .map(QuotationItem.fromJson)
+          .toList(),
+    );
   }
 }
 
@@ -292,7 +349,7 @@ class SalesService {
       '["name","customer_name","party_name","grand_total","net_total","status","modified","currency"]';
 
   static const _orderFields =
-      '["name","customer_name","grand_total","status","delivery_status","modified"]';
+      '["name","customer_name","grand_total","status","delivery_status","billing_status","currency","transaction_date","modified"]';
 
   /// Fetch open opportunities from Frappe (latest 50, newest first).
   static Future<List<Opportunity>> getOpportunities() async {
@@ -387,17 +444,21 @@ class SalesService {
     String note = '',
     String currency = 'LKR',
     List<Map<String, dynamic>> items = const [],
+    String sellingPriceList = '',
+    String validTill = '',
   }) async {
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.create_quotation',
       {
-        'lead_docname': leadDocname,
-        'party_type':   partyType,
-        'subject':      subject,
-        'amount':       amount,
-        'note':         note,
-        'currency':     currency,
-        'items':        items,
+        'lead_docname':        leadDocname,
+        'party_type':          partyType,
+        'subject':             subject,
+        'amount':              amount,
+        'note':                note,
+        'currency':            currency,
+        'items':               items,
+        'selling_price_list':  sellingPriceList,
+        'valid_till':          validTill,
       },
     );
     if (resp.statusCode != 200) {
@@ -615,6 +676,56 @@ class SalesServiceOps {
       return QuotationDefaults.fromJson(msg);
     } catch (_) {
       return QuotationDefaults.empty;
+    }
+  }
+
+  /// Convert a submitted Quotation into a Draft Sales Order; returns the new SO docname.
+  static Future<String> makeSOFromQuotation(String quotationName) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.make_sales_order',
+      {'quotation_name': quotationName},
+    );
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to create sales order (${resp.statusCode})'));
+    }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final msg  = body['message'] as Map<String, dynamic>? ?? {};
+    return msg['name'] as String? ?? '';
+  }
+
+  /// Fetch full Sales Order detail including line items.
+  static Future<SalesOrderDetail> getSalesOrderDetail(String name) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.get_sales_order_detail',
+      {'sales_order_name': name},
+    );
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to load sales order (${resp.statusCode})'));
+    }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final msg  = body['message'] as Map<String, dynamic>? ?? {};
+    return SalesOrderDetail.fromJson(msg);
+  }
+
+  /// Submit a Draft Sales Order (docstatus 0 → 1).
+  static Future<void> submitSalesOrder(String name) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.submit_sales_order',
+      {'sales_order_name': name},
+    );
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to submit sales order (${resp.statusCode})'));
+    }
+  }
+
+  /// Cancel a submitted Sales Order (docstatus 1 → 2).
+  static Future<void> cancelSalesOrder(String name) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.cancel_sales_order',
+      {'sales_order_name': name},
+    );
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to cancel sales order (${resp.statusCode})'));
     }
   }
 

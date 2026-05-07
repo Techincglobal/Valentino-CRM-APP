@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,18 +18,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -41,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -53,21 +58,11 @@ import com.example.crm_caller_nxtgen.overlay.domain.CallPhase
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Dark glass palette
-// ─────────────────────────────────────────────────────────────────────────────
-private val Indigo500     = Color(0xFF6366F1)
-private val Blue400       = Color(0xFF60A5FA)
-private val Emerald500    = Color(0xFF10B981)
-private val Amber500      = Color(0xFFF59E0B)
-private val Red500        = Color(0xFFEF4444)
-private val TextPrimary   = Color(0xFFF8FAFC)
-private val TextSecondary = Color(0xFF94A3B8)
-private val TextMuted     = Color(0xFF64748B)
-private val DarkInput     = Color(0xFF1E293B)
-private val DarkCard      = Color(0xFF243044)  // Slightly lighter card for forms
-private val GlassBorder   = Color(0x1AFFFFFF)  // White 10%
-private val DividerColor  = Color(0x14FFFFFF)  // White 8%
+private val Indigo500  = Color(0xFF6366F1)
+private val Blue400    = Color(0xFF60A5FA)
+private val Emerald500 = Color(0xFF10B981)
+private val Amber500   = Color(0xFFF59E0B)
+private val Red500     = Color(0xFFEF4444)
 
 @Composable
 fun KnownContactDashboard(
@@ -77,40 +72,49 @@ fun KnownContactDashboard(
     isRecording: Boolean,
     onEvent: (OverlayEvent) -> Unit,
 ) {
+    val isDark = isSystemInDarkTheme()
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-        // Read-only contact card
-        ContactReadOnlyCard(identity)
+        ContactReadOnlyCard(identity, isDark)
 
         // Call-ended banner
         if (callPhase == CallPhase.ENDED) {
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Emerald500.copy(alpha = 0.08f))
-                    .border(1.dp, Emerald500.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .background(Emerald500.copy(alpha = if (isDark) 0.08f else 0.06f))
+                    .border(1.dp, Emerald500.copy(alpha = 0.22f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(Emerald500),
+                )
                 Text(
-                    text       = "Call ended — you can still take actions below",
+                    text       = "Call ended — actions still available",
                     color      = Emerald500,
-                    fontSize   = 11.sp,
+                    fontSize   = 12.sp,
                     fontWeight = FontWeight.Medium,
                 )
             }
         }
 
-        // Quick Actions label
+        // Quick actions header
         Text(
             text          = "QUICK ACTIONS",
-            color         = TextMuted,
+            color         = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
             fontSize      = 10.sp,
-            fontWeight    = FontWeight.Bold,
-            letterSpacing = 1.sp,
+            fontWeight    = FontWeight.ExtraBold,
+            letterSpacing = 1.2.sp,
         )
 
-        // Quick action row
+        // Action cards
         Row(
             modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -119,6 +123,7 @@ fun KnownContactDashboard(
                 label       = "Opportunity",
                 icon        = Icons.Default.CheckCircle,
                 accentColor = Indigo500,
+                isDark      = isDark,
                 modifier    = Modifier.weight(1f),
                 onClick     = { onEvent(OverlayEvent.OpenOpportunityForm) },
             )
@@ -126,6 +131,7 @@ fun KnownContactDashboard(
                 label       = "Add Note",
                 icon        = Icons.Default.Edit,
                 accentColor = Emerald500,
+                isDark      = isDark,
                 modifier    = Modifier.weight(1f),
                 onClick     = { onEvent(OverlayEvent.OpenAddNoteForm) },
             )
@@ -133,6 +139,7 @@ fun KnownContactDashboard(
                 label       = "Quote",
                 icon        = Icons.Default.Receipt,
                 accentColor = Amber500,
+                isDark      = isDark,
                 modifier    = Modifier.weight(1f),
                 onClick     = { onEvent(OverlayEvent.OpenQuoteForm) },
             )
@@ -141,10 +148,11 @@ fun KnownContactDashboard(
         // Inline expanded forms
         AnimatedVisibility(
             visible = activeSheet == ActiveSheet.OPPORTUNITY,
-            enter   = fadeIn(tween(100)),
-            exit    = fadeOut(tween(100)),
+            enter   = fadeIn(tween(120)),
+            exit    = fadeOut(tween(120)),
         ) {
             OpportunityForm(
+                isDark   = isDark,
                 onCancel = { onEvent(OverlayEvent.CancelSheet) },
                 onSubmit = { value, stage, note ->
                     onEvent(OverlayEvent.SubmitOpportunity(value, stage, note))
@@ -154,10 +162,11 @@ fun KnownContactDashboard(
 
         AnimatedVisibility(
             visible = activeSheet == ActiveSheet.ADD_NOTE,
-            enter   = fadeIn(tween(100)),
-            exit    = fadeOut(tween(100)),
+            enter   = fadeIn(tween(120)),
+            exit    = fadeOut(tween(120)),
         ) {
             AddNoteInlineForm(
+                isDark   = isDark,
                 onCancel = { onEvent(OverlayEvent.CancelSheet) },
                 onSubmit = { note -> onEvent(OverlayEvent.SubmitNote(note)) },
             )
@@ -165,11 +174,12 @@ fun KnownContactDashboard(
 
         AnimatedVisibility(
             visible = activeSheet == ActiveSheet.QUOTE,
-            enter   = fadeIn(tween(100)),
-            exit    = fadeOut(tween(100)),
+            enter   = fadeIn(tween(120)),
+            exit    = fadeOut(tween(120)),
         ) {
             QuoteForm(
                 callerName = identity.displayName,
+                isDark     = isDark,
                 onCancel   = { onEvent(OverlayEvent.CancelSheet) },
                 onSubmit   = { subject, amount, note ->
                     onEvent(OverlayEvent.SubmitQuote(subject, amount, note))
@@ -177,7 +187,10 @@ fun KnownContactDashboard(
             )
         }
 
-        HorizontalDivider(color = DividerColor, thickness = 1.dp)
+        HorizontalDivider(
+            color     = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f),
+            thickness = 1.dp,
+        )
 
         // Record toggle
         RecordToggleButton(
@@ -190,16 +203,16 @@ fun KnownContactDashboard(
             onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .border(1.dp, Red500.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
+                .height(46.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Red500),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Red500.copy(alpha = 0.35f)),
             shape  = RoundedCornerShape(12.dp),
         ) {
             Icon(
                 imageVector        = Icons.Default.Warning,
                 contentDescription = null,
                 tint               = Red500,
-                modifier           = Modifier.size(16.dp),
+                modifier           = Modifier.size(15.dp),
             )
             Spacer(Modifier.width(8.dp))
             Text(
@@ -221,11 +234,11 @@ fun KnownContactDashboard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Read-only contact card — dark glass
+// Contact info card
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ContactReadOnlyCard(identity: CallerIdentity) {
+private fun ContactReadOnlyCard(identity: CallerIdentity, isDark: Boolean) {
     if (identity is CallerIdentity.Unknown) return
 
     val email = when (identity) {
@@ -244,100 +257,114 @@ private fun ContactReadOnlyCard(identity: CallerIdentity) {
         else -> ""
     }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(DarkInput)
-            .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f),
+                RoundedCornerShape(16.dp),
+            )
             .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        // Name row
+        Text(
+            text       = identity.displayName,
+            color      = MaterialTheme.colorScheme.onSurface,
+            fontSize   = 16.sp,
+            fontWeight = FontWeight.Bold,
+        )
+
+        // Contact detail rows
+        if (phone.isNotBlank()) {
             Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Phone,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier           = Modifier.size(13.dp),
+                )
+                Text(
+                    text     = phone,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+            }
+        }
+        if (email.isNotBlank()) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Email,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier           = Modifier.size(13.dp),
+                )
+                Text(
+                    text     = email,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                )
+            }
+        }
+
+        // Last note amber banner
+        if (latestNote.isNotBlank()) {
+            HorizontalDivider(
+                color     = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.07f else 0.05f),
+                thickness = 1.dp,
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Amber500.copy(alpha = if (isDark) 0.08f else 0.05f))
+                    .border(1.dp, Amber500.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 11.dp, vertical = 9.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text       = identity.displayName,
-                    color      = TextPrimary,
-                    fontSize   = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier   = Modifier.weight(1f),
+                    text          = "LAST NOTE",
+                    color         = Amber500,
+                    fontSize      = 9.sp,
+                    fontWeight    = FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp,
                 )
-                Row(
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    Icon(
-                        imageVector        = Icons.Default.Lock,
-                        contentDescription = null,
-                        tint               = TextMuted,
-                        modifier           = Modifier.size(11.dp),
-                    )
-                    Text("Edit in app", color = TextMuted, fontSize = 10.sp)
-                }
-            }
-            if (email.isNotBlank()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Email", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text(email, color = TextSecondary, fontSize = 11.sp)
-                }
-            }
-            if (phone.isNotBlank()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Phone", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text(phone, color = TextSecondary, fontSize = 11.sp)
-                }
-            }
-
-            // Last note banner — shown when a teammate has already left a note for this contact
-            if (latestNote.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Amber500.copy(alpha = 0.07f))
-                        .border(1.dp, Amber500.copy(alpha = 0.28f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            text          = "LAST NOTE",
-                            color         = Amber500,
-                            fontSize      = 9.sp,
-                            fontWeight    = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
-                        )
-                        Text(
-                            text       = latestNote,
-                            color      = TextPrimary,
-                            fontSize   = 12.sp,
-                            maxLines   = 3,
-                            lineHeight = 17.sp,
-                        )
-                    }
-                }
+                Text(
+                    text       = latestNote,
+                    color      = MaterialTheme.colorScheme.onSurface,
+                    fontSize   = 12.sp,
+                    maxLines   = 3,
+                    lineHeight = 17.sp,
+                )
             }
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inline forms — dark glass
+// Inline forms
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AddNoteInlineForm(onCancel: () -> Unit, onSubmit: (String) -> Unit) {
+private fun AddNoteInlineForm(isDark: Boolean, onCancel: () -> Unit, onSubmit: (String) -> Unit) {
     var note by remember { mutableStateOf("") }
     val fc = darkFieldColors(Emerald500)
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkCard)
-            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f), RoundedCornerShape(14.dp))
             .padding(14.dp),
     ) {
         FormHeader("Add Note", onCancel)
@@ -357,7 +384,7 @@ private fun AddNoteInlineForm(onCancel: () -> Unit, onSubmit: (String) -> Unit) 
             enabled  = note.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
                 containerColor         = Emerald500,
-                disabledContainerColor = Emerald500.copy(alpha = 0.35f),
+                disabledContainerColor = Emerald500.copy(alpha = 0.30f),
             ),
             shape = RoundedCornerShape(10.dp),
         ) { Text("Save Note", color = Color.White, fontWeight = FontWeight.Bold) }
@@ -365,7 +392,7 @@ private fun AddNoteInlineForm(onCancel: () -> Unit, onSubmit: (String) -> Unit) 
 }
 
 @Composable
-private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, String) -> Unit) {
+private fun OpportunityForm(isDark: Boolean, onCancel: () -> Unit, onSubmit: (Double, String, String) -> Unit) {
     var expectedValue by remember { mutableStateOf("") }
     var stage         by remember { mutableStateOf("Prospecting") }
     var note          by remember { mutableStateOf("") }
@@ -375,28 +402,39 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkCard)
-            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f), RoundedCornerShape(14.dp))
             .padding(14.dp),
     ) {
         FormHeader("Create Opportunity", onCancel)
         OutlinedTextField(
             value         = expectedValue,
             onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) expectedValue = it },
-            label         = { Text("Expected value (Rs.)") },
+            label         = { Text("Expected value") },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fc,
             shape         = RoundedCornerShape(10.dp),
             singleLine    = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
-        Text("Stage", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+        Text(
+            text          = "STAGE",
+            color         = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            fontSize      = 10.sp,
+            fontWeight    = FontWeight.ExtraBold,
+            letterSpacing = 1.sp,
+        )
         stages.chunked(3).forEach { rowStages ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 rowStages.forEach { s ->
-                    SelectChip(text = s, isSelected = stage == s, accentColor = Blue400,
-                        modifier = Modifier.weight(1f), onClick = { stage = s })
+                    SelectChip(
+                        text        = s,
+                        isSelected  = stage == s,
+                        accentColor = Blue400,
+                        modifier    = Modifier.weight(1f),
+                        onClick     = { stage = s },
+                    )
                 }
                 repeat(3 - rowStages.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -404,7 +442,7 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
-            label         = { Text("Note") },
+            label         = { Text("Note (optional)") },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fc,
             shape         = RoundedCornerShape(10.dp),
@@ -416,7 +454,7 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
             enabled  = expectedValue.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
                 containerColor         = Blue400,
-                disabledContainerColor = Blue400.copy(alpha = 0.35f),
+                disabledContainerColor = Blue400.copy(alpha = 0.30f),
             ),
             shape = RoundedCornerShape(10.dp),
         ) { Text("Save Opportunity", fontWeight = FontWeight.Bold, color = Color.White) }
@@ -426,6 +464,7 @@ private fun OpportunityForm(onCancel: () -> Unit, onSubmit: (Double, String, Str
 @Composable
 private fun QuoteForm(
     callerName: String,
+    isDark: Boolean,
     onCancel: () -> Unit,
     onSubmit: (String, Double, String) -> Unit,
 ) {
@@ -437,9 +476,9 @@ private fun QuoteForm(
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkCard)
-            .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f), RoundedCornerShape(14.dp))
             .padding(14.dp),
     ) {
         FormHeader("Create Quotation", onCancel)
@@ -455,7 +494,7 @@ private fun QuoteForm(
         OutlinedTextField(
             value         = amount,
             onValueChange = { if (it.isEmpty() || it.toDoubleOrNull() != null) amount = it },
-            label         = { Text("Amount (Rs.)") },
+            label         = { Text("Amount") },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fc,
             shape         = RoundedCornerShape(10.dp),
@@ -465,7 +504,7 @@ private fun QuoteForm(
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
-            label         = { Text("Note") },
+            label         = { Text("Note (optional)") },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fc,
             shape         = RoundedCornerShape(10.dp),
@@ -478,11 +517,11 @@ private fun QuoteForm(
             enabled  = subject.isNotBlank(),
             colors   = ButtonDefaults.buttonColors(
                 containerColor         = Amber500,
-                disabledContainerColor = Amber500.copy(alpha = 0.35f),
+                disabledContainerColor = Amber500.copy(alpha = 0.30f),
             ),
             shape = RoundedCornerShape(10.dp),
         ) {
-            Icon(imageVector = Icons.Default.Receipt, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Icon(Icons.Default.Receipt, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text("Send Quote", color = Color.White, fontWeight = FontWeight.Bold)
         }
@@ -500,9 +539,18 @@ private fun FormHeader(title: String, onCancel: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment     = Alignment.CenterVertically,
     ) {
-        Text(title, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text       = title,
+            color      = MaterialTheme.colorScheme.onSurface,
+            fontSize   = 14.sp,
+            fontWeight = FontWeight.Bold,
+        )
         TextButton(onClick = onCancel) {
-            Text("Cancel", color = TextMuted, fontSize = 12.sp)
+            Text(
+                "Cancel",
+                color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                fontSize = 12.sp,
+            )
         }
     }
 }
@@ -514,7 +562,7 @@ private fun StatusChip(label: String, accentColor: Color) {
             .clip(RoundedCornerShape(8.dp))
             .background(accentColor.copy(alpha = 0.10f))
             .border(1.dp, accentColor.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(label, color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
     }
@@ -525,33 +573,43 @@ private fun QuickActionCard(
     label: String,
     icon: ImageVector,
     accentColor: Color,
+    isDark: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Box(
+    Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(accentColor.copy(alpha = 0.07f))
-            .border(1.dp, accentColor.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        accentColor.copy(alpha = if (isDark) 0.12f else 0.07f),
+                        accentColor.copy(alpha = if (isDark) 0.06f else 0.03f),
+                    )
+                )
+            )
+            .border(1.dp, accentColor.copy(alpha = if (isDark) 0.25f else 0.18f), RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center,
+            .padding(vertical = 14.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(accentColor.copy(alpha = if (isDark) 0.20f else 0.12f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(accentColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
-            }
-            Text(label, color = accentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(19.dp))
         }
+        Text(
+            text       = label,
+            color      = accentColor,
+            fontSize   = 10.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.3.sp,
+        )
     }
 }
 
@@ -566,10 +624,14 @@ private fun SelectChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) accentColor.copy(alpha = 0.15f) else DarkInput)
+            .background(
+                if (isSelected) accentColor.copy(alpha = 0.14f)
+                else MaterialTheme.colorScheme.surfaceVariant,
+            )
             .border(
                 width = if (isSelected) 1.5.dp else 1.dp,
-                color = if (isSelected) accentColor else GlassBorder,
+                color = if (isSelected) accentColor
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                 shape = RoundedCornerShape(8.dp),
             )
             .clickable { onClick() }
@@ -578,11 +640,9 @@ private fun SelectChip(
     ) {
         Text(
             text       = text,
-            color      = if (isSelected) accentColor else TextSecondary,
+            color      = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize   = 11.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
         )
     }
 }
-
-// displayName is defined publicly in Models.kt

@@ -1,7 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/caller_service.dart';
 import '../services/sales_service.dart';
 import '../theme/app_theme.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public interface — lets MainShell request a data refresh without exposing
+// the private state class across files.
+// ─────────────────────────────────────────────────────────────────────────────
+
+abstract class SalesScreenController {
+  void refreshPipeline();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Brand tokens
@@ -91,23 +101,6 @@ const _currencies = <(String, String)>[
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mock data (fallback when API returns nothing)
-// ─────────────────────────────────────────────────────────────────────────────
-
-final _mockLeads = [
-  CrmLead(name: 'LEAD-0001', displayName: 'Ashan Perera',   email: 'ashan@example.com', mobile: '+94 71 234 5678', status: 'Interested', modified: '2024-04-18'),
-  CrmLead(name: 'LEAD-0002', displayName: 'Nimal Silva',    email: 'nimal@techco.lk',   mobile: '+94 77 890 1234', status: 'Contacted',  modified: '2024-04-17'),
-  CrmLead(name: 'LEAD-0003', displayName: 'Priya Fernando', email: 'priya.f@gmail.com', mobile: '+94 76 555 9900', status: 'Lead',       modified: '2024-04-16'),
-  CrmLead(name: 'LEAD-0004', displayName: 'Roshan Mendis',  email: '',                  mobile: '+94 70 112 3344', status: 'Lead',       modified: '2024-04-15'),
-];
-
-final _mockOpps = [
-  Opportunity(name: 'OPP-0001', partyName: 'Ashan Perera',    amount: 450000,  stage: 'Proposal',      status: 'Open', expectedClosing: '2024-05-30', modified: '2024-04-18'),
-  Opportunity(name: 'OPP-0002', partyName: 'TechCo Solutions', amount: 1200000, stage: 'Negotiation',   status: 'Open', expectedClosing: '2024-06-15', modified: '2024-04-17'),
-  Opportunity(name: 'OPP-0003', partyName: 'Sunset Interiors', amount: 320000,  stage: 'Qualification', status: 'Open', expectedClosing: '2024-05-10', modified: '2024-04-14'),
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Lead status & Opportunity stage options
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -127,15 +120,20 @@ class SalesScreen extends StatefulWidget {
 }
 
 class _SalesScreenState extends State<SalesScreen>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin
+    implements SalesScreenController {
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void refreshPipeline() => _loadFromApi();
+
   late final TabController _tab;
 
-  List<Opportunity> _opps   = List.of(_mockOpps);
-  List<CrmLead>     _leads  = List.of(_mockLeads);
-  PipelineSummary   _summary = SalesService.summarise(_mockOpps);
+  // TEMP_DISABLE: mock fallback — restore List.of(_mockOpps/Leads) for dev
+  List<Opportunity> _opps   = const [];
+  List<CrmLead>     _leads  = const [];
+  PipelineSummary   _summary = const PipelineSummary(total: 0, open: 0, won: 0, totalValue: 0);
   bool _loading = false;
 
   @override
@@ -162,8 +160,9 @@ class _SalesScreenState extends State<SalesScreen>
       final opps  = results[0] as List<Opportunity>;
       final leads = results[1] as List<CrmLead>;
       setState(() {
-        _opps    = opps.isNotEmpty  ? opps  : List.of(_mockOpps);
-        _leads   = leads.isNotEmpty ? leads : List.of(_mockLeads);
+        // Only update if the server actually returned data — never wipe existing lists.
+        if (opps.isNotEmpty)  _opps  = opps;
+        if (leads.isNotEmpty) _leads = leads;
         _summary = SalesService.summarise(_opps);
         _loading = false;
       });
@@ -189,7 +188,29 @@ class _SalesScreenState extends State<SalesScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.55),
-      builder: (_) => _ConvertSheet(lead: lead, onConverted: _loadFromApi),
+      builder: (_) => _ConvertSheet(
+        lead: lead,
+        onConverted: (opp) {
+          setState(() {
+            _opps = [opp, ..._opps.where((o) => o.name != opp.name)];
+            final idx = _leads.indexWhere((l) => l.name == lead.name);
+            if (idx >= 0) {
+              _leads[idx] = CrmLead(
+                name: lead.name, displayName: lead.displayName,
+                email: lead.email, mobile: lead.mobile,
+                status: 'Converted', modified: lead.modified,
+              );
+            }
+            _summary = SalesService.summarise(_opps);
+          });
+          _tab.animateTo(1);
+          // Delay the refresh so Frappe has time to commit the new record
+          // before we fetch the list — avoids the race that wipes the optimistic insert.
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) _loadFromApi();
+          });
+        },
+      ),
     );
   }
 
@@ -307,13 +328,16 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
+    final top    = MediaQuery.of(context).padding.top;
+    final isDark = context.isDark;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [Color(0xFF0D1240), Color(0xFF0A0F1E), Color(0xFF110D2E)],
-          stops: [0.0, 0.55, 1.0],
+          colors: isDark
+              ? [const Color(0xFF0D1240), const Color(0xFF0A0F1E), const Color(0xFF110D2E)]
+              : [const Color(0xFF3730A3), const Color(0xFF4F46E5), const Color(0xFF6366F1)],
+          stops: const [0.0, 0.55, 1.0],
         ),
       ),
       child: Column(
@@ -330,19 +354,19 @@ class _Header extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: _indigo.withValues(alpha: 0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: _indigo.withValues(alpha: 0.28)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                         ),
                         child: const Text('PIPELINE',
-                            style: TextStyle(color: _indigo, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
+                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
                       ),
                       const SizedBox(height: 8),
                       const Text('Pipeline',
                           style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1.0, height: 1.1)),
                       const SizedBox(height: 3),
                       Text('Leads · Opportunities',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 13)),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.60), fontSize: 13)),
                     ],
                   ),
                 ),
@@ -353,11 +377,11 @@ class _Header extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
             child: Row(children: [
-              _GlassStatCard(label: 'Open',    value: '${summary.open}',         icon: Icons.radio_button_checked_rounded, color: _indigo),
+              _GlassStatCard(label: 'Open',     value: '${summary.open}',         icon: Icons.radio_button_checked_rounded, color: const Color(0xFF818CF8)),
               const SizedBox(width: 10),
-              _GlassStatCard(label: 'Won',     value: '${summary.won}',          icon: Icons.check_circle_rounded,         color: const Color(0xFF10B981)),
+              _GlassStatCard(label: 'Won',      value: '${summary.won}',          icon: Icons.check_circle_rounded,         color: const Color(0xFF6EE7B7)),
               const SizedBox(width: 10),
-              _GlassStatCard(label: 'Pipeline', value: _fmt(summary.totalValue), icon: Icons.trending_up_rounded,          color: _amber, wide: true),
+              _GlassStatCard(label: 'Pipeline', value: _fmt(summary.totalValue),  icon: Icons.trending_up_rounded,          color: const Color(0xFFFCD34D), wide: true),
             ]),
           ),
         ],
@@ -377,16 +401,16 @@ class _GlassStatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(icon, color: color, size: 15),
           const SizedBox(height: 8),
           Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10, fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -402,11 +426,11 @@ class _GlassIconBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
       ),
-      child: Icon(icon, color: color, size: 22),
+      child: Icon(icon, color: Colors.white, size: 22),
     );
   }
 }
@@ -542,6 +566,58 @@ class _LeadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (lead.status == 'Converted') return _buildCompact(context);
+    return _buildFull(context);
+  }
+
+  // Slim "done" row — no actions, visually archived.
+  Widget _buildCompact(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF059669).withValues(alpha: 0.05)
+            : const Color(0xFF059669).withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.18)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: const Color(0xFF059669).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Center(
+            child: Text(lead.initials,
+                style: const TextStyle(color: Color(0xFF059669), fontSize: 11, fontWeight: FontWeight.w800)),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Text(lead.displayName,
+            style: TextStyle(color: ac.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+            maxLines: 1, overflow: TextOverflow.ellipsis)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF059669).withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.22)),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 11),
+            SizedBox(width: 4),
+            Text('Converted', style: TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildFull(BuildContext context) {
     final ac     = context.ac;
     final isDark = context.isDark;
     final color  = _color;
@@ -577,7 +653,6 @@ class _LeadCard extends StatelessWidget {
                   Text(lead.mobile, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
                 ],
                 const SizedBox(height: 6),
-                // Tappable status chip — opens status picker
                 GestureDetector(
                   onTap: () => _pickStatus(context),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -814,7 +889,7 @@ class _QuickPickSheet extends StatelessWidget {
 
 class _ConvertSheet extends StatefulWidget {
   final CrmLead       lead;
-  final VoidCallback  onConverted;
+  final void Function(Opportunity) onConverted;
   const _ConvertSheet({required this.lead, required this.onConverted});
 
   @override
@@ -870,7 +945,7 @@ class _ConvertSheetState extends State<_ConvertSheet> {
     }
     setState(() { _busy = true; _error = null; });
     try {
-      await SalesServiceOps.createOpportunity(
+      final opp = await SalesServiceOps.createOpportunity(
         leadDocname: widget.lead.name,
         partyName:   widget.lead.displayName,
         amount:      value,
@@ -880,7 +955,7 @@ class _ConvertSheetState extends State<_ConvertSheet> {
       );
       if (!mounted) return;
       Navigator.pop(context);
-      widget.onConverted();
+      widget.onConverted(opp);
       ScaffoldMessenger.of(context).showSnackBar(
         _successSnack('Opportunity created for ${widget.lead.displayName}'),
       );
@@ -972,9 +1047,10 @@ class _QuoteSheet extends StatefulWidget {
 }
 
 class _QuoteSheetState extends State<_QuoteSheet> {
-  final _subjectCtrl = TextEditingController();
-  final _noteCtrl    = TextEditingController();
-  final _items       = <_QuoteItem>[];
+  final _subjectCtrl  = TextEditingController();
+  final _noteCtrl     = TextEditingController();
+  final _validTillCtrl = TextEditingController();
+  final _items        = <_QuoteItem>[];
   String  _currency         = 'LKR';
   String  _sellingPriceList = '';
   String  _partyEmail       = '';
@@ -988,6 +1064,10 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   void initState() {
     super.initState();
     _subjectCtrl.text = 'Quotation for ${widget.opp.partyName}';
+    // Default valid till: 30 days from today
+    final due = DateTime.now().add(const Duration(days: 30));
+    _validTillCtrl.text =
+        '${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}';
     _items.add(_QuoteItem());
     _loadDefaults();
   }
@@ -1017,6 +1097,7 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   void dispose() {
     _subjectCtrl.dispose();
     _noteCtrl.dispose();
+    _validTillCtrl.dispose();
     for (final item in _items) { item.dispose(); }
     super.dispose();
   }
@@ -1045,12 +1126,14 @@ class _QuoteSheetState extends State<_QuoteSheet> {
         leadDocname: widget.opp.partyDocname.isNotEmpty
             ? widget.opp.partyDocname
             : widget.opp.name,
-        partyType: widget.opp.partyType,
-        subject: subject,
-        amount: _grandTotal,
-        note: _noteCtrl.text.trim(),
-        currency: _currency,
-        items: validItems.map((e) => e.toJson()).toList(),
+        partyType:        widget.opp.partyType,
+        subject:          subject,
+        amount:           _grandTotal,
+        note:             _noteCtrl.text.trim(),
+        currency:         _currency,
+        items:            validItems.map((e) => e.toJson()).toList(),
+        sellingPriceList: _sellingPriceList,
+        validTill:        _validTillCtrl.text.trim(),
       );
       if (!mounted) return;
       final goToQuotes = widget.onGoToQuotes;
@@ -1089,23 +1172,58 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               Expanded(child: _SheetHeader(icon: Icons.receipt_long_rounded, color: _amber, title: 'Create Quotation', subtitle: widget.opp.partyName)),
               _GlassChip(label: widget.opp.stage, color: _amber),
             ]),
-            // Contact info pulled from Frappe
-            if (_partyPhone.isNotEmpty || _partyEmail.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Row(children: [
-                if (_partyPhone.isNotEmpty) ...[
-                  Icon(Icons.phone_rounded, size: 12, color: ac.textTertiary),
-                  const SizedBox(width: 4),
-                  Text(_partyPhone, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
-                  const SizedBox(width: 14),
+            const SizedBox(height: 14),
+            // Recipient card
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              decoration: BoxDecoration(
+                color: _amber.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _amber.withValues(alpha: 0.28)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _amber.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('TO', style: TextStyle(color: _amber, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _loadingDefaults
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: _amber))
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.opp.partyName,
+                                style: TextStyle(color: ac.textPrimary, fontSize: 14, fontWeight: FontWeight.w700),
+                              ),
+                              if (_partyPhone.isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Row(children: [
+                                  Icon(Icons.phone_rounded, size: 11, color: _amber.withValues(alpha: 0.70)),
+                                  const SizedBox(width: 4),
+                                  Text(_partyPhone, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                                ]),
+                              ],
+                              if (_partyEmail.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Row(children: [
+                                  Icon(Icons.email_outlined, size: 11, color: _amber.withValues(alpha: 0.70)),
+                                  const SizedBox(width: 4),
+                                  Flexible(child: Text(_partyEmail, style: TextStyle(color: ac.textSecondary, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                                ]),
+                              ],
+                            ],
+                          ),
+                  ),
                 ],
-                if (_partyEmail.isNotEmpty) ...[
-                  Icon(Icons.email_outlined, size: 12, color: ac.textTertiary),
-                  const SizedBox(width: 4),
-                  Flexible(child: Text(_partyEmail, style: TextStyle(color: ac.textSecondary, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                ],
-              ]),
-            ],
+              ),
+            ),
             const SizedBox(height: 16),
             if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 10)],
             _GlassField(
@@ -1195,14 +1313,6 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               enabled: !_busy,
               onRemove: () => _removeItem(entry.key),
               onChanged: () => setState(() {}),
-              onSearchPick: (item) {
-                entry.value.itemCodeCtrl.text    = item.itemCode;
-                entry.value.descriptionCtrl.text = item.itemName;
-                if (item.standardRate > 0) {
-                  entry.value.rateCtrl.text = item.standardRate.toStringAsFixed(2);
-                }
-                setState(() {});
-              },
             )),
             if (_items.isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -1223,6 +1333,57 @@ class _QuoteSheetState extends State<_QuoteSheet> {
               ),
             ],
             const SizedBox(height: 12),
+            // Valid Till date picker
+            GestureDetector(
+              onTap: _busy ? null : () async {
+                final current = DateTime.tryParse(_validTillCtrl.text) ??
+                    DateTime.now().add(const Duration(days: 30));
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: current,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                  builder: (ctx, child) => Theme(
+                    data: Theme.of(ctx).copyWith(
+                      colorScheme: context.isDark
+                          ? ColorScheme.dark(primary: _amber, surface: const Color(0xFF1A2235), onSurface: Colors.white)
+                          : ColorScheme.light(primary: _amber, surface: Colors.white, onSurface: const Color(0xFF0F172A)),
+                    ),
+                    child: child!,
+                  ),
+                );
+                if (picked != null && mounted) {
+                  setState(() {
+                    _validTillCtrl.text =
+                        '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.bgInput,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+                ),
+                child: Row(children: [
+                  Icon(Icons.calendar_today_rounded, size: 16, color: _amber),
+                  const SizedBox(width: 10),
+                  Text('Valid Till', style: TextStyle(color: ac.textSecondary, fontSize: 13)),
+                  const Spacer(),
+                  Text(
+                    _validTillCtrl.text.isNotEmpty ? _validTillCtrl.text : 'Select date',
+                    style: TextStyle(
+                      color: _validTillCtrl.text.isNotEmpty ? ac.textPrimary : ac.textTertiary,
+                      fontSize: 14, fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.edit_rounded, size: 13, color: ac.textTertiary),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 12),
             _GlassField(controller: _noteCtrl, label: 'Terms & Notes', maxLines: 4, enabled: !_busy),
             const SizedBox(height: 16),
             Row(children: [
@@ -1241,38 +1402,113 @@ class _QuoteSheetState extends State<_QuoteSheet> {
 // Item card (one line-item row) — with Frappe item search button
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ItemCard extends StatelessWidget {
-  final int                       no;
-  final _QuoteItem                item;
-  final String                    currency;
-  final String                    priceList;
-  final bool                      enabled;
-  final VoidCallback              onRemove;
-  final VoidCallback              onChanged;
-  final void Function(FrappeItem) onSearchPick;
+class _ItemCard extends StatefulWidget {
+  final int          no;
+  final _QuoteItem   item;
+  final String       currency;
+  final String       priceList;
+  final bool         enabled;
+  final VoidCallback onRemove;
+  final VoidCallback onChanged;
+
   const _ItemCard({
-    required this.no, required this.item, required this.currency,
+    required this.no,
+    required this.item,
+    required this.currency,
     this.priceList = '',
-    required this.enabled, required this.onRemove, required this.onChanged,
-    required this.onSearchPick,
+    required this.enabled,
+    required this.onRemove,
+    required this.onChanged,
   });
 
-  Future<void> _openSearch(BuildContext context) async {
+  @override
+  State<_ItemCard> createState() => _ItemCardState();
+}
+
+class _ItemCardState extends State<_ItemCard> {
+  List<FrappeItem> _suggestions  = [];
+  bool             _searching    = false;
+  Timer?           _debounce;
+  final _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChanged);
+    widget.item.itemCodeCtrl.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
+    widget.item.itemCodeCtrl.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (!_focusNode.hasFocus) {
+      // Short delay so a tap on a suggestion row registers before the dropdown closes
+      Future.delayed(const Duration(milliseconds: 180), () {
+        if (mounted) setState(() => _suggestions = []);
+      });
+    }
+  }
+
+  void _onTextChanged() {
+    final q = widget.item.itemCodeCtrl.text.trim();
+    _debounce?.cancel();
+    if (q.isEmpty) {
+      if (_suggestions.isNotEmpty || _searching) {
+        setState(() { _suggestions = []; _searching = false; });
+      }
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted) return;
+      setState(() => _searching = true);
+      final results = await SalesServiceOps.searchItems(
+        q, limit: 8, priceList: widget.priceList,
+      );
+      if (!mounted) return;
+      setState(() { _suggestions = results; _searching = false; });
+    });
+  }
+
+  void _pick(FrappeItem picked) {
+    // Temporarily remove listener so setting the text doesn't trigger another search
+    widget.item.itemCodeCtrl.removeListener(_onTextChanged);
+    widget.item.itemCodeCtrl.text = picked.itemCode;
+    widget.item.itemCodeCtrl.addListener(_onTextChanged);
+    widget.item.descriptionCtrl.text =
+        picked.itemName.isNotEmpty ? picked.itemName : picked.itemCode;
+    if (picked.standardRate > 0) {
+      widget.item.rateCtrl.text = picked.standardRate.toStringAsFixed(2);
+    }
+    setState(() { _suggestions = []; _searching = false; });
+    widget.onChanged();
+    _focusNode.unfocus();
+  }
+
+  Future<void> _openSearchSheet(BuildContext context) async {
     final picked = await showModalBottomSheet<FrappeItem>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.55),
-      builder: (_) => _ItemSearchSheet(priceList: priceList),
+      builder: (_) => _ItemSearchSheet(priceList: widget.priceList),
     );
-    if (picked != null) onSearchPick(picked);
+    if (picked != null) _pick(picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ac     = context.ac;
-    final isDark = context.isDark;
-    final amt    = item.amount;
+    final ac          = context.ac;
+    final isDark      = context.isDark;
+    final amt         = widget.item.amount;
+    final showDrop    = _searching || _suggestions.isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -1282,19 +1518,28 @@ class _ItemCard extends StatelessWidget {
         border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Row 1: number badge + item code + search + delete
+
+        // ── Row 1: badge + item-code field + search button + delete ──
         Row(children: [
           Container(
             width: 22, height: 22,
             decoration: BoxDecoration(color: _indigo.withValues(alpha: 0.18), shape: BoxShape.circle),
-            child: Center(child: Text('$no', style: const TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w800))),
+            child: Center(child: Text('${widget.no}',
+                style: const TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w800))),
           ),
           const SizedBox(width: 8),
-          Expanded(child: _TinyField(ctrl: item.itemCodeCtrl, hint: 'Item Code', enabled: enabled, onChanged: onChanged)),
+          Expanded(
+            child: _TinyField(
+              ctrl:      widget.item.itemCodeCtrl,
+              hint:      'Item code or name…',
+              focusNode: _focusNode,
+              enabled:   widget.enabled,
+              onChanged: widget.onChanged,
+            ),
+          ),
           const SizedBox(width: 4),
-          // Frappe item search button
           GestureDetector(
-            onTap: enabled ? () => _openSearch(context) : null,
+            onTap: widget.enabled ? () => _openSearchSheet(context) : null,
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
@@ -1306,7 +1551,7 @@ class _ItemCard extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           GestureDetector(
-            onTap: enabled ? onRemove : null,
+            onTap: widget.enabled ? widget.onRemove : null,
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
@@ -1317,15 +1562,107 @@ class _ItemCard extends StatelessWidget {
             ),
           ),
         ]),
+
+        // ── Inline autocomplete dropdown ──
+        if (showDrop) ...[
+          const SizedBox(height: 4),
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : ac.bgCard,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : _indigo.withValues(alpha: 0.20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color:      Colors.black.withValues(alpha: isDark ? 0.40 : 0.10),
+                  blurRadius: 14,
+                  offset:     const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: _searching && _suggestions.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 11, horizontal: 14),
+                    child: Row(children: [
+                      SizedBox(
+                        width: 12, height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5, color: _indigo),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Searching…',
+                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    ]),
+                  )
+                : Column(
+                    children: _suggestions.asMap().entries.map((e) {
+                      final it     = e.value;
+                      final isLast = e.key == _suggestions.length - 1;
+                      final label  = it.itemName.isNotEmpty ? it.itemName : it.itemCode;
+                      return GestureDetector(
+                        onTap: () => _pick(it),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(
+                            border: isLast
+                                ? null
+                                : Border(bottom: BorderSide(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : ac.border)),
+                          ),
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(it.itemCode,
+                                      style: TextStyle(
+                                          color: ac.textPrimary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700)),
+                                  if (label != it.itemCode)
+                                    Text(label,
+                                        style: TextStyle(
+                                            color: ac.textSecondary, fontSize: 11),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                ],
+                              ),
+                            ),
+                            if (it.standardRate > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _amber.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(it.standardRate.toStringAsFixed(2),
+                                    style: const TextStyle(
+                                        color: _amber,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700)),
+                              ),
+                          ]),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
+        ],
+
         const SizedBox(height: 7),
-        // Row 2: description
-        _TinyField(ctrl: item.descriptionCtrl, hint: 'Description (optional)', enabled: enabled, onChanged: onChanged),
+        // ── Row 2: description ──
+        _TinyField(ctrl: widget.item.descriptionCtrl, hint: 'Description (optional)', enabled: widget.enabled, onChanged: widget.onChanged),
         const SizedBox(height: 7),
-        // Row 3: qty | rate | amount
+        // ── Row 3: qty | rate | amount ──
         Row(children: [
-          Expanded(child: _TinyField(ctrl: item.qtyCtrl, hint: 'Qty', kbType: TextInputType.number, enabled: enabled, onChanged: onChanged, prefixText: 'Qty ')),
+          Expanded(child: _TinyField(ctrl: widget.item.qtyCtrl, hint: 'Qty', kbType: TextInputType.number, enabled: widget.enabled, onChanged: widget.onChanged, prefixText: 'Qty ')),
           const SizedBox(width: 6),
-          Expanded(flex: 2, child: _TinyField(ctrl: item.rateCtrl, hint: 'Rate', kbType: TextInputType.number, enabled: enabled, onChanged: onChanged, prefixText: 'Rate ')),
+          Expanded(flex: 2, child: _TinyField(ctrl: widget.item.rateCtrl, hint: 'Rate', kbType: TextInputType.number, enabled: widget.enabled, onChanged: widget.onChanged, prefixText: 'Rate ')),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1888,7 +2225,8 @@ class _TinyField extends StatelessWidget {
   final bool enabled;
   final VoidCallback onChanged;
   final String? prefixText;
-  const _TinyField({required this.ctrl, required this.hint, this.kbType = TextInputType.text, required this.enabled, required this.onChanged, this.prefixText});
+  final FocusNode? focusNode;
+  const _TinyField({required this.ctrl, required this.hint, this.kbType = TextInputType.text, required this.enabled, required this.onChanged, this.prefixText, this.focusNode});
 
   @override
   Widget build(BuildContext context) {
@@ -1896,6 +2234,7 @@ class _TinyField extends StatelessWidget {
     final isDark = context.isDark;
     return TextField(
       controller: ctrl,
+      focusNode: focusNode,
       keyboardType: kbType,
       enabled: enabled,
       onChanged: (_) => onChanged(),

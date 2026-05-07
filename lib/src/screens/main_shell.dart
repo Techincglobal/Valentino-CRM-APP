@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'sales_screen.dart';
-import 'quotes_screen.dart';
+import 'quotes_screen.dart' show QuotesScreen, QuotesScreenController;
 import 'settings_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,27 +24,63 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
+  final _salesKey  = GlobalKey();
+  final _quotesKey = GlobalKey();
+
   void _onTap(int i) {
     if (i == _index) return;
     setState(() => _index = i);
+    if (i == 1) {
+      (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
+    } else if (i == 2) {
+      (_quotesKey.currentState as QuotesScreenController?)?.refreshQuotes();
+    }
   }
 
   late final _pages = [
     HomeScreen(user: widget.user),
-    SalesScreen(onGoToQuotes: () => _onTap(2)),
-    const QuotesScreen(),
+    SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(2)),
+    QuotesScreen(key: _quotesKey),
     SettingsScreen(user: widget.user),
   ];
 
+  // Nav bar pill height + spacing — used to push inner-Scaffold FABs above the pill.
+  static const _kNavBarArea = 76.0;
+
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final navOffset = _kNavBarArea + mq.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: context.ac.bgBase,
       resizeToAvoidBottomInset: false,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          IndexedStack(index: _index, children: _pages),
-          _GlassNavBar(currentIndex: _index, onTap: _onTap),
+          // Tell pages how much bottom space the floating nav bar takes so
+          // inner-Scaffold FABs and scroll lists don't hide behind it.
+          MediaQuery(
+            data: mq.copyWith(
+              padding:     mq.padding.copyWith(bottom: navOffset),
+              viewPadding: mq.viewPadding.copyWith(bottom: navOffset),
+            ),
+            child: IndexedStack(index: _index, children: _pages),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              minimum: const EdgeInsets.only(bottom: 18),
+              child: Center(
+                child: RepaintBoundary(
+                  child: _GlassNavBar(currentIndex: _index, onTap: _onTap),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -67,7 +103,6 @@ class _GlassNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final bottom = MediaQuery.of(context).viewPadding.bottom;
 
     final pills = Row(
       mainAxisSize: MainAxisSize.min,
@@ -151,14 +186,7 @@ class _GlassNavBar extends StatelessWidget {
       );
     }
 
-    return Positioned(
-      bottom: bottom + 18,
-      left: 0,
-      right: 0,
-      child: RepaintBoundary(
-        child: Center(child: pill),
-      ),
-    );
+    return pill;
   }
 }
 

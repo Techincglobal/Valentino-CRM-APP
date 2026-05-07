@@ -16,6 +16,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,18 +36,30 @@ import com.example.crm_caller_nxtgen.overlay.ui.components.ExpandedOverlayCard
 import androidx.compose.material3.Text
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dark glass colour scheme — overlay is always dark for readability on any bg
+// Colour schemes — dark and light, chosen at runtime via isSystemInDarkTheme()
 // ─────────────────────────────────────────────────────────────────────────────
-val OverlayTheme = darkColorScheme(
-    primary          = Color(0xFF6366F1), // Indigo 500
-    secondary        = Color(0xFF60A5FA), // Blue 400
-    tertiary         = Color(0xFF34D399), // Emerald 400
-    error            = Color(0xFFEF4444), // Red 500
-    background       = Color(0xFF0D1117), // Near-black
-    surface          = Color(0xFF1A2235), // Dark slate card
-    surfaceVariant   = Color(0xFF1E293B), // Slightly lighter input
-    onSurface        = Color(0xFFF8FAFC), // Near-white
-    onSurfaceVariant = Color(0xFF94A3B8), // Slate 400
+val OverlayThemeDark = darkColorScheme(
+    primary          = Color(0xFF6366F1),
+    secondary        = Color(0xFF60A5FA),
+    tertiary         = Color(0xFF34D399),
+    error            = Color(0xFFEF4444),
+    background       = Color(0xFF0D1117),
+    surface          = Color(0xFF1A2235),
+    surfaceVariant   = Color(0xFF1E293B),
+    onSurface        = Color(0xFFF8FAFC),
+    onSurfaceVariant = Color(0xFF94A3B8),
+)
+
+val OverlayThemeLight = lightColorScheme(
+    primary          = Color(0xFF4F46E5),
+    secondary        = Color(0xFF3B82F6),
+    tertiary         = Color(0xFF10B981),
+    error            = Color(0xFFEF4444),
+    background       = Color(0xFFF8FAFC),
+    surface          = Color(0xFFFFFFFF),
+    surfaceVariant   = Color(0xFFF1F5F9),
+    onSurface        = Color(0xFF0F172A),
+    onSurfaceVariant = Color(0xFF64748B),
 )
 
 @Composable
@@ -59,7 +73,8 @@ fun OverlayRoot(
     val state        by stateMachine.state.collectAsState()
     val durationSecs by timerManager.durationSeconds.collectAsState()
 
-    MaterialTheme(colorScheme = OverlayTheme) {
+    val isDark = isSystemInDarkTheme()
+    MaterialTheme(colorScheme = if (isDark) OverlayThemeDark else OverlayThemeLight) {
         AnimatedContent(
             targetState   = state,
             transitionSpec = { fadeIn(tween(80)) togetherWith fadeOut(tween(80)) },

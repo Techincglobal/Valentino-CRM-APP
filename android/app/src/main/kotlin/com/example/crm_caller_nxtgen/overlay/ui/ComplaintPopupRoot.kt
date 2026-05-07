@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.crm_caller_nxtgen.overlay.domain.ComplaintPopupState
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
@@ -70,7 +71,8 @@ fun ComplaintPopupRoot(
     complaintState: ComplaintPopupState,
     onEvent: (OverlayEvent) -> Unit,
 ) {
-    MaterialTheme(colorScheme = OverlayTheme) {
+    val isDark = isSystemInDarkTheme()
+    MaterialTheme(colorScheme = if (isDark) OverlayThemeDark else OverlayThemeLight) {
         AnimatedVisibility(
             visible = complaintState !is ComplaintPopupState.Hidden,
             enter   = slideInVertically(initialOffsetY = { it / 5 }) + fadeIn(),

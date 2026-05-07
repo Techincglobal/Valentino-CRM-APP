@@ -15,6 +15,7 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
     with SingleTickerProviderStateMixin {
   final _urlCtrl = TextEditingController();
   bool _saving = false;
+  String? _existingUrl;
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -29,6 +30,16 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
             begin: const Offset(0, 0.06), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
     _animCtrl.forward();
+    _loadExistingUrl();
+  }
+
+  Future<void> _loadExistingUrl() async {
+    final url = await StorageService.getBaseUrl();
+    if (!mounted) return;
+    setState(() {
+      _existingUrl = url;
+      if (url != null) _urlCtrl.text = url;
+    });
   }
 
   @override
@@ -65,6 +76,19 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
     
     return Scaffold(
       backgroundColor: ac.bgBase,
+      appBar: _existingUrl != null
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_rounded, color: ac.textSecondary),
+                onPressed: () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                ),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnim,

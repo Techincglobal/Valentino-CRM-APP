@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,16 +51,7 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayCompany
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Dark glass palette — matches app dark theme
-// ─────────────────────────────────────────────────────────────────────────────
-private val DarkSurface   = Color(0xFF1A2235)  // Card background
-private val DarkSurface2  = Color(0xFF1E293B)  // Raised / input bg
-private val GlassBorder   = Color(0x1AFFFFFF)  // White 10% border
-private val GlassBorder2  = Color(0x0DFFFFFF)  // White 5%
-private val TextPrimary   = Color(0xFFF8FAFC)  // Near-white
-private val TextSecondary = Color(0xFF94A3B8)  // Slate 400
-private val DividerColor  = Color(0x14FFFFFF)  // White 8%
+private val Red500 = Color(0xFFEF4444)
 
 @Composable
 fun ExpandedOverlayCard(
@@ -101,50 +94,46 @@ fun ExpandedOverlayCard(
     }
 
     val accentColor = when (identity) {
-        is CallerIdentity.Unknown  -> Color(0xFFF59E0B) // Amber 500
-        is CallerIdentity.Customer -> Color(0xFF10B981) // Emerald 500
-        is CallerIdentity.Lead     -> Color(0xFF6366F1) // Indigo 500
+        is CallerIdentity.Unknown  -> Color(0xFFF59E0B)
+        is CallerIdentity.Customer -> Color(0xFF10B981)
+        is CallerIdentity.Lead     -> Color(0xFF6366F1)
     }
+
+    val isDark = isSystemInDarkTheme()
 
     Box(
         modifier = Modifier
             .padding(horizontal = 10.dp, vertical = 8.dp)
             .shadow(
-                elevation    = 28.dp,
-                shape        = RoundedCornerShape(22.dp),
-                ambientColor = Color.Black.copy(alpha = 0.35f),
-                spotColor    = accentColor.copy(alpha = 0.12f),
+                elevation    = 24.dp,
+                shape        = RoundedCornerShape(24.dp),
+                ambientColor = if (isDark) Color.Black.copy(alpha = 0.40f) else Color.Black.copy(alpha = 0.10f),
+                spotColor    = accentColor.copy(alpha = if (isDark) 0.18f else 0.08f),
             ),
     ) {
-        // ── Outer dark card ───────────────────────────────────────────────────
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(22.dp))
-                .background(DarkSurface)
-                .border(1.dp, GlassBorder, RoundedCornerShape(22.dp))
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.10f else 0.07f),
+                    RoundedCornerShape(24.dp),
+                )
                 .heightIn(max = 720.dp),
         ) {
-            // ── Top specular highlight strip ──────────────────────────────────
+            // Accent gradient header band
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(1.dp)
                     .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.18f),
-                                Color.Transparent,
+                        Brush.verticalGradient(
+                            listOf(
+                                accentColor.copy(alpha = if (isDark) 0.14f else 0.08f),
+                                accentColor.copy(alpha = 0f),
                             )
                         )
                     ),
-            )
-
-            // ── Accent tint strip behind header ───────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(accentColor.copy(alpha = 0.06f)),
             ) {
                 CardHeader(
                     identity     = identity,
@@ -154,12 +143,16 @@ fun ExpandedOverlayCard(
                     isRecording  = isRecording,
                     isPostCall   = isPostCall,
                     accentColor  = accentColor,
+                    isDark       = isDark,
                     onCollapse   = onCollapse,
                     onClose      = onClose,
                 )
             }
 
-            HorizontalDivider(color = DividerColor, thickness = 1.dp)
+            HorizontalDivider(
+                color     = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f),
+                thickness = 1.dp,
+            )
 
             Column(
                 modifier = Modifier
@@ -207,106 +200,118 @@ private fun CardHeader(
     isRecording: Boolean,
     isPostCall: Boolean,
     accentColor: Color,
+    isDark: Boolean,
     onCollapse: () -> Unit,
     onClose: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment     = Alignment.CenterVertically,
     ) {
-        // Avatar circle with initial
+        // Avatar
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .size(50.dp)
                 .clip(CircleShape)
-                .background(accentColor.copy(alpha = 0.15f))
-                .border(1.5.dp, accentColor.copy(alpha = 0.45f), CircleShape),
+                .background(
+                    Brush.linearGradient(
+                        listOf(accentColor.copy(alpha = 0.20f), accentColor.copy(alpha = 0.08f))
+                    )
+                )
+                .border(1.5.dp, accentColor.copy(alpha = 0.40f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             val initials = when (identity) {
                 is CallerIdentity.Unknown  -> "?"
-                is CallerIdentity.Lead     -> identity.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-                is CallerIdentity.Customer -> identity.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+                is CallerIdentity.Lead     -> buildInitials(identity.name)
+                is CallerIdentity.Customer -> buildInitials(identity.name)
             }
             Text(
                 text       = initials,
                 color      = accentColor,
-                fontSize   = 18.sp,
+                fontSize   = if (initials.length == 1) 20.sp else 16.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
         }
 
-        // Identity info
-        Column(modifier = Modifier.weight(1f)) {
+        // Name + badge
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Type badge
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(accentColor.copy(alpha = 0.15f))
-                    .padding(horizontal = 7.dp, vertical = 2.dp),
+                    .background(accentColor.copy(alpha = if (isDark) 0.18f else 0.12f))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
             ) {
                 Text(
                     text = when (identity) {
-                        is CallerIdentity.Unknown  -> if (isPostCall) "Post Call" else "Unknown Caller"
-                        is CallerIdentity.Customer -> if (isPostCall) "Post Call" else "Customer"
-                        is CallerIdentity.Lead     -> if (isPostCall) "Post Call" else identity.status.ifBlank { "Lead" }
+                        is CallerIdentity.Unknown  -> if (isPostCall) "POST CALL" else "UNKNOWN"
+                        is CallerIdentity.Customer -> if (isPostCall) "POST CALL" else "CUSTOMER"
+                        is CallerIdentity.Lead     -> if (isPostCall) "POST CALL"
+                                                      else identity.status.uppercase().ifBlank { "LEAD" }
                     },
                     color         = accentColor,
-                    fontSize      = 10.sp,
-                    fontWeight    = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
+                    fontSize      = 9.sp,
+                    fontWeight    = FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp,
                 )
             }
-            Spacer(Modifier.height(3.dp))
             Text(
                 text       = if (identity is CallerIdentity.Unknown) phone else identity.displayName,
-                color      = TextPrimary,
+                color      = MaterialTheme.colorScheme.onSurface,
                 fontSize   = 16.sp,
                 fontWeight = FontWeight.Bold,
+                maxLines   = 1,
             )
             if (identity.displayCompany.isNotBlank()) {
-                Text(text = identity.displayCompany, color = TextSecondary, fontSize = 12.sp)
+                Text(
+                    text     = identity.displayCompany,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                )
             }
         }
 
-        // Right: timer + recording dot + action buttons
+        // Right column — timer, recording dot, buttons
         Column(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                // Chevron — minimise
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Minimise
                 IconButton(
                     onClick  = onCollapse,
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(DarkSurface2)
-                        .border(1.dp, GlassBorder, CircleShape),
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.KeyboardArrowDown,
                         contentDescription = "Minimise",
-                        tint               = TextSecondary,
+                        tint               = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier           = Modifier.size(18.dp),
                     )
                 }
-                // X — full dismiss, PostCall only
+                // Close — post-call only
                 if (isPostCall) {
                     IconButton(
                         onClick  = onClose,
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFEF4444).copy(alpha = 0.15f))
-                            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.35f), CircleShape),
+                            .background(Red500.copy(alpha = if (isDark) 0.15f else 0.08f))
+                            .border(1.dp, Red500.copy(alpha = 0.30f), CircleShape),
                     ) {
                         Icon(
                             imageVector        = Icons.Default.Close,
                             contentDescription = "Close overlay",
-                            tint               = Color(0xFFEF4444),
+                            tint               = Red500,
                             modifier           = Modifier.size(15.dp),
                         )
                     }
@@ -320,6 +325,15 @@ private fun CardHeader(
     }
 }
 
+private fun buildInitials(name: String): String {
+    val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    return when {
+        parts.isEmpty()  -> "?"
+        parts.size == 1  -> parts[0].take(1).uppercase()
+        else             -> "${parts[0][0]}${parts[1][0]}".uppercase()
+    }
+}
+
 @Composable
 private fun TimerChip(callPhase: CallPhase, durationSecs: Long, accentColor: Color) {
     val label = when (callPhase) {
@@ -330,9 +344,9 @@ private fun TimerChip(callPhase: CallPhase, durationSecs: Long, accentColor: Col
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(accentColor.copy(alpha = 0.12f))
-            .border(1.dp, accentColor.copy(alpha = 0.25f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .background(accentColor.copy(alpha = 0.10f))
+            .border(1.dp, accentColor.copy(alpha = 0.22f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 9.dp, vertical = 4.dp),
     ) {
         Text(
             text       = label,
@@ -347,7 +361,7 @@ private fun TimerChip(callPhase: CallPhase, durationSecs: Long, accentColor: Col
 private fun RecordingDot() {
     val infiniteTransition = rememberInfiniteTransition(label = "recDotPulse")
     val alpha by infiniteTransition.animateFloat(
-        initialValue  = 0.6f,
+        initialValue  = 0.5f,
         targetValue   = 1f,
         animationSpec = InfiniteRepeatableSpec(tween(550), RepeatMode.Reverse),
         label         = "recDotAlpha",
@@ -355,9 +369,9 @@ private fun RecordingDot() {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFFEF4444).copy(alpha = 0.15f))
-            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.30f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .background(Red500.copy(alpha = 0.12f))
+            .border(1.dp, Red500.copy(alpha = 0.28f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp),
     ) {
         Row(
             verticalAlignment     = Alignment.CenterVertically,
@@ -367,11 +381,11 @@ private fun RecordingDot() {
                 modifier = Modifier
                     .size(7.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFEF4444).copy(alpha = alpha)),
+                    .background(Red500.copy(alpha = alpha)),
             )
             Text(
                 text          = "REC",
-                color         = Color(0xFFEF4444).copy(alpha = alpha),
+                color         = Red500.copy(alpha = alpha),
                 fontSize      = 10.sp,
                 fontWeight    = FontWeight.Bold,
                 letterSpacing = 0.5.sp,
