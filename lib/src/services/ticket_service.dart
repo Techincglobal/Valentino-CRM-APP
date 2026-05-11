@@ -37,9 +37,8 @@ class SupportTicket {
   final String status;
   final String priority;
   final String raisedBy;
-  final String customer;
-  final String customerName;
-  final String issueType;
+  final String ticketType;
+  final String agentGroup;
   final String creation;
   final String modified;
 
@@ -49,24 +48,22 @@ class SupportTicket {
     required this.status,
     required this.priority,
     required this.raisedBy,
-    this.customer     = '',
-    this.customerName = '',
-    this.issueType    = '',
+    this.ticketType = '',
+    this.agentGroup = '',
     required this.creation,
     required this.modified,
   });
 
   factory SupportTicket.fromJson(Map<String, dynamic> j) => SupportTicket(
-    name:         j['name'] as String? ?? '',
-    subject:      j['subject'] as String? ?? '(no subject)',
-    status:       j['status'] as String? ?? 'Open',
-    priority:     j['priority'] as String? ?? 'Medium',
-    raisedBy:     j['raised_by'] as String? ?? '',
-    customer:     j['customer'] as String? ?? '',
-    customerName: j['customer_name'] as String? ?? (j['customer'] as String? ?? ''),
-    issueType:    j['issue_type'] as String? ?? '',
-    creation:     j['creation'] as String? ?? '',
-    modified:     j['modified'] as String? ?? '',
+    name:       j['name'] as String? ?? '',
+    subject:    j['subject'] as String? ?? '(no subject)',
+    status:     j['status'] as String? ?? 'Open',
+    priority:   j['priority'] as String? ?? 'Medium',
+    raisedBy:   j['raised_by'] as String? ?? '',
+    ticketType: j['ticket_type'] as String? ?? '',
+    agentGroup: j['agent_group'] as String? ?? '',
+    creation:   j['creation'] as String? ?? '',
+    modified:   j['modified'] as String? ?? '',
   );
 
   String get initials {
@@ -91,8 +88,6 @@ class SupportTicket {
 
 class SupportTicketDetail extends SupportTicket {
   final String description;
-  final String openingDate;
-  final String resolutionDate;
 
   const SupportTicketDetail({
     required super.name,
@@ -100,32 +95,37 @@ class SupportTicketDetail extends SupportTicket {
     required super.status,
     required super.priority,
     required super.raisedBy,
-    required super.customer,
-    required super.customerName,
-    required super.issueType,
+    required super.ticketType,
+    required super.agentGroup,
     required super.creation,
     required super.modified,
-    this.description    = '',
-    this.openingDate    = '',
-    this.resolutionDate = '',
+    this.description = '',
   });
 
   factory SupportTicketDetail.fromJson(Map<String, dynamic> j) =>
       SupportTicketDetail(
-        name:           j['name'] as String? ?? '',
-        subject:        j['subject'] as String? ?? '(no subject)',
-        status:         j['status'] as String? ?? 'Open',
-        priority:       j['priority'] as String? ?? 'Medium',
-        raisedBy:       j['raised_by'] as String? ?? '',
-        customer:       j['customer'] as String? ?? '',
-        customerName:   j['customer_name'] as String? ?? (j['customer'] as String? ?? ''),
-        issueType:      j['issue_type'] as String? ?? '',
-        creation:       j['creation'] as String? ?? '',
-        modified:       j['modified'] as String? ?? '',
-        description:    j['description'] as String? ?? '',
-        openingDate:    j['opening_date'] as String? ?? '',
-        resolutionDate: j['resolution_date'] as String? ?? '',
+        name:        j['name'] as String? ?? '',
+        subject:     j['subject'] as String? ?? '(no subject)',
+        status:      j['status'] as String? ?? 'Open',
+        priority:    j['priority'] as String? ?? 'Medium',
+        raisedBy:    j['raised_by'] as String? ?? '',
+        ticketType:  j['ticket_type'] as String? ?? '',
+        agentGroup:  j['agent_group'] as String? ?? '',
+        creation:    j['creation'] as String? ?? '',
+        modified:    j['modified'] as String? ?? '',
+        description: j['description'] as String? ?? '',
       );
+}
+
+class CustomerResult {
+  final String name;
+  final String customerName;
+  const CustomerResult({required this.name, required this.customerName});
+  factory CustomerResult.fromJson(Map<String, dynamic> j) => CustomerResult(
+    name:         j['name'] as String? ?? '',
+    customerName: j['customer_name'] as String? ?? (j['name'] as String? ?? ''),
+  );
+  String get display => customerName.isNotEmpty ? customerName : name;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,17 +134,17 @@ class SupportTicketDetail extends SupportTicket {
 
 class TicketService {
   static Future<List<SupportTicket>> getTickets({String? status}) async {
-    final body = <String, dynamic>{};
-    if (status != null && status != 'All') body['status'] = status;
+    final payload = <String, dynamic>{};
+    if (status != null && status != 'All') payload['status'] = status;
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.get_support_tickets',
-      body,
+      payload,
     );
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to load tickets (${resp.statusCode})'));
     }
-    final respBody = jsonDecode(resp.body) as Map<String, dynamic>;
-    final list = (respBody['message'] as List?) ?? [];
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['message'] as List?) ?? [];
     return list.map((e) => SupportTicket.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -165,20 +165,22 @@ class TicketService {
     required String subject,
     required String description,
     required String raisedBy,
-    String priority  = 'Medium',
-    String customer  = '',
-    String issueType = '',
+    String priority   = 'Medium',
+    String ticketType = '',
+    String agentGroup = '',
   }) async {
+    final payload = <String, dynamic>{
+      'subject':     subject,
+      'description': description,
+      'raised_by':   raisedBy,
+      'priority':    priority,
+    };
+    if (ticketType.isNotEmpty) payload['ticket_type']  = ticketType;
+    if (agentGroup.isNotEmpty) payload['agent_group']  = agentGroup;
+
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.create_support_ticket',
-      {
-        'subject':     subject,
-        'description': description,
-        'raised_by':   raisedBy,
-        'priority':    priority,
-        if (customer.isNotEmpty)  'customer':   customer,
-        if (issueType.isNotEmpty) 'issue_type': issueType,
-      },
+      payload,
     );
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to create ticket (${resp.statusCode})'));
@@ -196,5 +198,27 @@ class TicketService {
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to update ticket (${resp.statusCode})'));
     }
+  }
+
+  static Future<List<CustomerResult>> searchCustomers(String query) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.search_customers',
+      {'query': query, 'limit': 15},
+    );
+    if (resp.statusCode != 200) return [];
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['message'] as List?) ?? [];
+    return list.map((e) => CustomerResult.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<List<String>> getTicketTypes() async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.get_ticket_types',
+      {},
+    );
+    if (resp.statusCode != 200) return [];
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['message'] as List?) ?? [];
+    return list.map((e) => e.toString()).toList();
   }
 }

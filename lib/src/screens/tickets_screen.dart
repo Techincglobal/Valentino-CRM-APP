@@ -136,45 +136,65 @@ class _TicketsScreenState extends State<TicketsScreen>
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_violet, Color(0xFF6D28D9)],
+                colors: [Color(0xFFA78BFA), _violet, Color(0xFF4C1D95)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: _violet.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 4))],
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: _violet.withValues(alpha: 0.45), blurRadius: 16, offset: const Offset(0, 6)),
+                BoxShadow(color: _violet.withValues(alpha: 0.20), blurRadius: 4, offset: const Offset(0, 2)),
+              ],
             ),
-            child: const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 22),
+            child: const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 24),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Support Tickets',
-                style: TextStyle(color: ac.textPrimary, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.6)),
-            Text('Frappe Issue Tracker',
-                style: TextStyle(color: ac.textTertiary, fontSize: 12, fontWeight: FontWeight.w500)),
+                style: TextStyle(color: ac.textPrimary, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.8)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _violet.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _violet.withValues(alpha: 0.3)),
+              ),
+              child: Text('FRAPPE ISSUE TRACKER',
+                  style: TextStyle(color: _violet, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+            ),
           ]),
           const Spacer(),
           GestureDetector(
             onTap: _loadTickets,
-            child: Container(
-              padding: const EdgeInsets.all(9),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+                color: isDark ? const Color(0xFF131A2A) : ac.bgCard,
+                shape: BoxShape.circle,
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : ac.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: _loading
-                  ? SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(color: _violet, strokeWidth: 2),
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(color: _violet, strokeWidth: 2.5),
                     )
-                  : Icon(Icons.refresh_rounded, color: ac.textSecondary, size: 18),
+                  : Icon(Icons.refresh_rounded, color: ac.textSecondary, size: 20),
             ),
           ),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         // Stats row
         if (!_loading && _error.isEmpty) _buildStats(ac, isDark),
         const SizedBox(height: 16),
@@ -201,26 +221,33 @@ class _TicketsScreenState extends State<TicketsScreen>
 
   Widget _buildTabBar(AdaptiveColors ac, bool isDark) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      padding: const EdgeInsets.all(4),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111827) : ac.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
+        color: isDark ? const Color(0xFF131A2A) : ac.bgCard,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: TabBar(
         controller: _tab,
         indicator: BoxDecoration(
           gradient: const LinearGradient(colors: [_violet, Color(0xFF6D28D9)]),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [BoxShadow(color: _violet.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: [BoxShadow(color: _violet.withValues(alpha: 0.40), blurRadius: 10, offset: const Offset(0, 3))],
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelColor: Colors.white,
         unselectedLabelColor: ac.textSecondary,
-        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.2),
+        unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         tabs: _tabs.map((t) => Tab(text: t)).toList(),
       ),
     );
@@ -335,16 +362,27 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
     child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(children: [
-        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(color: ac.textSecondary, fontSize: 10, fontWeight: FontWeight.w600)),
+        Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(color: ac.textSecondary, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
       ]),
     ),
   );
@@ -371,16 +409,16 @@ class _TicketCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF111827) : ac.bgCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
+          color: isDark ? const Color(0xFF131A2A) : ac.bgCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
           boxShadow: [
             BoxShadow(
-              color:      Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
-              blurRadius: 12,
-              offset:     const Offset(0, 4),
+              color: statusColor.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -388,15 +426,20 @@ class _TicketCard extends StatelessWidget {
           Row(children: [
             // Avatar
             Container(
-              width: 40, height: 40,
+              width: 44, height: 44,
               decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [statusColor.withValues(alpha: 0.25), statusColor.withValues(alpha: 0.10)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
               ),
               child: Center(
                 child: Text(
                   ticket.initials,
-                  style: TextStyle(color: statusColor, fontSize: 14, fontWeight: FontWeight.w800),
+                  style: TextStyle(color: statusColor, fontSize: 15, fontWeight: FontWeight.w900),
                 ),
               ),
             ),
@@ -433,25 +476,25 @@ class _TicketCard extends StatelessWidget {
               ]),
           ]),
 
-          // Customer / raised by
-          if (ticket.customerName.isNotEmpty || ticket.raisedBy.isNotEmpty) ...[
+          // Raised by / ticket type
+          if (ticket.raisedBy.isNotEmpty || ticket.ticketType.isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(children: [
-              if (ticket.customerName.isNotEmpty) ...[
-                Icon(Icons.business_rounded, size: 12, color: ac.textTertiary),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(ticket.customerName,
-                      style: TextStyle(color: ac.textSecondary, fontSize: 12),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-                const SizedBox(width: 10),
-              ],
               if (ticket.raisedBy.isNotEmpty) ...[
                 Icon(Icons.person_outline_rounded, size: 12, color: ac.textTertiary),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(ticket.raisedBy,
+                      style: TextStyle(color: ac.textSecondary, fontSize: 12),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ],
+              if (ticket.ticketType.isNotEmpty) ...[
+                const SizedBox(width: 10),
+                Icon(Icons.label_outline_rounded, size: 12, color: ac.textTertiary),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(ticket.ticketType,
                       style: TextStyle(color: ac.textSecondary, fontSize: 12),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
@@ -506,12 +549,23 @@ class _CreateTicketSheet extends StatefulWidget {
 
 class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   final _formKey     = GlobalKey<FormState>();
-  final _subjectCtrl  = TextEditingController();
-  final _descCtrl     = TextEditingController();
-  final _customerCtrl = TextEditingController();
+  final _subjectCtrl = TextEditingController();
+  final _descCtrl    = TextEditingController();
   late  final TextEditingController _emailCtrl;
 
-  String _priority = 'Medium';
+  // Customer search
+  final _customerSearchCtrl = TextEditingController();
+  String _selectedCustomerName = '';
+  List<CustomerResult> _customerResults = [];
+  bool   _searchingCustomers = false;
+  bool   _showCustomerDropdown = false;
+
+  // Ticket type
+  List<String> _ticketTypes     = [];
+  String       _selectedType    = '';
+  bool         _loadingTypes    = false;
+
+  String _priority   = 'Medium';
   bool   _submitting = false;
   String _error      = '';
 
@@ -521,15 +575,54 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   void initState() {
     super.initState();
     _emailCtrl = TextEditingController(text: widget.userEmail);
+    _loadTicketTypes();
   }
 
   @override
   void dispose() {
     _subjectCtrl.dispose();
     _descCtrl.dispose();
-    _customerCtrl.dispose();
     _emailCtrl.dispose();
+    _customerSearchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadTicketTypes() async {
+    setState(() => _loadingTypes = true);
+    final types = await TicketService.getTicketTypes();
+    if (mounted) setState(() { _ticketTypes = types; _loadingTypes = false; });
+  }
+
+  Future<void> _onCustomerSearch(String q) async {
+    final query = q.trim();
+    if (query.isEmpty) {
+      setState(() { _customerResults = []; _showCustomerDropdown = false; });
+      return;
+    }
+    setState(() { _searchingCustomers = true; _showCustomerDropdown = true; });
+    final results = await TicketService.searchCustomers(query);
+    if (mounted) {
+      setState(() { _customerResults = results; _searchingCustomers = false; });
+    }
+  }
+
+  void _selectCustomer(CustomerResult c) {
+    setState(() {
+      _selectedCustomerName    = c.display;
+      _customerSearchCtrl.text = c.display;
+      _showCustomerDropdown    = false;
+      _customerResults         = [];
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  void _clearCustomer() {
+    setState(() {
+      _selectedCustomerName = '';
+      _customerSearchCtrl.clear();
+      _showCustomerDropdown = false;
+      _customerResults      = [];
+    });
   }
 
   Future<void> _submit() async {
@@ -541,7 +634,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
         description: _descCtrl.text.trim(),
         raisedBy:    _emailCtrl.text.trim(),
         priority:    _priority,
-        customer:    _customerCtrl.text.trim(),
+        ticketType:  _selectedType,
       );
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -562,7 +655,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
         MediaQuery.of(context).padding.bottom;
 
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.94),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -590,7 +683,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                 gradient: const LinearGradient(colors: [_violet, Color(0xFF6D28D9)]),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 18),
+              child: const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 12),
             Text('New Support Ticket',
@@ -617,82 +710,25 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
               key: _formKey,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-                // Subject
+                // ── Subject ───────────────────────────────────────────────
                 _FieldLabel(label: 'SUBJECT', required: true, ac: ac),
                 const SizedBox(height: 6),
                 _InputField(
                   controller: _subjectCtrl,
-                  hint:       'Brief description of the issue',
-                  isDark:     isDark,
-                  ac:         ac,
-                  validator:  (v) => (v?.trim().isEmpty ?? true) ? 'Subject is required' : null,
+                  hint:      'Brief title for the issue',
+                  isDark:    isDark, ac: ac,
+                  validator: (v) => (v?.trim().isEmpty ?? true) ? 'Subject is required' : null,
                 ),
 
                 const SizedBox(height: 16),
 
-                // Description
-                _FieldLabel(label: 'DESCRIPTION', required: true, ac: ac),
+                // ── Raised By ─────────────────────────────────────────────
+                _FieldLabel(label: 'RAISED BY', required: true, ac: ac),
                 const SizedBox(height: 6),
                 _InputField(
-                  controller: _descCtrl,
-                  hint:       'Describe the issue in detail...',
-                  isDark:     isDark,
-                  ac:         ac,
-                  maxLines:   5,
-                  validator:  (v) => (v?.trim().isEmpty ?? true) ? 'Description is required' : null,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Priority selector
-                _FieldLabel(label: 'PRIORITY', ac: ac),
-                const SizedBox(height: 8),
-                Row(
-                  children: _priorities.map((p) {
-                    final color    = _priorityColors[p] ?? _slate;
-                    final selected = _priority == p;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _priority = p),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          margin: EdgeInsets.only(right: p != _priorities.last ? 8 : 0),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: selected ? color.withValues(alpha: 0.15) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: selected ? color : (isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
-                              width: selected ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Column(children: [
-                            Icon(_priorityIcons[p] ?? Icons.remove_rounded,
-                                color: selected ? color : ac.textTertiary, size: 16),
-                            const SizedBox(height: 3),
-                            Text(p,
-                                style: TextStyle(
-                                  color: selected ? color : ac.textSecondary,
-                                  fontSize: 11,
-                                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                                )),
-                          ]),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Raised by (email)
-                _FieldLabel(label: 'RAISED BY (EMAIL)', required: true, ac: ac),
-                const SizedBox(height: 6),
-                _InputField(
-                  controller: _emailCtrl,
-                  hint:       'email@example.com',
-                  isDark:     isDark,
-                  ac:         ac,
+                  controller:  _emailCtrl,
+                  hint:        'email@example.com',
+                  isDark:      isDark, ac: ac,
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
                     if (v?.trim().isEmpty ?? true) return 'Email is required';
@@ -703,19 +739,108 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
 
                 const SizedBox(height: 16),
 
-                // Customer (optional)
-                _FieldLabel(label: 'CUSTOMER (OPTIONAL)', ac: ac),
+                // ── Priority ──────────────────────────────────────────────
+                _FieldLabel(label: 'PRIORITY', ac: ac),
+                const SizedBox(height: 8),
+                Row(children: _priorities.map((p) {
+                  final color    = _priorityColors[p] ?? _slate;
+                  final selected = _priority == p;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _priority = p),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        margin: EdgeInsets.only(right: p != _priorities.last ? 8 : 0),
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        decoration: BoxDecoration(
+                          color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected ? color : (isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+                            width: selected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Column(children: [
+                          Icon(_priorityIcons[p] ?? Icons.remove_rounded,
+                              color: selected ? color : ac.textTertiary, size: 16),
+                          const SizedBox(height: 3),
+                          Text(p, style: TextStyle(
+                            color: selected ? color : ac.textSecondary,
+                            fontSize: 11,
+                            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          )),
+                        ]),
+                      ),
+                    ),
+                  );
+                }).toList()),
+
+                const SizedBox(height: 16),
+
+                // ── Ticket Type ───────────────────────────────────────────
+                _FieldLabel(label: 'TICKET TYPE', ac: ac),
+                const SizedBox(height: 6),
+                if (_loadingTypes)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(children: [
+                      SizedBox(width: 16, height: 16,
+                          child: CircularProgressIndicator(color: _violet, strokeWidth: 2)),
+                      const SizedBox(width: 10),
+                      Text('Loading types…', style: TextStyle(color: ac.textTertiary, fontSize: 13)),
+                    ]),
+                  )
+                else if (_ticketTypes.isEmpty)
+                  _InputField(
+                    controller: TextEditingController(text: _selectedType),
+                    hint: 'e.g. Bug, Feature Request',
+                    isDark: isDark, ac: ac,
+                    onChanged: (v) => _selectedType = v,
+                  )
+                else
+                  _TypeDropdown(
+                    types:    _ticketTypes,
+                    selected: _selectedType,
+                    isDark:   isDark,
+                    ac:       ac,
+                    onSelect: (t) => setState(() => _selectedType = t),
+                  ),
+
+                const SizedBox(height: 16),
+
+                // ── Customer Search ───────────────────────────────────────
+                _FieldLabel(label: 'CUSTOMER', ac: ac),
+                const SizedBox(height: 6),
+                _CustomerSearchField(
+                  controller:          _customerSearchCtrl,
+                  selectedName:        _selectedCustomerName,
+                  results:             _customerResults,
+                  searching:           _searchingCustomers,
+                  showDropdown:        _showCustomerDropdown,
+                  isDark:              isDark,
+                  ac:                  ac,
+                  onSearch:            _onCustomerSearch,
+                  onSelect:            _selectCustomer,
+                  onClear:             _clearCustomer,
+                  onDismissDropdown:   () => setState(() => _showCustomerDropdown = false),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Description ───────────────────────────────────────────
+                _FieldLabel(label: 'DESCRIPTION', required: true, ac: ac),
                 const SizedBox(height: 6),
                 _InputField(
-                  controller: _customerCtrl,
-                  hint:       'Customer name or ID',
-                  isDark:     isDark,
-                  ac:         ac,
+                  controller: _descCtrl,
+                  hint:       'Describe the issue in detail…',
+                  isDark:     isDark, ac: ac,
+                  maxLines:   5,
+                  validator:  (v) => (v?.trim().isEmpty ?? true) ? 'Description is required' : null,
                 ),
 
                 const SizedBox(height: 24),
 
-                // Error banner
+                // ── Error banner ──────────────────────────────────────────
                 if (_error.isNotEmpty) ...[
                   Container(
                     width: double.infinity,
@@ -728,10 +853,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Icon(Icons.error_outline_rounded, color: _red, size: 17),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(_error,
-                            style: const TextStyle(color: _red, fontSize: 13, fontWeight: FontWeight.w500)),
-                      ),
+                      Expanded(child: Text(_error, style: const TextStyle(color: _red, fontSize: 13, fontWeight: FontWeight.w500))),
                       GestureDetector(
                         onTap: () => setState(() => _error = ''),
                         child: const Icon(Icons.close_rounded, color: _red, size: 15),
@@ -741,7 +863,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                   const SizedBox(height: 14),
                 ],
 
-                // Submit button
+                // ── Submit ────────────────────────────────────────────────
                 GestureDetector(
                   onTap: _submitting ? null : _submit,
                   child: AnimatedContainer(
@@ -749,13 +871,10 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      gradient: _submitting
-                          ? null
-                          : const LinearGradient(
-                              colors: [_violet, Color(0xFF6D28D9)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                      gradient: _submitting ? null : const LinearGradient(
+                        colors: [_violet, Color(0xFF6D28D9)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      ),
                       color: _submitting ? _violet.withValues(alpha: 0.40) : null,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: _submitting ? null : [
@@ -763,15 +882,14 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                       ],
                     ),
                     child: _submitting
-                        ? const Center(child: SizedBox(
-                            width: 22, height: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                          ))
+                        ? const Center(child: SizedBox(width: 22, height: 22,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)))
                         : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                             Icon(Icons.send_rounded, color: Colors.white, size: 18),
                             SizedBox(width: 8),
                             Text('Submit Ticket',
-                                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.2)),
+                                style: TextStyle(color: Colors.white, fontSize: 15,
+                                    fontWeight: FontWeight.w700, letterSpacing: -0.2)),
                           ]),
                   ),
                 ),
@@ -961,30 +1079,20 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
             _DetailRow(icon: Icons.tag_rounded, label: 'Ticket ID', value: d.name, ac: ac),
             _divider(isDark, ac),
             _DetailRow(icon: Icons.person_outline_rounded, label: 'Raised By', value: d.raisedBy.isNotEmpty ? d.raisedBy : '—', ac: ac),
-            if (d.customerName.isNotEmpty) ...[
+            if (d.ticketType.isNotEmpty) ...[
               _divider(isDark, ac),
-              _DetailRow(icon: Icons.business_rounded, label: 'Customer', value: d.customerName, ac: ac),
+              _DetailRow(icon: Icons.label_outline_rounded, label: 'Type', value: d.ticketType, ac: ac),
             ],
-            if (d.issueType.isNotEmpty) ...[
+            if (d.agentGroup.isNotEmpty) ...[
               _divider(isDark, ac),
-              _DetailRow(icon: Icons.category_outlined, label: 'Type', value: d.issueType, ac: ac),
+              _DetailRow(icon: Icons.group_outlined, label: 'Team', value: d.agentGroup, ac: ac),
             ],
-            if (d.openingDate.isNotEmpty) ...[
-              _divider(isDark, ac),
-              _DetailRow(
-                icon: Icons.calendar_today_rounded, label: 'Opened',
-                value: d.openingDate.length >= 10 ? d.openingDate.substring(0, 10) : d.openingDate,
-                ac: ac,
-              ),
-            ],
-            if (d.resolutionDate.isNotEmpty) ...[
-              _divider(isDark, ac),
-              _DetailRow(
-                icon: Icons.check_circle_outline_rounded, label: 'Resolved',
-                value: d.resolutionDate.length >= 10 ? d.resolutionDate.substring(0, 10) : d.resolutionDate,
-                ac: ac,
-              ),
-            ],
+            _divider(isDark, ac),
+            _DetailRow(
+              icon: Icons.calendar_today_rounded, label: 'Created',
+              value: d.creation.length >= 10 ? d.creation.substring(0, 10) : d.creation,
+              ac: ac,
+            ),
           ]),
         ),
 
@@ -1138,6 +1246,7 @@ class _InputField extends StatelessWidget {
   final int    maxLines;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
 
   const _InputField({
     required this.controller,
@@ -1147,6 +1256,7 @@ class _InputField extends StatelessWidget {
     this.maxLines    = 1,
     this.keyboardType = TextInputType.text,
     this.validator,
+    this.onChanged,
   });
 
   @override
@@ -1155,6 +1265,7 @@ class _InputField extends StatelessWidget {
     maxLines:     maxLines,
     keyboardType: keyboardType,
     validator:    validator,
+    onChanged:    onChanged,
     style: TextStyle(color: ac.textPrimary, fontSize: 14),
     decoration: InputDecoration(
       hintText:  hint,
@@ -1184,6 +1295,217 @@ class _InputField extends StatelessWidget {
       contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: maxLines > 1 ? 14 : 0),
     ),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ticket type dropdown
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TypeDropdown extends StatelessWidget {
+  final List<String> types;
+  final String       selected;
+  final bool         isDark;
+  final AdaptiveColors ac;
+  final ValueChanged<String> onSelect;
+
+  const _TypeDropdown({
+    required this.types, required this.selected, required this.isDark,
+    required this.ac, required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selected.isEmpty ? null : (types.contains(selected) ? selected : null),
+          hint: Text('Select ticket type', style: TextStyle(color: ac.textTertiary, fontSize: 14)),
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded, color: ac.textSecondary),
+          dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          borderRadius: BorderRadius.circular(14),
+          items: [
+            DropdownMenuItem<String>(
+              value: '',
+              child: Text('None', style: TextStyle(color: ac.textTertiary, fontSize: 14)),
+            ),
+            ...types.map((t) => DropdownMenuItem(
+              value: t,
+              child: Text(t, style: TextStyle(color: ac.textPrimary, fontSize: 14)),
+            )),
+          ],
+          onChanged: (v) => onSelect(v ?? ''),
+          style: TextStyle(color: ac.textPrimary, fontSize: 14),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Customer search field with live dropdown
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CustomerSearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final String               selectedName;
+  final List<CustomerResult> results;
+  final bool                 searching;
+  final bool                 showDropdown;
+  final bool                 isDark;
+  final AdaptiveColors       ac;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<CustomerResult> onSelect;
+  final VoidCallback         onClear;
+  final VoidCallback         onDismissDropdown;
+
+  const _CustomerSearchField({
+    required this.controller, required this.selectedName, required this.results,
+    required this.searching, required this.showDropdown, required this.isDark,
+    required this.ac, required this.onSearch, required this.onSelect,
+    required this.onClear, required this.onDismissDropdown,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSelection = selectedName.isNotEmpty;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Input row
+      Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasSelection
+                ? _violet.withValues(alpha: 0.50)
+                : isDark ? Colors.white.withValues(alpha: 0.10) : ac.border,
+            width: hasSelection ? 1.5 : 1,
+          ),
+        ),
+        child: Row(children: [
+          const SizedBox(width: 14),
+          Icon(
+            hasSelection ? Icons.business_rounded : Icons.search_rounded,
+            size: 18,
+            color: hasSelection ? _violet : ac.textTertiary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller:  controller,
+              onChanged:   onSearch,
+              enabled:     !hasSelection,
+              style: TextStyle(color: ac.textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText:        hasSelection ? selectedName : 'Search by customer name…',
+                hintStyle:       TextStyle(
+                  color: hasSelection ? ac.textPrimary : ac.textTertiary,
+                  fontSize: 14,
+                  fontWeight: hasSelection ? FontWeight.w600 : FontWeight.w400,
+                ),
+                border:          InputBorder.none,
+                isDense:         true,
+                contentPadding:  const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          if (searching)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(color: _violet, strokeWidth: 2)),
+            )
+          else if (hasSelection)
+            GestureDetector(
+              onTap: onClear,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(Icons.close_rounded, size: 18, color: ac.textTertiary),
+              ),
+            ),
+        ]),
+      ),
+
+      // Dropdown results
+      if (showDropdown && results.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          constraints: const BoxConstraints(maxHeight: 200),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.10),
+                blurRadius: 16, offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: ListView.separated(
+            shrinkWrap:   true,
+            padding:      const EdgeInsets.symmetric(vertical: 6),
+            itemCount:    results.length,
+            separatorBuilder: (_, i2) => Divider(
+              height: 1,
+              color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.borderLight,
+            ),
+            itemBuilder: (_, i) {
+              final c = results[i];
+              return GestureDetector(
+                onTap: () => onSelect(c),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  child: Row(children: [
+                    Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: _violet.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          c.display.isNotEmpty ? c.display[0].toUpperCase() : '?',
+                          style: const TextStyle(color: _violet, fontSize: 13, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(c.display,
+                            style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+                        if (c.name != c.display)
+                          Text(c.name, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                      ]),
+                    ),
+                    Icon(Icons.add_circle_outline_rounded, size: 16, color: _violet.withValues(alpha: 0.60)),
+                  ]),
+                ),
+              );
+            },
+          ),
+        )
+      else if (showDropdown && !searching && results.isEmpty)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+          ),
+          child: Text('No customers found', style: TextStyle(color: ac.textTertiary, fontSize: 13)),
+        ),
+    ]);
+  }
 }
 
 class _ActionBtn extends StatelessWidget {

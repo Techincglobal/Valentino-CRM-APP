@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
-import 'home_screen.dart';
+import 'main_shell.dart';
 import 'site_setup_screen.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen>
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => HomeScreen(
+          builder: (_) => MainShell(
             user: UserModel(
               username: result['full_name'] as String? ?? usr,
             ),
@@ -227,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen>
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => HomeScreen(
+                                  builder: (_) => MainShell(
                                     user: UserModel(username: 'Dev Test User'),
                                   ),
                                 ),
