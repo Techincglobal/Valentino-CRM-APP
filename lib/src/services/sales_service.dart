@@ -729,6 +729,14 @@ class SalesServiceOps {
     }
   }
 
+  /// Update fields on a Draft Sales Order (e.g. delivery_date) before submitting.
+  static Future<void> updateSalesOrder(String name, Map<String, dynamic> data) async {
+    final resp = await ApiService.put('/api/resource/Sales Order/$name', data);
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to update sales order (${resp.statusCode})'));
+    }
+  }
+
   /// Create an Opportunity from a Lead; returns the new Opportunity object.
   static Future<Opportunity> createOpportunity({
     required String leadDocname,

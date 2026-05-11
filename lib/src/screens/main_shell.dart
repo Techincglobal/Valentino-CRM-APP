@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
+import 'tickets_screen.dart';
 import 'sales_screen.dart';
 import 'quotes_screen.dart' show QuotesScreen, QuotesScreenController;
 import 'settings_screen.dart';
@@ -30,16 +31,17 @@ class _MainShellState extends State<MainShell> {
   void _onTap(int i) {
     if (i == _index) return;
     setState(() => _index = i);
-    if (i == 1) {
+    if (i == 2) {
       (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
-    } else if (i == 2) {
+    } else if (i == 3) {
       (_quotesKey.currentState as QuotesScreenController?)?.refreshQuotes();
     }
   }
 
   late final _pages = [
     HomeScreen(user: widget.user),
-    SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(2)),
+    TicketsScreen(user: widget.user),
+    SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(3)),
     QuotesScreen(key: _quotesKey),
     SettingsScreen(user: widget.user),
   ];
@@ -107,13 +109,15 @@ class _GlassNavBar extends StatelessWidget {
     final pills = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _NavPill(icon: Icons.home_rounded,         label: 'Home',     selected: currentIndex == 0, onTap: () => onTap(0)),
+        _NavPill(icon: Icons.home_rounded,                  label: 'Home',     selected: currentIndex == 0, onTap: () => onTap(0)),
         const SizedBox(width: 4),
-        _NavPill(icon: Icons.trending_up_rounded,  label: 'Pipeline', selected: currentIndex == 1, onTap: () => onTap(1)),
+        _NavPill(icon: Icons.confirmation_number_rounded,   label: 'Tickets',  selected: currentIndex == 1, onTap: () => onTap(1)),
         const SizedBox(width: 4),
-        _NavPill(icon: Icons.receipt_long_rounded, label: 'Quotes',   selected: currentIndex == 2, onTap: () => onTap(2)),
+        _NavPill(icon: Icons.trending_up_rounded,           label: 'Pipeline', selected: currentIndex == 2, onTap: () => onTap(2)),
         const SizedBox(width: 4),
-        _NavPill(icon: Icons.settings_rounded,     label: 'Settings', selected: currentIndex == 3, onTap: () => onTap(3)),
+        _NavPill(icon: Icons.receipt_long_rounded,          label: 'Quotes',   selected: currentIndex == 3, onTap: () => onTap(3)),
+        const SizedBox(width: 4),
+        _NavPill(icon: Icons.settings_rounded,              label: 'Settings', selected: currentIndex == 4, onTap: () => onTap(4)),
       ],
     );
 
@@ -217,7 +221,7 @@ class _NavPill extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOut,
         padding: EdgeInsets.symmetric(
-          horizontal: selected ? 18 : 13,
+          horizontal: selected ? 14 : 10,
           vertical:   10,
         ),
         decoration: BoxDecoration(

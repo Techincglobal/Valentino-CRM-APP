@@ -1279,6 +1279,10 @@ class _SODetailSheetState extends State<_SODetailSheet> {
   bool   _loadingDetail = true;
   bool   _acting        = false;
   String _error         = '';
+  String _actionError   = '';
+
+  // Editable delivery date (for Draft SOs)
+  final _deliveryCtrl = TextEditingController();
 
   static const _statusColors = {
     'Draft':      Color(0xFF94A3B8),
@@ -1304,11 +1308,22 @@ class _SODetailSheetState extends State<_SODetailSheet> {
     _fetchDetail();
   }
 
+  @override
+  void dispose() {
+    _deliveryCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchDetail() async {
-    setState(() { _loadingDetail = true; _error = ''; });
+    setState(() { _loadingDetail = true; _error = ''; _actionError = ''; });
     try {
       final d = await SalesServiceOps.getSalesOrderDetail(widget.order.name);
       if (!mounted) return;
+      // Pre-fill delivery date: use existing value or default 14 days out
+      final existing = d.deliveryDate.length >= 10 ? d.deliveryDate.substring(0, 10) : d.deliveryDate;
+      _deliveryCtrl.text = existing.isNotEmpty
+          ? existing
+          : DateTime.now().add(const Duration(days: 14)).toIso8601String().substring(0, 10);
       setState(() { _detail = d; _loadingDetail = false; });
     } catch (e) {
       if (!mounted) return;
@@ -1316,27 +1331,65 @@ class _SODetailSheetState extends State<_SODetailSheet> {
     }
   }
 
+  Future<void> _pickDeliveryDate() async {
+    final current = DateTime.tryParse(_deliveryCtrl.text) ?? DateTime.now().add(const Duration(days: 14));
+    final isDark  = context.isDark;
+    final picked  = await showDatePicker(
+      context:      context,
+      initialDate:  current,
+      firstDate:    DateTime.now(),
+      lastDate:     DateTime.now().add(const Duration(days: 730)),
+      builder: (ctx, child) => Theme(
+        data: isDark
+            ? ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: _teal))
+            : ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: _teal)),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _deliveryCtrl.text = picked.toIso8601String().substring(0, 10);
+        _actionError = '';
+      });
+    }
+  }
+
   Future<void> _submit() async {
     final d = _detail;
     if (d == null) return;
+
+    // Validate delivery date
+    final deliveryDate = _deliveryCtrl.text.trim();
+    if (deliveryDate.isEmpty) {
+      setState(() => _actionError = 'Delivery date is required before confirming the order.');
+      return;
+    }
+    setState(() => _actionError = '');
+
     final confirmed = await _confirm(
       title: 'Confirm Sales Order?',
-      body:  'Submit ${d.name} to confirm this sales order with the customer.',
+      body:  'This will lock ${d.name} and send it to the customer. Make sure the delivery date is correct.',
       label: 'Confirm',
       color: const Color(0xFF10B981),
     );
     if (!confirmed || !mounted) return;
     setState(() => _acting = true);
     try {
+      // Save delivery date first if it changed
+      final existing = d.deliveryDate.length >= 10 ? d.deliveryDate.substring(0, 10) : d.deliveryDate;
+      if (deliveryDate != existing) {
+        await SalesServiceOps.updateSalesOrder(d.name, {'delivery_date': deliveryDate});
+      }
       await SalesServiceOps.submitSalesOrder(d.name);
       if (!mounted) return;
       _showSnack('Sales Order confirmed', isError: false);
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showSnack('Failed: ${e.toString().replaceFirst("Exception: ", "")}');
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      setState(() { _acting = false; _actionError = msg; });
     } finally {
-      if (mounted) setState(() => _acting = false);
+      if (mounted && _acting) setState(() => _acting = false);
     }
   }
 
@@ -1350,7 +1403,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
       color: const Color(0xFFEF4444),
     );
     if (!confirmed || !mounted) return;
-    setState(() => _acting = true);
+    setState(() { _acting = true; _actionError = ''; });
     try {
       await SalesServiceOps.cancelSalesOrder(d.name);
       if (!mounted) return;
@@ -1358,9 +1411,10 @@ class _SODetailSheetState extends State<_SODetailSheet> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showSnack('Failed: ${e.toString().replaceFirst("Exception: ", "")}');
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      setState(() { _acting = false; _actionError = msg; });
     } finally {
-      if (mounted) setState(() => _acting = false);
+      if (mounted && _acting) setState(() => _acting = false);
     }
   }
 
@@ -1406,7 +1460,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
     final isDark = context.isDark;
     final bottom = MediaQuery.of(context).viewInsets.bottom +
         MediaQuery.of(context).padding.bottom;
-    final maxH   = MediaQuery.of(context).size.height * 0.88;
+    final maxH   = MediaQuery.of(context).size.height * 0.92;
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
@@ -1488,6 +1542,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+
           // ── Header ──────────────────────────────────────────────────────
           Row(children: [
             _GlassAvatar(initials: d.initials, color: statusColor),
@@ -1514,20 +1569,20 @@ class _SODetailSheetState extends State<_SODetailSheet> {
 
           const SizedBox(height: 18),
 
-          // ── Status chips ─────────────────────────────────────────────────
-          if (d.deliveryStatus.isNotEmpty || d.billingStatus.isNotEmpty)
+          // ── Delivery / billing status chips ─────────────────────────────
+          if (d.deliveryStatus.isNotEmpty || d.billingStatus.isNotEmpty) ...[
             Wrap(spacing: 8, runSpacing: 6, children: [
               if (d.deliveryStatus.isNotEmpty)
                 _GlassChip(label: 'Delivery: ${d.deliveryStatus}', color: dColor),
               if (d.billingStatus.isNotEmpty)
                 _GlassChip(label: 'Billing: ${d.billingStatus}', color: bColor),
             ]),
+            const SizedBox(height: 18),
+          ],
 
-          const SizedBox(height: 18),
-
-          // ── Details row ──────────────────────────────────────────────────
+          // ── Order details card ───────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color:        isDark ? const Color(0xFF1A2235) : ac.bgCard,
               borderRadius: BorderRadius.circular(16),
@@ -1536,21 +1591,12 @@ class _SODetailSheetState extends State<_SODetailSheet> {
             child: Column(children: [
               if (d.transactionDate.isNotEmpty)
                 _DetailRow(
-                  icon:  Icons.calendar_today_rounded,
+                  icon:  Icons.receipt_long_rounded,
                   label: 'Order Date',
                   value: d.transactionDate.length >= 10 ? d.transactionDate.substring(0, 10) : d.transactionDate,
                   ac:    ac,
                 ),
-              if (d.deliveryDate.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                _DetailRow(
-                  icon:  Icons.local_shipping_outlined,
-                  label: 'Delivery Date',
-                  value: d.deliveryDate.length >= 10 ? d.deliveryDate.substring(0, 10) : d.deliveryDate,
-                  ac:    ac,
-                ),
-              ],
-              const SizedBox(height: 10),
+              _divider(isDark, ac),
               _DetailRow(
                 icon:  Icons.currency_exchange_rounded,
                 label: 'Currency',
@@ -1558,6 +1604,50 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                 ac:    ac,
               ),
             ]),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Delivery Date (editable if Draft) ────────────────────────────
+          _SectionHeader(label: 'DELIVERY DATE', ac: ac),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: d.isDraft ? _pickDeliveryDate : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _actionError.contains('Delivery date') || _actionError.contains('delivery date')
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.7)
+                      : d.isDraft
+                          ? _teal.withValues(alpha: 0.35)
+                          : isDark ? Colors.white.withValues(alpha: 0.07) : ac.border,
+                  width: _actionError.contains('Delivery date') || _actionError.contains('delivery date') ? 1.5 : 1,
+                ),
+              ),
+              child: Row(children: [
+                Icon(Icons.local_shipping_outlined,
+                    size: 18,
+                    color: d.isDraft ? _teal : ac.textSecondary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _deliveryCtrl.text.isNotEmpty ? _deliveryCtrl.text : 'Tap to set delivery date',
+                    style: TextStyle(
+                      color: _deliveryCtrl.text.isNotEmpty ? ac.textPrimary : ac.textTertiary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (d.isDraft) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.edit_calendar_rounded, size: 16, color: _teal.withValues(alpha: 0.7)),
+                ],
+              ]),
+            ),
           ),
 
           const SizedBox(height: 20),
@@ -1577,7 +1667,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                   final i    = e.key;
                   final item = e.value;
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
                       border: i < d.items.length - 1
                           ? Border(bottom: BorderSide(
@@ -1588,47 +1678,90 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                           : null,
                     ),
                     child: Row(children: [
+                      Container(
+                        width: 34, height: 34,
+                        decoration: BoxDecoration(
+                          color: _teal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.inventory_2_outlined, size: 16, color: _teal),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(item.itemName.isNotEmpty ? item.itemName : item.itemCode,
                               style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                              maxLines: 2, overflow: TextOverflow.ellipsis),
                           if (item.itemCode.isNotEmpty && item.itemName.isNotEmpty)
                             Text(item.itemCode, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                          Text(
+                            '${item.qty.toStringAsFixed(item.qty % 1 == 0 ? 0 : 1)} unit${item.qty != 1 ? 's' : ''}  ×  ${_fmt(item.rate)}',
+                            style: TextStyle(color: ac.textSecondary, fontSize: 11),
+                          ),
                         ]),
                       ),
                       const SizedBox(width: 12),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Text(_fmt(item.amount),
-                            style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
-                        Text('${item.qty.toStringAsFixed(item.qty % 1 == 0 ? 0 : 1)} × ${_fmt(item.rate)}',
-                            style: TextStyle(color: ac.textTertiary, fontSize: 10)),
-                      ]),
+                      Text(_fmt(item.amount),
+                          style: TextStyle(color: ac.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
                     ]),
                   );
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 8),
-            // Grand total row
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: _teal.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _teal.withValues(alpha: 0.20)),
+              ),
               child: Row(children: [
-                Text('GRAND TOTAL', style: TextStyle(color: ac.textTertiary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                Text('GRAND TOTAL',
+                    style: TextStyle(color: ac.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
                 const Spacer(),
                 Text(_fmt(d.grandTotal),
-                    style: const TextStyle(color: _teal, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                    style: const TextStyle(color: _teal, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
               ]),
             ),
             const SizedBox(height: 24),
           ],
 
+          // ── Inline action error banner ────────────────────────────────────
+          if (_actionError.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color:        const Color(0xFFEF4444).withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+                border:       Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.40)),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(_actionError,
+                      style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13, fontWeight: FontWeight.w500)),
+                ),
+                GestureDetector(
+                  onTap: () => setState(() => _actionError = ''),
+                  child: const Icon(Icons.close_rounded, color: Color(0xFFEF4444), size: 16),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // ── Actions ──────────────────────────────────────────────────────
           if (_acting)
-            const Center(child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: CircularProgressIndicator(color: _teal, strokeWidth: 2.5),
-            ))
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: const Center(child: CircularProgressIndicator(color: _teal, strokeWidth: 2.5)),
+            )
           else ...[
             if (d.isDraft) ...[
               _ActionButton(
@@ -1639,7 +1772,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
               ),
               const SizedBox(height: 10),
               _ActionButton(
-                label:    'Cancel Order',
+                label:    'Discard / Cancel',
                 icon:     Icons.cancel_outlined,
                 color:    const Color(0xFFEF4444),
                 outlined: true,
@@ -1659,6 +1792,14 @@ class _SODetailSheetState extends State<_SODetailSheet> {
       ),
     );
   }
+
+  Widget _divider(bool isDark, AdaptiveColors ac) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Divider(
+      height: 1,
+      color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.borderLight,
+    ),
+  );
 }
 
 class _DetailRow extends StatelessWidget {
