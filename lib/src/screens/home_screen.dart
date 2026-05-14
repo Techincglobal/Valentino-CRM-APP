@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_model.dart';
 import '../services/caller_service.dart';
+import '../services/sales_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
@@ -19,7 +20,8 @@ const MethodChannel _nativeOverlayChannel =
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
-  const HomeScreen({super.key, required this.user});
+  final VoidCallback? onOpportunityCreated;
+  const HomeScreen({super.key, required this.user, this.onOpportunityCreated});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -112,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final now = DateTime.now();
         if (phone == _lastHandledPhone &&
             _lastHandledAt != null &&
-            now.difference(_lastHandledAt!).inSeconds < 5) return;
+            now.difference(_lastHandledAt!).inSeconds < 5) { return; }
         _lastHandledPhone = phone;
         _lastHandledAt = now;
         // Save phone immediately so native CallStateReceiver can use it as fallback
@@ -292,6 +294,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       ));
       if (mounted) _phoneController.clear();
+    } else if (outcome == 'opportunity_created') {
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Opportunity created — check the Pipeline tab'),
+        backgroundColor: const Color(0xFF6366F1),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+      if (mounted) _phoneController.clear();
+      widget.onOpportunityCreated?.call();
     }
   }
 
@@ -501,10 +513,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
             onSelected: (value) async {
               if (value == 'logout') {
+                final nav = Navigator.of(context);
                 await StorageService.clearSession();
-                if (!mounted) return;
-                Navigator.pushAndRemoveUntil(
-                  context,
+                nav.pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                   (_) => false,
                 );
@@ -1428,18 +1439,15 @@ class _LookupResultSheet extends StatefulWidget {
 }
 
 class _LookupResultSheetState extends State<_LookupResultSheet> {
-  final _noteCtrl  = TextEditingController();
   final _nameCtrl  = TextEditingController();
   final _emailCtrl = TextEditingController();
 
-  bool    _savingNote   = false;
   bool    _creatingLead = false;
-  bool    _noteSaved    = false;
+  bool    _creatingOpp  = false;
   String? _error;
 
   late final bool   _found;
   late final String _displayName;
-  late final String _doctype;
   late final String _docname;
   late final String _type;
   late final String _email;
@@ -1450,7 +1458,6 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   static const _indigo = Color(0xFF6366F1);
   static const _teal   = Color(0xFF14B8A6);
   static const _slate  = Color(0xFF94A3B8);
-  static const _green  = Color(0xFF10B981);
   static const _red    = Color(0xFFEF4444);
 
   @override
@@ -1459,7 +1466,6 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
     final r    = widget.result;
     _found       = r['found'] == true;
     _displayName = r['name']     as String? ?? 'Unknown';
-    _doctype     = r['doctype']  as String? ?? '';
     _docname     = r['docname']  as String? ?? '';
     _type        = r['type']     as String? ?? '';
     _email       = r['email_id'] as String? ?? '';
@@ -1470,7 +1476,6 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
 
   @override
   void dispose() {
-    _noteCtrl.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
@@ -1488,18 +1493,20 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
     return _slate;
   }
 
-  Future<void> _saveNote() async {
-    final note = _noteCtrl.text.trim();
-    if (note.isEmpty) return;
-    setState(() { _savingNote = true; _error = null; });
+  Future<void> _createOpportunity() async {
+    setState(() { _creatingOpp = true; _error = null; });
     try {
-      await CallerService.addNote(doctype: _doctype, docname: _docname, note: note);
+      await SalesServiceOps.createOpportunity(
+        leadDocname: _docname,
+        partyName:   _displayName,
+        amount:      0,
+        stage:       'Prospecting',
+      );
       if (!mounted) return;
-      setState(() { _savingNote = false; _noteSaved = true; });
-      _noteCtrl.clear();
+      Navigator.pop(context, 'opportunity_created');
     } catch (e) {
       if (!mounted) return;
-      setState(() { _savingNote = false; _error = e.toString().replaceFirst('Exception: ', ''); });
+      setState(() { _creatingOpp = false; _error = e.toString().replaceFirst('Exception: ', ''); });
     }
   }
 
@@ -1602,7 +1609,8 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   }
 
   List<Widget> _foundContent(AdaptiveColors ac, bool isDark) {
-    final color = _typeColor;
+    final color  = _typeColor;
+    final isLead = _type == 'Lead';
     return [
       // Contact card
       Container(
@@ -1612,64 +1620,59 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 52, height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.10)],
+        child: Row(children: [
+          Container(
+            width: 52, height: 52,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.10)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withValues(alpha: 0.30)),
+            ),
+            child: Center(
+              child: Text(_initials, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_displayName,
+                  style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+              const SizedBox(height: 4),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color:  color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: color.withValues(alpha: 0.28)),
+                  ),
+                  child: Text(_type, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
                 ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: color.withValues(alpha: 0.30)),
-              ),
-              child: Center(
-                child: Text(_initials, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800)),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_displayName,
-                      style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color:  color.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: color.withValues(alpha: 0.28)),
-                      ),
-                      child: Text(_type, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(child: Text(_docname, style: TextStyle(color: ac.textTertiary, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                  ]),
-                  if (_mobile.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Row(children: [
-                      Icon(Icons.phone_rounded, size: 12, color: ac.textTertiary),
-                      const SizedBox(width: 5),
-                      Text(_mobile, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
-                    ]),
-                  ],
-                  if (_email.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Row(children: [
-                      Icon(Icons.email_outlined, size: 12, color: ac.textTertiary),
-                      const SizedBox(width: 5),
-                      Flexible(child: Text(_email, style: TextStyle(color: ac.textSecondary, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                    ]),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
+                const SizedBox(width: 8),
+                Flexible(child: Text(_docname, style: TextStyle(color: ac.textTertiary, fontSize: 11), overflow: TextOverflow.ellipsis)),
+              ]),
+              if (_mobile.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  Icon(Icons.phone_rounded, size: 12, color: ac.textTertiary),
+                  const SizedBox(width: 5),
+                  Text(_mobile, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                ]),
+              ],
+              if (_email.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Row(children: [
+                  Icon(Icons.email_outlined, size: 12, color: ac.textTertiary),
+                  const SizedBox(width: 5),
+                  Flexible(child: Text(_email, style: TextStyle(color: ac.textSecondary, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                ]),
+              ],
+            ]),
+          ),
+        ]),
       ),
 
       // Latest note banner
@@ -1682,77 +1685,38 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _amber.withValues(alpha: 0.28)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                const Icon(Icons.sticky_note_2_rounded, color: _amber, size: 13),
-                const SizedBox(width: 6),
-                const Text('LAST NOTE', style: TextStyle(color: _amber, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
-              ]),
-              const SizedBox(height: 6),
-              Text(_latestNote, style: TextStyle(color: ac.textPrimary, fontSize: 13, height: 1.5), maxLines: 5, overflow: TextOverflow.ellipsis),
-            ],
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.sticky_note_2_rounded, color: _amber, size: 13),
+              SizedBox(width: 6),
+              Text('LAST NOTE', style: TextStyle(color: _amber, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+            ]),
+            const SizedBox(height: 6),
+            Text(_latestNote, style: TextStyle(color: ac.textPrimary, fontSize: 13, height: 1.5), maxLines: 5, overflow: TextOverflow.ellipsis),
+          ]),
         ),
       ],
 
-      // Add note
-      const SizedBox(height: 18),
-      Text('ADD NOTE', style: TextStyle(color: ac.textTertiary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
-      const SizedBox(height: 8),
-      if (_noteSaved)
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color:  _green.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _green.withValues(alpha: 0.28)),
-          ),
-          child: const Row(children: [
-            Icon(Icons.check_circle_rounded, color: _green, size: 16),
-            SizedBox(width: 8),
-            Text('Note saved', style: TextStyle(color: _green, fontSize: 13, fontWeight: FontWeight.w600)),
-          ]),
-        )
-      else ...[
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
-          ),
-          child: TextField(
-            controller: _noteCtrl,
-            minLines: 3, maxLines: 5,
-            enabled: !_savingNote,
-            style: TextStyle(color: ac.textPrimary, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Add a note about this call…',
-              hintStyle: TextStyle(color: ac.textTertiary, fontSize: 13),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(14),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
+      // Convert to Opportunity — only for Leads
+      if (isLead) ...[
+        const SizedBox(height: 20),
         GestureDetector(
-          onTap: _savingNote ? null : _saveNote,
+          onTap: _creatingOpp ? null : _createOpportunity,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 15),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_amber, Color(0xFFD97706)]),
+              gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
               borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: _amber.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))],
+              boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
             ),
             child: Center(
-              child: _savingNote
+              child: _creatingOpp
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.note_add_rounded, color: Colors.white, size: 16),
+                      Icon(Icons.trending_up_rounded, color: Colors.white, size: 16),
                       SizedBox(width: 8),
-                      Text('Save Note', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                      Text('Create Opportunity', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                     ]),
             ),
           ),

@@ -1,29 +1,35 @@
 import 'dart:convert';
 import 'api_service.dart';
 
-/// Extracts a human-readable message from a Frappe error response body.
-/// Frappe wraps thrown exceptions in _server_messages (JSON list of JSON strings).
 String _parseFrappeError(String body, String fallback) {
   try {
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    final raw  = json['_server_messages'] as String?;
-    if (raw != null && raw.isNotEmpty) {
-      final list = jsonDecode(raw) as List?;
-      if (list != null && list.isNotEmpty) {
-        try {
-          final inner = jsonDecode(list.first as String) as Map?;
-          final msg   = inner?['message'] as String?;
-          if (msg != null && msg.isNotEmpty) return msg;
-        } catch (_) {
-          final s = list.first.toString();
-          if (s.isNotEmpty) return s;
+    final decoded = jsonDecode(body);
+    if (decoded is! Map) return fallback;
+    final rawMessages = decoded['_server_messages'];
+    if (rawMessages is String && rawMessages.isNotEmpty) {
+      try {
+        final list = jsonDecode(rawMessages);
+        if (list is List && list.isNotEmpty) {
+          try {
+            final inner = jsonDecode(list.first.toString());
+            if (inner is Map) {
+              final msg = inner['message'];
+              if (msg != null && msg.toString().isNotEmpty) return msg.toString();
+            }
+          } catch (_) {
+            final s = list.first.toString();
+            if (s.isNotEmpty) return s;
+          }
         }
-      }
+      } catch (_) {}
     }
-    final exc = json['exception'] as String?;
-    if (exc != null && exc.isNotEmpty) {
-      final i = exc.indexOf(': ');
-      return i >= 0 ? exc.substring(i + 2).trim() : exc;
+    final exc = decoded['exception'];
+    if (exc != null) {
+      final s = exc.toString();
+      if (s.isNotEmpty) {
+        final i = s.indexOf(': ');
+        return i >= 0 ? s.substring(i + 2).trim() : s;
+      }
     }
   } catch (_) {}
   return fallback;
@@ -57,22 +63,22 @@ class Opportunity {
   });
 
   factory Opportunity.fromJson(Map<String, dynamic> j) {
-    final customerName = (j['customer_name'] as String?)?.trim() ?? '';
-    final title        = (j['title']         as String?)?.trim() ?? '';
-    final partyName    = (j['party_name']     as String?)?.trim() ?? '';
+    final customerName = j['customer_name']?.toString().trim() ?? '';
+    final title        = j['title']?.toString().trim() ?? '';
+    final partyName    = j['party_name']?.toString().trim() ?? '';
     return Opportunity(
-      name:            j['name'] as String? ?? '',
+      name:            j['name']?.toString() ?? '',
       partyName:       customerName.isNotEmpty ? customerName
                      : title.isNotEmpty        ? title
                      : partyName.isNotEmpty    ? partyName
                      : 'Unknown',
       partyDocname:    partyName,
-      partyType:       j['opportunity_from'] as String? ?? 'Lead',
-      amount:          ((j['opportunity_amount'] ?? j['expected_revenue'] ?? 0) as num).toDouble(),
-      stage:           j['stage']            as String? ?? '',
-      status:          j['status']           as String? ?? 'Open',
-      expectedClosing: j['expected_closing'] as String? ?? '',
-      modified:        j['modified']         as String? ?? '',
+      partyType:       j['opportunity_from']?.toString() ?? 'Lead',
+      amount:          ((j['opportunity_amount'] ?? j['expected_revenue'] ?? 0) as num?)?.toDouble() ?? 0,
+      stage:           j['stage']?.toString() ?? '',
+      status:          j['status']?.toString() ?? 'Open',
+      expectedClosing: j['expected_closing']?.toString() ?? '',
+      modified:        j['modified']?.toString() ?? '',
     );
   }
 }
@@ -95,15 +101,15 @@ class CrmLead {
   });
 
   factory CrmLead.fromJson(Map<String, dynamic> j) {
-    final first = (j['first_name'] as String?) ?? '';
-    final full  = (j['lead_name'] as String?) ?? '';
+    final first = j['first_name']?.toString() ?? '';
+    final full  = j['lead_name']?.toString() ?? '';
     return CrmLead(
-      name:        j['name'] as String? ?? '',
+      name:        j['name']?.toString() ?? '',
       displayName: full.isNotEmpty ? full : (first.isNotEmpty ? first : 'Unknown'),
-      email:       j['email_id'] as String? ?? '',
-      mobile:      j['mobile_no'] as String? ?? '',
-      status:      j['status'] as String? ?? 'Lead',
-      modified:    j['modified'] as String? ?? '',
+      email:       j['email_id']?.toString() ?? '',
+      mobile:      j['mobile_no']?.toString() ?? '',
+      status:      j['status']?.toString() ?? 'Lead',
+      modified:    j['modified']?.toString() ?? '',
     );
   }
 
@@ -132,16 +138,17 @@ class Quotation {
     this.currency = 'LKR',
   });
 
-  factory Quotation.fromJson(Map<String, dynamic> j) => Quotation(
-        name:       j['name'] as String? ?? '',
-        partyName:  (j['customer_name'] as String?)?.isNotEmpty == true
-            ? j['customer_name'] as String
-            : (j['party_name'] as String?) ?? 'Unknown',
-        grandTotal: ((j['grand_total'] ?? j['net_total'] ?? 0) as num).toDouble(),
-        status:     j['status'] as String? ?? 'Draft',
-        modified:   j['modified'] as String? ?? '',
-        currency:   j['currency'] as String? ?? 'LKR',
-      );
+  factory Quotation.fromJson(Map<String, dynamic> j) {
+    final cn = j['customer_name']?.toString().trim() ?? '';
+    return Quotation(
+      name:       j['name']?.toString() ?? '',
+      partyName:  cn.isNotEmpty ? cn : (j['party_name']?.toString() ?? 'Unknown'),
+      grandTotal: ((j['grand_total'] ?? j['net_total'] ?? 0) as num?)?.toDouble() ?? 0,
+      status:     j['status']?.toString() ?? 'Draft',
+      modified:   j['modified']?.toString() ?? '',
+      currency:   j['currency']?.toString() ?? 'LKR',
+    );
+  }
 
   String get initials {
     final parts = partyName.trim().split(RegExp(r'\s+'));
@@ -157,6 +164,9 @@ class QuotationItem {
   final double qty;
   final double rate;
   final double amount;
+  final String uom;
+  final String warehouse;
+  final String deliveryDate;
 
   const QuotationItem({
     required this.itemCode,
@@ -164,14 +174,20 @@ class QuotationItem {
     required this.qty,
     required this.rate,
     required this.amount,
+    this.uom          = '',
+    this.warehouse    = '',
+    this.deliveryDate = '',
   });
 
   factory QuotationItem.fromJson(Map<String, dynamic> j) => QuotationItem(
-        itemCode: j['item_code'] as String? ?? '',
-        itemName: j['item_name'] as String? ?? '',
-        qty:      ((j['qty'] ?? 1) as num).toDouble(),
-        rate:     ((j['rate'] ?? 0) as num).toDouble(),
-        amount:   ((j['amount'] ?? 0) as num).toDouble(),
+        itemCode:     j['item_code']?.toString() ?? '',
+        itemName:     j['item_name']?.toString() ?? '',
+        qty:          ((j['qty'] ?? 1) as num?)?.toDouble() ?? 1,
+        rate:         ((j['rate'] ?? 0) as num?)?.toDouble() ?? 0,
+        amount:       ((j['amount'] ?? 0) as num?)?.toDouble() ?? 0,
+        uom:          j['uom']?.toString() ?? '',
+        warehouse:    j['warehouse']?.toString() ?? '',
+        deliveryDate: j['delivery_date']?.toString() ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -206,19 +222,18 @@ class QuotationDetail extends Quotation {
   bool get isCancelled  => docstatus == 2;
 
   factory QuotationDetail.fromJson(Map<String, dynamic> j) {
-    final rawItems = (j['items'] as List?) ?? [];
+    final rawItems = (j['items'] is List) ? j['items'] as List : <dynamic>[];
+    final cn       = j['customer_name']?.toString().trim() ?? '';
     return QuotationDetail(
-      name:       j['name'] as String? ?? '',
-      partyName:  (j['customer_name'] as String?)?.isNotEmpty == true
-          ? j['customer_name'] as String
-          : (j['party_name'] as String?) ?? 'Unknown',
-      grandTotal: ((j['grand_total'] ?? j['net_total'] ?? 0) as num).toDouble(),
-      status:     j['status'] as String? ?? 'Draft',
-      modified:   j['modified'] as String? ?? '',
-      currency:   j['currency'] as String? ?? 'LKR',
-      docstatus:  (j['docstatus'] as int?) ?? 0,
-      validTill:  j['valid_till'] as String? ?? '',
-      terms:      j['terms'] as String? ?? '',
+      name:       j['name']?.toString() ?? '',
+      partyName:  cn.isNotEmpty ? cn : (j['party_name']?.toString() ?? 'Unknown'),
+      grandTotal: ((j['grand_total'] ?? j['net_total'] ?? 0) as num?)?.toDouble() ?? 0,
+      status:     j['status']?.toString() ?? 'Draft',
+      modified:   j['modified']?.toString() ?? '',
+      currency:   j['currency']?.toString() ?? 'LKR',
+      docstatus:  (j['docstatus'] is int) ? j['docstatus'] as int : int.tryParse(j['docstatus']?.toString() ?? '') ?? 0,
+      validTill:  j['valid_till']?.toString() ?? '',
+      terms:      j['terms']?.toString() ?? '',
       items:      rawItems
           .whereType<Map<String, dynamic>>()
           .map(QuotationItem.fromJson)
@@ -250,19 +265,20 @@ class SalesOrder {
     required this.modified,
   });
 
-  factory SalesOrder.fromJson(Map<String, dynamic> j) => SalesOrder(
-        name:            j['name'] as String? ?? '',
-        customerName:    (j['customer_name'] as String?)?.trim().isNotEmpty == true
-            ? j['customer_name'] as String
-            : 'Unknown',
-        grandTotal:      ((j['grand_total'] ?? 0) as num).toDouble(),
-        status:          j['status'] as String? ?? 'Draft',
-        deliveryStatus:  j['delivery_status'] as String? ?? '',
-        billingStatus:   j['billing_status'] as String? ?? '',
-        currency:        j['currency'] as String? ?? 'LKR',
-        transactionDate: j['transaction_date'] as String? ?? '',
-        modified:        j['modified'] as String? ?? '',
-      );
+  factory SalesOrder.fromJson(Map<String, dynamic> j) {
+    final cn = j['customer_name']?.toString().trim() ?? '';
+    return SalesOrder(
+      name:            j['name']?.toString() ?? '',
+      customerName:    cn.isNotEmpty ? cn : 'Unknown',
+      grandTotal:      ((j['grand_total'] ?? 0) as num?)?.toDouble() ?? 0,
+      status:          j['status']?.toString() ?? 'Draft',
+      deliveryStatus:  j['delivery_status']?.toString() ?? '',
+      billingStatus:   j['billing_status']?.toString() ?? '',
+      currency:        j['currency']?.toString() ?? 'LKR',
+      transactionDate: j['transaction_date']?.toString() ?? '',
+      modified:        j['modified']?.toString() ?? '',
+    );
+  }
 
   String get initials {
     final parts = customerName.trim().split(RegExp(r'\s+'));
@@ -275,6 +291,13 @@ class SalesOrder {
 class SalesOrderDetail extends SalesOrder {
   final int    docstatus;
   final String deliveryDate;
+  final String company;
+  final String orderType;
+  final double netTotal;
+  final double totalTaxes;
+  final String taxesAndCharges;
+  final String sellingPriceList;
+  final String contactDisplay;
   final List<QuotationItem> items;
 
   const SalesOrderDetail({
@@ -288,7 +311,14 @@ class SalesOrderDetail extends SalesOrder {
     required super.transactionDate,
     required super.modified,
     required this.docstatus,
-    this.deliveryDate = '',
+    this.deliveryDate     = '',
+    this.company          = '',
+    this.orderType        = '',
+    this.netTotal         = 0,
+    this.totalTaxes       = 0,
+    this.taxesAndCharges  = '',
+    this.sellingPriceList = '',
+    this.contactDisplay   = '',
     required this.items,
   });
 
@@ -297,22 +327,28 @@ class SalesOrderDetail extends SalesOrder {
   bool get isCancelled => docstatus == 2;
 
   factory SalesOrderDetail.fromJson(Map<String, dynamic> j) {
-    final rawItems = (j['items'] as List?) ?? [];
+    final rawItems = (j['items'] is List) ? j['items'] as List : <dynamic>[];
+    final cn       = j['customer_name']?.toString().trim() ?? '';
     return SalesOrderDetail(
-      name:            j['name'] as String? ?? '',
-      customerName:    (j['customer_name'] as String?)?.trim().isNotEmpty == true
-          ? j['customer_name'] as String
-          : 'Unknown',
-      grandTotal:      ((j['grand_total'] ?? j['net_total'] ?? 0) as num).toDouble(),
-      status:          j['status'] as String? ?? 'Draft',
-      deliveryStatus:  j['delivery_status'] as String? ?? '',
-      billingStatus:   j['billing_status'] as String? ?? '',
-      currency:        j['currency'] as String? ?? 'LKR',
-      transactionDate: j['transaction_date'] as String? ?? '',
-      modified:        j['modified'] as String? ?? '',
-      docstatus:       (j['docstatus'] as int?) ?? 0,
-      deliveryDate:    j['delivery_date'] as String? ?? '',
-      items:           rawItems
+      name:             j['name']?.toString() ?? '',
+      customerName:     cn.isNotEmpty ? cn : 'Unknown',
+      grandTotal:       ((j['grand_total'] ?? 0) as num?)?.toDouble() ?? 0,
+      netTotal:         ((j['net_total'] ?? 0) as num?)?.toDouble() ?? 0,
+      totalTaxes:       ((j['total_taxes_and_charges'] ?? 0) as num?)?.toDouble() ?? 0,
+      status:           j['status']?.toString() ?? 'Draft',
+      deliveryStatus:   j['delivery_status']?.toString() ?? '',
+      billingStatus:    j['billing_status']?.toString() ?? '',
+      currency:         j['currency']?.toString() ?? 'LKR',
+      transactionDate:  j['transaction_date']?.toString() ?? '',
+      modified:         j['modified']?.toString() ?? '',
+      docstatus:        (j['docstatus'] is int) ? j['docstatus'] as int : int.tryParse(j['docstatus']?.toString() ?? '') ?? 0,
+      deliveryDate:     j['delivery_date']?.toString() ?? '',
+      company:          j['company']?.toString() ?? '',
+      orderType:        j['order_type']?.toString() ?? '',
+      taxesAndCharges:  j['taxes_and_charges']?.toString() ?? '',
+      sellingPriceList: j['selling_price_list']?.toString() ?? '',
+      contactDisplay:   j['contact_display']?.toString() ?? '',
+      items:            rawItems
           .whereType<Map<String, dynamic>>()
           .map(QuotationItem.fromJson)
           .toList(),
@@ -567,9 +603,9 @@ class CompanyDefaults {
     required this.symbol,
   });
   factory CompanyDefaults.fromJson(Map<String, dynamic> j) => CompanyDefaults(
-        company:  j['company']  as String? ?? '',
-        currency: j['currency'] as String? ?? 'LKR',
-        symbol:   j['symbol']   as String? ?? 'Rs.',
+        company:  j['company']?.toString() ?? '',
+        currency: j['currency']?.toString() ?? 'LKR',
+        symbol:   j['symbol']?.toString() ?? 'Rs.',
       );
 }
 
@@ -595,14 +631,14 @@ class QuotationDefaults {
   });
 
   factory QuotationDefaults.fromJson(Map<String, dynamic> j) => QuotationDefaults(
-        company:           j['company']            as String? ?? '',
-        currency:          j['currency']           as String? ?? 'LKR',
-        symbol:            j['symbol']             as String? ?? 'Rs.',
-        sellingPriceList:  j['selling_price_list'] as String? ?? '',
-        termsContent:      j['terms_content']      as String? ?? '',
-        partyName:         j['party_name']         as String? ?? '',
-        partyEmail:        j['party_email']        as String? ?? '',
-        partyPhone:        j['party_phone']        as String? ?? '',
+        company:           j['company']?.toString() ?? '',
+        currency:          j['currency']?.toString() ?? 'LKR',
+        symbol:            j['symbol']?.toString() ?? 'Rs.',
+        sellingPriceList:  j['selling_price_list']?.toString() ?? '',
+        termsContent:      j['terms_content']?.toString() ?? '',
+        partyName:         j['party_name']?.toString() ?? '',
+        partyEmail:        j['party_email']?.toString() ?? '',
+        partyPhone:        j['party_phone']?.toString() ?? '',
       );
 
   static const empty = QuotationDefaults(
@@ -624,10 +660,10 @@ class FrappeItem {
     required this.standardRate,
   });
   factory FrappeItem.fromJson(Map<String, dynamic> j) => FrappeItem(
-        itemCode:     j['name']          as String? ?? '',
-        itemName:     j['item_name']     as String? ?? '',
-        description:  j['description']   as String? ?? '',
-        standardRate: ((j['standard_rate'] ?? 0) as num).toDouble(),
+        itemCode:     j['name']?.toString() ?? '',
+        itemName:     j['item_name']?.toString() ?? '',
+        description:  j['description']?.toString() ?? '',
+        standardRate: ((j['standard_rate'] ?? 0) as num?)?.toDouble() ?? 0,
       );
 }
 
@@ -731,7 +767,10 @@ class SalesServiceOps {
 
   /// Update fields on a Draft Sales Order (e.g. delivery_date) before submitting.
   static Future<void> updateSalesOrder(String name, Map<String, dynamic> data) async {
-    final resp = await ApiService.put('/api/resource/Sales Order/$name', data);
+    final resp = await ApiService.put(
+      '/api/resource/Sales%20Order/${Uri.encodeComponent(name)}',
+      data,
+    );
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to update sales order (${resp.statusCode})'));
     }

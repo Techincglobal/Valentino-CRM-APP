@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'tickets_screen.dart';
-import 'sales_screen.dart';
+import 'sales_screen.dart' show SalesScreen, SalesScreenController;
 import 'quotes_screen.dart' show QuotesScreen, QuotesScreenController;
 import 'settings_screen.dart';
 
@@ -39,7 +39,12 @@ class _MainShellState extends State<MainShell> {
   }
 
   late final _pages = [
-    HomeScreen(user: widget.user),
+    HomeScreen(
+      user: widget.user,
+      onOpportunityCreated: () {
+        (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
+      },
+    ),
     TicketsScreen(user: widget.user),
     SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(3)),
     QuotesScreen(key: _quotesKey),

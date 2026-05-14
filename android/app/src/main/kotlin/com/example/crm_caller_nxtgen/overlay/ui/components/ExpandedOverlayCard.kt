@@ -1,9 +1,5 @@
 package com.example.crm_caller_nxtgen.overlay.ui.components
 
-import androidx.compose.animation.core.InfiniteRepeatableSpec
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,7 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +52,6 @@ private val Red500 = Color(0xFFEF4444)
 fun ExpandedOverlayCard(
     state: OverlayState,
     durationSecs: Long,
-    isRecording: Boolean,
     onCollapse: () -> Unit,
     onClose: () -> Unit,
     onEvent: (OverlayEvent) -> Unit,
@@ -140,7 +134,6 @@ fun ExpandedOverlayCard(
                     phone        = phone,
                     callPhase    = callPhase,
                     durationSecs = durationSecs,
-                    isRecording  = isRecording,
                     isPostCall   = isPostCall,
                     accentColor  = accentColor,
                     isDark       = isDark,
@@ -163,10 +156,9 @@ fun ExpandedOverlayCard(
                 when (identity) {
                     is CallerIdentity.Unknown -> {
                         UnknownCallerForm(
-                            phone       = phone,
-                            isRecording = isRecording,
-                            onEvent     = onEvent,
-                            onSubmit    = { name, email, company, note ->
+                            phone    = phone,
+                            onEvent  = onEvent,
+                            onSubmit = { name, email, company, note ->
                                 onEvent(OverlayEvent.SubmitLead(name, email, company, note))
                             },
                         )
@@ -177,7 +169,6 @@ fun ExpandedOverlayCard(
                             identity    = identity,
                             callPhase   = callPhase,
                             activeSheet = activeSheet,
-                            isRecording = isRecording,
                             onEvent     = onEvent,
                         )
                     }
@@ -197,7 +188,6 @@ private fun CardHeader(
     phone: String,
     callPhase: CallPhase,
     durationSecs: Long,
-    isRecording: Boolean,
     isPostCall: Boolean,
     accentColor: Color,
     isDark: Boolean,
@@ -318,8 +308,6 @@ private fun CardHeader(
                 }
             }
 
-            if (isRecording) RecordingDot()
-
             TimerChip(callPhase, durationSecs, accentColor)
         }
     }
@@ -357,39 +345,4 @@ private fun TimerChip(callPhase: CallPhase, durationSecs: Long, accentColor: Col
     }
 }
 
-@Composable
-private fun RecordingDot() {
-    val infiniteTransition = rememberInfiniteTransition(label = "recDotPulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue  = 0.5f,
-        targetValue   = 1f,
-        animationSpec = InfiniteRepeatableSpec(tween(550), RepeatMode.Reverse),
-        label         = "recDotAlpha",
-    )
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(Red500.copy(alpha = 0.12f))
-            .border(1.dp, Red500.copy(alpha = 0.28f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 7.dp, vertical = 3.dp),
-    ) {
-        Row(
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(Red500.copy(alpha = alpha)),
-            )
-            Text(
-                text          = "REC",
-                color         = Red500.copy(alpha = alpha),
-                fontSize      = 10.sp,
-                fontWeight    = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-            )
-        }
-    }
-}
+

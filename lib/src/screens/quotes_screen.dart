@@ -14,9 +14,10 @@ abstract class QuotesScreenController {
 // Brand tokens — always legible on the dark header
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _amber = Color(0xFFF59E0B);
-const _teal  = Color(0xFF14B8A6);
-const _slate = Color(0xFF94A3B8);
+const _amber  = Color(0xFFF59E0B);
+const _teal   = Color(0xFF14B8A6);
+const _slate  = Color(0xFF94A3B8);
+const _indigo = Color(0xFF6366F1);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QuotesScreen
@@ -1536,6 +1537,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
     final statusColor = _statusColors[d.status] ?? _slate;
     final dColor      = _deliveryColors[d.deliveryStatus] ?? _slate;
     final bColor      = _billingColors[d.billingStatus] ?? _slate;
+    final hasTaxes    = d.totalTaxes > 0;
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + bottomInset),
@@ -1552,7 +1554,10 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                 Text(d.customerName,
                     style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.4),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
+                if (d.company.isNotEmpty)
+                  Text(d.company, style: TextStyle(color: ac.textSecondary, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
                 Row(children: [
                   _GlassChip(label: d.status, color: statusColor),
                   const SizedBox(width: 6),
@@ -1567,7 +1572,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
             ]),
           ]),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
           // ── Delivery / billing status chips ─────────────────────────────
           if (d.deliveryStatus.isNotEmpty || d.billingStatus.isNotEmpty) ...[
@@ -1576,8 +1581,10 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                 _GlassChip(label: 'Delivery: ${d.deliveryStatus}', color: dColor),
               if (d.billingStatus.isNotEmpty)
                 _GlassChip(label: 'Billing: ${d.billingStatus}', color: bColor),
+              if (d.orderType.isNotEmpty)
+                _GlassChip(label: d.orderType, color: _indigo),
             ]),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
           ],
 
           // ── Order details card ───────────────────────────────────────────
@@ -1596,13 +1603,31 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                   value: d.transactionDate.length >= 10 ? d.transactionDate.substring(0, 10) : d.transactionDate,
                   ac:    ac,
                 ),
-              _divider(isDark, ac),
+              if (d.transactionDate.isNotEmpty) _divider(isDark, ac),
               _DetailRow(
                 icon:  Icons.currency_exchange_rounded,
                 label: 'Currency',
                 value: d.currency,
                 ac:    ac,
               ),
+              if (d.sellingPriceList.isNotEmpty) ...[
+                _divider(isDark, ac),
+                _DetailRow(
+                  icon:  Icons.price_change_outlined,
+                  label: 'Price List',
+                  value: d.sellingPriceList,
+                  ac:    ac,
+                ),
+              ],
+              if (d.contactDisplay.isNotEmpty) ...[
+                _divider(isDark, ac),
+                _DetailRow(
+                  icon:  Icons.person_outline_rounded,
+                  label: 'Contact',
+                  value: d.contactDisplay,
+                  ac:    ac,
+                ),
+              ],
             ]),
           ),
 
@@ -1619,12 +1644,12 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                 color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: _actionError.contains('Delivery date') || _actionError.contains('delivery date')
+                  color: _actionError.toLowerCase().contains('delivery date')
                       ? const Color(0xFFEF4444).withValues(alpha: 0.7)
                       : d.isDraft
                           ? _teal.withValues(alpha: 0.35)
                           : isDark ? Colors.white.withValues(alpha: 0.07) : ac.border,
-                  width: _actionError.contains('Delivery date') || _actionError.contains('delivery date') ? 1.5 : 1,
+                  width: _actionError.toLowerCase().contains('delivery date') ? 1.5 : 1,
                 ),
               ),
               child: Row(children: [
@@ -1633,19 +1658,21 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                     color: d.isDraft ? _teal : ac.textSecondary),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    _deliveryCtrl.text.isNotEmpty ? _deliveryCtrl.text : 'Tap to set delivery date',
-                    style: TextStyle(
-                      color: _deliveryCtrl.text.isNotEmpty ? ac.textPrimary : ac.textTertiary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      _deliveryCtrl.text.isNotEmpty ? _deliveryCtrl.text : 'Tap to set delivery date',
+                      style: TextStyle(
+                        color: _deliveryCtrl.text.isNotEmpty ? ac.textPrimary : ac.textTertiary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
+                    if (d.isDraft)
+                      Text('Tap to change', style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                  ]),
                 ),
-                if (d.isDraft) ...[
-                  const SizedBox(width: 8),
+                if (d.isDraft)
                   Icon(Icons.edit_calendar_rounded, size: 16, color: _teal.withValues(alpha: 0.7)),
-                ],
               ]),
             ),
           ),
@@ -1654,7 +1681,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
 
           // ── Line items ───────────────────────────────────────────────────
           if (d.items.isNotEmpty) ...[
-            _SectionHeader(label: 'LINE ITEMS', ac: ac),
+            _SectionHeader(label: 'LINE ITEMS  (${d.items.length})', ac: ac),
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
@@ -1666,6 +1693,7 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                 children: d.items.asMap().entries.map((e) {
                   final i    = e.key;
                   final item = e.value;
+                  final uomLabel = item.uom.isNotEmpty ? item.uom : 'unit';
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
@@ -1677,15 +1705,15 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                             ))
                           : null,
                     ),
-                    child: Row(children: [
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Container(
-                        width: 34, height: 34,
+                        width: 36, height: 36,
                         decoration: BoxDecoration(
                           color: _teal.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Center(
-                          child: Icon(Icons.inventory_2_outlined, size: 16, color: _teal),
+                          child: Icon(Icons.inventory_2_outlined, size: 17, color: _teal),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -1696,10 +1724,15 @@ class _SODetailSheetState extends State<_SODetailSheet> {
                               maxLines: 2, overflow: TextOverflow.ellipsis),
                           if (item.itemCode.isNotEmpty && item.itemName.isNotEmpty)
                             Text(item.itemCode, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                          const SizedBox(height: 2),
                           Text(
-                            '${item.qty.toStringAsFixed(item.qty % 1 == 0 ? 0 : 1)} unit${item.qty != 1 ? 's' : ''}  ×  ${_fmt(item.rate)}',
+                            '${item.qty.toStringAsFixed(item.qty % 1 == 0 ? 0 : 1)} $uomLabel  ×  ${_fmt(item.rate)}',
                             style: TextStyle(color: ac.textSecondary, fontSize: 11),
                           ),
+                          if (item.warehouse.isNotEmpty)
+                            Text('Warehouse: ${item.warehouse}',
+                                style: TextStyle(color: ac.textTertiary, fontSize: 10),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
                         ]),
                       ),
                       const SizedBox(width: 12),
@@ -1711,19 +1744,43 @@ class _SODetailSheetState extends State<_SODetailSheet> {
               ),
             ),
             const SizedBox(height: 10),
+
+            // ── Totals breakdown ─────────────────────────────────────────
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: _teal.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _teal.withValues(alpha: 0.20)),
+                color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
               ),
-              child: Row(children: [
-                Text('GRAND TOTAL',
-                    style: TextStyle(color: ac.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-                const Spacer(),
-                Text(_fmt(d.grandTotal),
-                    style: const TextStyle(color: _teal, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+              child: Column(children: [
+                if (hasTaxes) ...[
+                  Row(children: [
+                    Text('Net Total', style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                    const Spacer(),
+                    Text(_fmt(d.netTotal), style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Text(
+                      d.taxesAndCharges.isNotEmpty ? d.taxesAndCharges : 'Tax',
+                      style: TextStyle(color: ac.textSecondary, fontSize: 12),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    Text('+ ${_fmt(d.totalTaxes)}', style: TextStyle(color: const Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.w600)),
+                  ]),
+                  const SizedBox(height: 10),
+                  Divider(height: 1, color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.borderLight),
+                  const SizedBox(height: 10),
+                ],
+                Row(children: [
+                  Text('GRAND TOTAL',
+                      style: TextStyle(color: ac.textSecondary, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                  const Spacer(),
+                  Text(_fmt(d.grandTotal),
+                      style: const TextStyle(color: _teal, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                ]),
               ]),
             ),
             const SizedBox(height: 24),

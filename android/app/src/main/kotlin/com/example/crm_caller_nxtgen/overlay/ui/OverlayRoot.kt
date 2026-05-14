@@ -94,7 +94,6 @@ fun OverlayRoot(
                         ExpandedOverlayCard(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            isRecording  = currentState.isRecording,
                             onCollapse   = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onEvent      = { stateMachine.handleEvent(it) },
@@ -103,7 +102,6 @@ fun OverlayRoot(
                         MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            isRecording  = currentState.isRecording,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onDrag       = onDrag,
@@ -121,7 +119,6 @@ fun OverlayRoot(
                         ExpandedOverlayCard(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            isRecording  = currentState.isRecording,
                             onCollapse   = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onEvent      = { stateMachine.handleEvent(it) },
@@ -130,7 +127,6 @@ fun OverlayRoot(
                         MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            isRecording  = currentState.isRecording,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onDrag       = onDrag,
@@ -157,7 +153,6 @@ fun OverlayRoot(
                         ExpandedOverlayCard(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            isRecording  = false,
                             onCollapse   = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onEvent      = { stateMachine.handleEvent(it) },
@@ -166,7 +161,6 @@ fun OverlayRoot(
                         MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            isRecording  = false,
                             onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onDrag       = onDrag,

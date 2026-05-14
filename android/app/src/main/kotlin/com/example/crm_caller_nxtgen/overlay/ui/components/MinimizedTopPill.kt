@@ -45,13 +45,10 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 import kotlinx.coroutines.delay
 
-private val Red500 = Color(0xFFEF4444)
-
 @Composable
 fun MinimizedTopPill(
     state: OverlayState,
     durationSecs: Long,
-    isRecording: Boolean,
     onExpand: () -> Unit,
     onClose: () -> Unit,
     onDrag: (dx: Float, dy: Float) -> Unit,
@@ -167,16 +164,10 @@ fun MinimizedTopPill(
 
             Spacer(Modifier.width(10.dp))
 
-            // REC badge or type badge
-            when {
-                isRecording -> {
-                    PillBadge(label = "REC", color = Red500)
-                    Spacer(Modifier.width(8.dp))
-                }
-                badgeText.isNotBlank() -> {
-                    PillBadge(label = badgeText, color = dotColor)
-                    Spacer(Modifier.width(8.dp))
-                }
+            // Type badge
+            if (badgeText.isNotBlank()) {
+                PillBadge(label = badgeText, color = dotColor)
+                Spacer(Modifier.width(8.dp))
             }
 
             // Vertical rule

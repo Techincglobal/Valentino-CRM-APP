@@ -96,7 +96,6 @@ private fun validateEmail(v: String): String? {
 @Composable
 fun UnknownCallerForm(
     phone: String,
-    isRecording: Boolean,
     onEvent: (OverlayEvent) -> Unit,
     onSubmit: (name: String, email: String, company: String, note: String) -> Unit,
 ) {
@@ -232,14 +231,6 @@ fun UnknownCallerForm(
             shape     = RoundedCornerShape(12.dp),
             maxLines  = 3,
             minLines  = 2,
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        // ── Record toggle ─────────────────────────────────────────────────────
-        RecordToggleButton(
-            isRecording = isRecording,
-            onClick     = { onEvent(OverlayEvent.ToggleRecording) },
         )
 
         Spacer(Modifier.height(12.dp))

@@ -137,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen>
                           'assets/images/logo.png',
                           width: 88,
                           height: 88,
-                          errorBuilder: (_, __, ___) => const Icon(
+                          errorBuilder: (context, error, stackTrace) => const Icon(
                             Icons.hub_rounded,
                             color: AppColors.primary,
                             size: 64,

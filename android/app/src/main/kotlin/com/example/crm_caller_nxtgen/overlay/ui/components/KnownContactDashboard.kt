@@ -69,7 +69,6 @@ fun KnownContactDashboard(
     identity: CallerIdentity,
     callPhase: CallPhase,
     activeSheet: ActiveSheet,
-    isRecording: Boolean,
     onEvent: (OverlayEvent) -> Unit,
 ) {
     val isDark = isSystemInDarkTheme()
@@ -190,12 +189,6 @@ fun KnownContactDashboard(
         HorizontalDivider(
             color     = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f),
             thickness = 1.dp,
-        )
-
-        // Record toggle
-        RecordToggleButton(
-            isRecording = isRecording,
-            onClick     = { onEvent(OverlayEvent.ToggleRecording) },
         )
 
         // Log Complaint

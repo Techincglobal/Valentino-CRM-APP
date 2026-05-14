@@ -586,7 +586,7 @@ class _GlassTile extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing case final t?) t,
+          ?trailing,
         ],
       ),
     );

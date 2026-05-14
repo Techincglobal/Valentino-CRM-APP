@@ -3,25 +3,33 @@ import 'api_service.dart';
 
 String _parseFrappeError(String body, String fallback) {
   try {
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    final raw  = json['_server_messages'] as String?;
-    if (raw != null && raw.isNotEmpty) {
-      final list = jsonDecode(raw) as List?;
-      if (list != null && list.isNotEmpty) {
-        try {
-          final inner = jsonDecode(list.first as String) as Map?;
-          final msg   = inner?['message'] as String?;
-          if (msg != null && msg.isNotEmpty) return msg;
-        } catch (_) {
-          final s = list.first.toString();
-          if (s.isNotEmpty) return s;
+    final json = jsonDecode(body);
+    if (json is! Map) return fallback;
+    final rawMessages = json['_server_messages'];
+    if (rawMessages is String && rawMessages.isNotEmpty) {
+      try {
+        final list = jsonDecode(rawMessages);
+        if (list is List && list.isNotEmpty) {
+          try {
+            final inner = jsonDecode(list.first.toString());
+            if (inner is Map) {
+              final msg = inner['message'];
+              if (msg != null && msg.toString().isNotEmpty) return msg.toString();
+            }
+          } catch (_) {
+            final s = list.first.toString();
+            if (s.isNotEmpty) return s;
+          }
         }
-      }
+      } catch (_) {}
     }
-    final exc = json['exception'] as String?;
-    if (exc != null && exc.isNotEmpty) {
-      final i = exc.indexOf(': ');
-      return i >= 0 ? exc.substring(i + 2).trim() : exc;
+    final exc = json['exception'];
+    if (exc != null) {
+      final s = exc.toString();
+      if (s.isNotEmpty) {
+        final i = s.indexOf(': ');
+        return i >= 0 ? s.substring(i + 2).trim() : s;
+      }
     }
   } catch (_) {}
   return fallback;
@@ -55,15 +63,15 @@ class SupportTicket {
   });
 
   factory SupportTicket.fromJson(Map<String, dynamic> j) => SupportTicket(
-    name:       j['name'] as String? ?? '',
-    subject:    j['subject'] as String? ?? '(no subject)',
-    status:     j['status'] as String? ?? 'Open',
-    priority:   j['priority'] as String? ?? 'Medium',
-    raisedBy:   j['raised_by'] as String? ?? '',
-    ticketType: j['ticket_type'] as String? ?? '',
-    agentGroup: j['agent_group'] as String? ?? '',
-    creation:   j['creation'] as String? ?? '',
-    modified:   j['modified'] as String? ?? '',
+    name:       j['name']?.toString() ?? '',
+    subject:    j['subject']?.toString() ?? '(no subject)',
+    status:     j['status']?.toString() ?? 'Open',
+    priority:   j['priority']?.toString() ?? 'Medium',
+    raisedBy:   j['raised_by']?.toString() ?? '',
+    ticketType: j['ticket_type']?.toString() ?? '',
+    agentGroup: j['agent_group']?.toString() ?? '',
+    creation:   j['creation']?.toString() ?? '',
+    modified:   j['modified']?.toString() ?? '',
   );
 
   String get initials {
@@ -104,16 +112,16 @@ class SupportTicketDetail extends SupportTicket {
 
   factory SupportTicketDetail.fromJson(Map<String, dynamic> j) =>
       SupportTicketDetail(
-        name:        j['name'] as String? ?? '',
-        subject:     j['subject'] as String? ?? '(no subject)',
-        status:      j['status'] as String? ?? 'Open',
-        priority:    j['priority'] as String? ?? 'Medium',
-        raisedBy:    j['raised_by'] as String? ?? '',
-        ticketType:  j['ticket_type'] as String? ?? '',
-        agentGroup:  j['agent_group'] as String? ?? '',
-        creation:    j['creation'] as String? ?? '',
-        modified:    j['modified'] as String? ?? '',
-        description: j['description'] as String? ?? '',
+        name:        j['name']?.toString() ?? '',
+        subject:     j['subject']?.toString() ?? '(no subject)',
+        status:      j['status']?.toString() ?? 'Open',
+        priority:    j['priority']?.toString() ?? 'Medium',
+        raisedBy:    j['raised_by']?.toString() ?? '',
+        ticketType:  j['ticket_type']?.toString() ?? '',
+        agentGroup:  j['agent_group']?.toString() ?? '',
+        creation:    j['creation']?.toString() ?? '',
+        modified:    j['modified']?.toString() ?? '',
+        description: j['description']?.toString() ?? '',
       );
 }
 
@@ -122,8 +130,8 @@ class CustomerResult {
   final String customerName;
   const CustomerResult({required this.name, required this.customerName});
   factory CustomerResult.fromJson(Map<String, dynamic> j) => CustomerResult(
-    name:         j['name'] as String? ?? '',
-    customerName: j['customer_name'] as String? ?? (j['name'] as String? ?? ''),
+    name:         j['name']?.toString() ?? '',
+    customerName: j['customer_name']?.toString() ?? (j['name']?.toString() ?? ''),
   );
   String get display => customerName.isNotEmpty ? customerName : name;
 }
@@ -143,9 +151,13 @@ class TicketService {
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to load tickets (${resp.statusCode})'));
     }
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    final list = (body['message'] as List?) ?? [];
-    return list.map((e) => SupportTicket.fromJson(e as Map<String, dynamic>)).toList();
+    final decoded = jsonDecode(resp.body);
+    final msg     = (decoded is Map) ? decoded['message'] : null;
+    final list    = (msg is List) ? msg : <dynamic>[];
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(SupportTicket.fromJson)
+        .toList();
   }
 
   static Future<SupportTicketDetail> getTicketDetail(String name) async {
@@ -156,8 +168,10 @@ class TicketService {
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to load ticket (${resp.statusCode})'));
     }
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    final msg  = body['message'] as Map<String, dynamic>? ?? {};
+    final decoded = jsonDecode(resp.body);
+    final msg     = (decoded is Map && decoded['message'] is Map)
+        ? Map<String, dynamic>.from(decoded['message'] as Map)
+        : <String, dynamic>{};
     return SupportTicketDetail.fromJson(msg);
   }
 
@@ -185,8 +199,10 @@ class TicketService {
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to create ticket (${resp.statusCode})'));
     }
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    final msg  = body['message'] as Map<String, dynamic>? ?? {};
+    final decoded = jsonDecode(resp.body);
+    final msg     = (decoded is Map && decoded['message'] is Map)
+        ? Map<String, dynamic>.from(decoded['message'] as Map)
+        : <String, dynamic>{};
     return SupportTicket.fromJson(msg);
   }
 
@@ -206,9 +222,17 @@ class TicketService {
       {'query': query, 'limit': 15},
     );
     if (resp.statusCode != 200) return [];
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    final list = (body['message'] as List?) ?? [];
-    return list.map((e) => CustomerResult.fromJson(e as Map<String, dynamic>)).toList();
+    try {
+      final decoded = jsonDecode(resp.body);
+      final msg  = (decoded is Map) ? decoded['message'] : null;
+      final list = (msg is List) ? msg : <dynamic>[];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(CustomerResult.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Future<List<String>> getTicketTypes() async {
@@ -217,8 +241,13 @@ class TicketService {
       {},
     );
     if (resp.statusCode != 200) return [];
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    final list = (body['message'] as List?) ?? [];
-    return list.map((e) => e.toString()).toList();
+    try {
+      final decoded = jsonDecode(resp.body);
+      final msg  = (decoded is Map) ? decoded['message'] : null;
+      final list = (msg is List) ? msg : <dynamic>[];
+      return list.map((e) => e.toString()).toList();
+    } catch (_) {
+      return [];
+    }
   }
 }
