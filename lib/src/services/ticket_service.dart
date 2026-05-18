@@ -94,8 +94,51 @@ class SupportTicket {
   }
 }
 
+class TicketReply {
+  final String sender;
+  final String message;
+  final String creation;
+  final bool   isAgent;
+
+  const TicketReply({
+    required this.sender,
+    required this.message,
+    required this.creation,
+    required this.isAgent,
+  });
+
+  factory TicketReply.fromJson(Map<String, dynamic> j) => TicketReply(
+    sender:   j['sender']?.toString() ?? '',
+    message:  j['message']?.toString() ?? '',
+    creation: j['creation']?.toString() ?? '',
+    isAgent:  (j['is_agent']?.toString() ?? '0') == '1',
+  );
+
+  String get timeLabel {
+    if (creation.isEmpty) return '';
+    final dt = DateTime.tryParse(creation);
+    if (dt == null) return creation.length >= 10 ? creation.substring(0, 10) : creation;
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1)  return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours   < 24) return '${diff.inHours}h ago';
+    if (diff.inDays    < 30) return '${diff.inDays}d ago';
+    return creation.length >= 10 ? creation.substring(0, 10) : creation;
+  }
+
+  String get senderLabel {
+    if (sender.isEmpty) return 'Unknown';
+    final atIdx = sender.indexOf('@');
+    return atIdx > 0 ? sender.substring(0, atIdx) : sender;
+  }
+}
+
 class SupportTicketDetail extends SupportTicket {
-  final String description;
+  final String            description;
+  final String            resolutionDetails;
+  final String            resolvedBy;
+  final String            resolutionDate;
+  final List<TicketReply> replies;
 
   const SupportTicketDetail({
     required super.name,
@@ -107,22 +150,44 @@ class SupportTicketDetail extends SupportTicket {
     required super.agentGroup,
     required super.creation,
     required super.modified,
-    this.description = '',
+    this.description       = '',
+    this.resolutionDetails = '',
+    this.resolvedBy        = '',
+    this.resolutionDate    = '',
+    this.replies           = const [],
   });
 
-  factory SupportTicketDetail.fromJson(Map<String, dynamic> j) =>
-      SupportTicketDetail(
-        name:        j['name']?.toString() ?? '',
-        subject:     j['subject']?.toString() ?? '(no subject)',
-        status:      j['status']?.toString() ?? 'Open',
-        priority:    j['priority']?.toString() ?? 'Medium',
-        raisedBy:    j['raised_by']?.toString() ?? '',
-        ticketType:  j['ticket_type']?.toString() ?? '',
-        agentGroup:  j['agent_group']?.toString() ?? '',
-        creation:    j['creation']?.toString() ?? '',
-        modified:    j['modified']?.toString() ?? '',
-        description: j['description']?.toString() ?? '',
-      );
+  factory SupportTicketDetail.fromJson(Map<String, dynamic> j) {
+    final rawReplies = j['replies'];
+    final repliesList = (rawReplies is List)
+        ? rawReplies
+            .whereType<Map<String, dynamic>>()
+            .map(TicketReply.fromJson)
+            .toList()
+        : <TicketReply>[];
+    return SupportTicketDetail(
+      name:              j['name']?.toString() ?? '',
+      subject:           j['subject']?.toString() ?? '(no subject)',
+      status:            j['status']?.toString() ?? 'Open',
+      priority:          j['priority']?.toString() ?? 'Medium',
+      raisedBy:          j['raised_by']?.toString() ?? '',
+      ticketType:        j['ticket_type']?.toString() ?? '',
+      agentGroup:        j['agent_group']?.toString() ?? '',
+      creation:          j['creation']?.toString() ?? '',
+      modified:          j['modified']?.toString() ?? '',
+      description:       j['description']?.toString() ?? '',
+      resolutionDetails: j['resolution_details']?.toString() ?? '',
+      resolvedBy:        j['resolved_by']?.toString() ?? '',
+      resolutionDate:    j['resolution_date']?.toString() ?? '',
+      replies:           repliesList,
+    );
+  }
+
+  String get resolvedByLabel {
+    if (resolvedBy.isEmpty) return '';
+    final atIdx = resolvedBy.indexOf('@');
+    return atIdx > 0 ? resolvedBy.substring(0, atIdx) : resolvedBy;
+  }
 }
 
 class CustomerResult {
@@ -213,6 +278,23 @@ class TicketService {
     );
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to update ticket (${resp.statusCode})'));
+    }
+  }
+
+  static Future<void> resolveWithFeedback(
+    String name, {
+    String feedback = '',
+  }) async {
+    final payload = <String, dynamic>{
+      'ticket_name': name,
+      'feedback':    feedback,
+    };
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.resolve_ticket_with_feedback',
+      payload,
+    );
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Failed to resolve ticket (${resp.statusCode})'));
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/user_model.dart';
 import '../services/ticket_service.dart';
 import '../theme/app_theme.dart';
@@ -49,13 +50,10 @@ class TicketsScreen extends StatefulWidget {
 }
 
 class _TicketsScreenState extends State<TicketsScreen>
-    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  late final TabController _tab;
-
-  final _tabs   = const ['Open', 'Resolved', 'All'];
   List<SupportTicket> _tickets = [];
   bool   _loading = false;
   String _error   = '';
@@ -63,22 +61,13 @@ class _TicketsScreenState extends State<TicketsScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: _tabs.length, vsync: this);
-    _tab.addListener(() { if (!_tab.indexIsChanging) _loadTickets(); });
     _loadTickets();
-  }
-
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
   }
 
   Future<void> _loadTickets() async {
     setState(() { _loading = true; _error = ''; });
     try {
-      final status  = _tabs[_tab.index];
-      final tickets = await TicketService.getTickets(status: status);
+      final tickets = await TicketService.getTickets();
       if (!mounted) return;
       setState(() { _tickets = tickets; _loading = false; });
     } catch (e) {
@@ -120,10 +109,7 @@ class _TicketsScreenState extends State<TicketsScreen>
         headerSliverBuilder: (ctx, _) => [
           SliverToBoxAdapter(child: _buildHeader(ac, isDark)),
         ],
-        body: Column(children: [
-          _buildTabBar(ac, isDark),
-          Expanded(child: _buildBody(ac, isDark, bottom)),
-        ]),
+        body: _buildBody(ac, isDark, bottom),
       ),
       floatingActionButton: _buildFab(),
     );
@@ -219,39 +205,6 @@ class _TicketsScreenState extends State<TicketsScreen>
     ]);
   }
 
-  Widget _buildTabBar(AdaptiveColors ac, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131A2A) : ac.bgCard,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TabBar(
-        controller: _tab,
-        indicator: BoxDecoration(
-          gradient: const LinearGradient(colors: [_violet, Color(0xFF6D28D9)]),
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: [BoxShadow(color: _violet.withValues(alpha: 0.40), blurRadius: 10, offset: const Offset(0, 3))],
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: Colors.white,
-        unselectedLabelColor: ac.textSecondary,
-        labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.2),
-        unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        tabs: _tabs.map((t) => Tab(text: t)).toList(),
-      ),
-    );
-  }
 
   Widget _buildBody(AdaptiveColors ac, bool isDark, double bottom) {
     if (_loading) {
@@ -458,16 +411,55 @@ class _TicketCard extends StatelessWidget {
             Icon(Icons.chevron_right_rounded, color: ac.textTertiary, size: 18),
           ]),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // Email row — prominent
+          if (ticket.raisedBy.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: _violet.withValues(alpha: isDark ? 0.12 : 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _violet.withValues(alpha: 0.22)),
+              ),
+              child: Row(children: [
+                Icon(Icons.email_outlined, size: 13, color: _violet),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    ticket.raisedBy,
+                    style: TextStyle(
+                      color: _violet,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.1,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (ticket.ticketType.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _slate.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(ticket.ticketType,
+                        style: TextStyle(color: ac.textSecondary, fontSize: 10, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ]),
+            ),
+
+          const SizedBox(height: 10),
 
           Row(children: [
-            // Status chip
             _Chip(label: ticket.status, color: statusColor),
             const SizedBox(width: 6),
-            // Priority chip with icon
             _Chip(label: ticket.priority, color: priColor, icon: priIcon),
             const Spacer(),
-            // Time
             if (ticket.timeAgo.isNotEmpty)
               Row(children: [
                 Icon(Icons.access_time_rounded, size: 11, color: ac.textTertiary),
@@ -475,32 +467,6 @@ class _TicketCard extends StatelessWidget {
                 Text(ticket.timeAgo, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
               ]),
           ]),
-
-          // Raised by / ticket type
-          if (ticket.raisedBy.isNotEmpty || ticket.ticketType.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(children: [
-              if (ticket.raisedBy.isNotEmpty) ...[
-                Icon(Icons.person_outline_rounded, size: 12, color: ac.textTertiary),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(ticket.raisedBy,
-                      style: TextStyle(color: ac.textSecondary, fontSize: 12),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ],
-              if (ticket.ticketType.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                Icon(Icons.label_outline_rounded, size: 12, color: ac.textTertiary),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(ticket.ticketType,
-                      style: TextStyle(color: ac.textSecondary, fontSize: 12),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ]),
-          ],
         ]),
       ),
     );
@@ -955,6 +921,39 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
     }
   }
 
+  Future<void> _openFeedbackSheet() async {
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showModalBottomSheet<_FeedbackResult>(
+      context:            context,
+      isScrollControlled: true,
+      backgroundColor:    Colors.transparent,
+      builder: (_) => _FeedbackSheet(ticketSubject: widget.ticket.subject),
+    );
+    if (result == null) return;
+    setState(() { _acting = true; _actionError = ''; });
+    try {
+      await TicketService.resolveWithFeedback(
+        widget.ticket.name,
+        feedback: result.feedback,
+      );
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Ticket resolved — thank you for your feedback!'),
+        backgroundColor: _green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+      nav.pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _acting = false;
+        _actionError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
   void _showSnack(String msg, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content:         Text(msg),
@@ -1067,6 +1066,62 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
 
         const SizedBox(height: 18),
 
+        // ── Raised By — prominent email block ────────────────────────────
+        if (d.raisedBy.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          GestureDetector(
+            onLongPress: () {
+              Clipboard.setData(ClipboardData(text: d.raisedBy));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: const Text('Email copied'),
+                backgroundColor: _violet,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                duration: const Duration(seconds: 2),
+              ));
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_violet.withValues(alpha: 0.15), _violet.withValues(alpha: 0.06)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _violet.withValues(alpha: 0.30), width: 1.5),
+              ),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: _violet.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.email_outlined, color: _violet, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('RAISED BY',
+                        style: TextStyle(color: _violet.withValues(alpha: 0.70), fontSize: 9,
+                            fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                    const SizedBox(height: 3),
+                    Text(d.raisedBy,
+                        style: TextStyle(color: _violet, fontSize: 14,
+                            fontWeight: FontWeight.w700, letterSpacing: -0.2)),
+                  ]),
+                ),
+                Icon(Icons.copy_rounded, size: 14, color: _violet.withValues(alpha: 0.45)),
+              ]),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 14),
+
         // ── Details card ─────────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.all(16),
@@ -1077,8 +1132,6 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
           ),
           child: Column(children: [
             _DetailRow(icon: Icons.tag_rounded, label: 'Ticket ID', value: d.name, ac: ac),
-            _divider(isDark, ac),
-            _DetailRow(icon: Icons.person_outline_rounded, label: 'Raised By', value: d.raisedBy.isNotEmpty ? d.raisedBy : '—', ac: ac),
             if (d.ticketType.isNotEmpty) ...[
               _divider(isDark, ac),
               _DetailRow(icon: Icons.label_outline_rounded, label: 'Type', value: d.ticketType, ac: ac),
@@ -1110,10 +1163,91 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
               border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.07) : ac.border),
             ),
             child: Text(
-              // Strip basic HTML tags from Frappe rich text
               d.description.replaceAll(RegExp(r'<[^>]+>'), '').trim(),
               style: TextStyle(color: ac.textPrimary, fontSize: 13, height: 1.6),
             ),
+          ),
+        ],
+
+        // ── Conversation thread ───────────────────────────────────────────
+        if (d.replies.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          Row(children: [
+            _SectionLabel(label: 'CONVERSATION', ac: ac),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: _violet.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('${d.replies.length}',
+                  style: const TextStyle(color: _violet, fontSize: 10, fontWeight: FontWeight.w800)),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          ...d.replies.map((r) => _ReplyBubble(reply: r, isDark: isDark, ac: ac)),
+        ],
+
+        // ── Resolution message ────────────────────────────────────────────
+        if ((d.status == 'Resolved' || d.status == 'Closed') &&
+            (d.resolutionDetails.isNotEmpty || d.resolvedBy.isNotEmpty)) ...[
+          const SizedBox(height: 20),
+          _SectionLabel(label: 'RESOLUTION', ac: ac),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_green.withValues(alpha: isDark ? 0.14 : 0.09),
+                         _green.withValues(alpha: 0.04)],
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _green.withValues(alpha: 0.30), width: 1.5),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Resolved by + date row
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: _green.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_rounded, color: _green, size: 15),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      d.resolvedBy.isNotEmpty ? 'Resolved by ${d.resolvedByLabel}' : 'Resolved',
+                      style: const TextStyle(
+                        color: _green, fontSize: 13, fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (d.resolutionDate.isNotEmpty)
+                      Text(
+                        d.resolutionDate.length >= 10
+                            ? d.resolutionDate.substring(0, 10)
+                            : d.resolutionDate,
+                        style: TextStyle(color: ac.textTertiary, fontSize: 11),
+                      ),
+                  ]),
+                ),
+              ]),
+              // Resolution details text
+              if (d.resolutionDetails.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Divider(height: 1, color: _green.withValues(alpha: 0.18)),
+                const SizedBox(height: 12),
+                Text(
+                  d.resolutionDetails,
+                  style: TextStyle(color: ac.textPrimary, fontSize: 13, height: 1.6),
+                ),
+              ],
+            ]),
           ),
         ],
 
@@ -1158,7 +1292,7 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
               label: 'Mark as Resolved',
               icon:  Icons.check_circle_outline_rounded,
               color: _green,
-              onTap: () => _updateStatus('Resolved'),
+              onTap: _openFeedbackSheet,
             ),
             const SizedBox(height: 10),
             _ActionBtn(
@@ -1547,4 +1681,274 @@ class _ActionBtn extends StatelessWidget {
       ]),
     ),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Feedback result value object
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FeedbackResult {
+  final String feedback;
+  const _FeedbackResult({required this.feedback});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Feedback sheet — shown before resolving
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FeedbackSheet extends StatefulWidget {
+  final String ticketSubject;
+  const _FeedbackSheet({required this.ticketSubject});
+
+  @override
+  State<_FeedbackSheet> createState() => _FeedbackSheetState();
+}
+
+class _FeedbackSheetState extends State<_FeedbackSheet> {
+  final _feedbackCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _feedbackCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    final bottom = MediaQuery.of(context).viewInsets.bottom +
+        MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.65),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border,
+        )),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Center(
+          child: Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 4),
+            width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + bottom),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+              // Title
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [_green, Color(0xFF059669)]),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Resolve Ticket',
+                        style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text(widget.ticketSubject,
+                        style: TextStyle(color: ac.textSecondary, fontSize: 12),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ]),
+                ),
+              ]),
+
+              const SizedBox(height: 22),
+
+              Text('FEEDBACK (OPTIONAL)',
+                  style: TextStyle(color: ac.textTertiary, fontSize: 10,
+                      fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller:  _feedbackCtrl,
+                maxLines:    4,
+                autofocus:   false,
+                style: TextStyle(color: ac.textPrimary, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText:  'How was the issue resolved? Any comments…',
+                  hintStyle: TextStyle(color: ac.textTertiary, fontSize: 14),
+                  filled:    true,
+                  fillColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: _green, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.all(14),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Submit button
+              GestureDetector(
+                onTap: () => Navigator.pop(
+                  context,
+                  _FeedbackResult(feedback: _feedbackCtrl.text.trim()),
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [_green, Color(0xFF059669)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: _green.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text('Submit & Resolve',
+                        style: TextStyle(color: Colors.white, fontSize: 15,
+                            fontWeight: FontWeight.w700, letterSpacing: -0.2)),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.12) : ac.border),
+                  ),
+                  child: Center(
+                    child: Text('Cancel',
+                        style: TextStyle(color: ac.textSecondary, fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reply bubble
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReplyBubble extends StatelessWidget {
+  final TicketReply    reply;
+  final bool           isDark;
+  final AdaptiveColors ac;
+
+  const _ReplyBubble({required this.reply, required this.isDark, required this.ac});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAgent  = reply.isAgent;
+    final color    = isAgent ? _violet : _teal;
+    final bgAlpha  = isDark ? 0.13 : 0.08;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar dot
+          Container(
+            margin: const EdgeInsets.only(top: 2, right: 10),
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: 0.30)),
+            ),
+            child: Center(
+              child: Text(
+                reply.senderLabel.isNotEmpty ? reply.senderLabel[0].toUpperCase() : '?',
+                style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Sender + timestamp
+              Row(children: [
+                Expanded(
+                  child: Text(
+                    reply.senderLabel,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (reply.timeLabel.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Text(reply.timeLabel,
+                      style: TextStyle(color: ac.textTertiary, fontSize: 10)),
+                ],
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    isAgent ? 'AGENT' : 'CUSTOMER',
+                    style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 5),
+              // Message bubble
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: bgAlpha),
+                  borderRadius: const BorderRadius.only(
+                    topRight:    Radius.circular(14),
+                    bottomLeft:  Radius.circular(14),
+                    bottomRight: Radius.circular(14),
+                  ),
+                  border: Border.all(color: color.withValues(alpha: 0.20)),
+                ),
+                child: Text(
+                  reply.message,
+                  style: TextStyle(color: ac.textPrimary, fontSize: 13, height: 1.55),
+                ),
+              ),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
 }
