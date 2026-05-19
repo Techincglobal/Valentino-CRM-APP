@@ -515,10 +515,15 @@ class OverlayStateMachine(
                 }
 
                 scope.launch {
-                    runCatching {
+                    val result = runCatching {
                         repository.createCallLog(identity, phone, duration, event.notes, event.callType)
                     }
-                    emitEffect(OverlaySideEffect.ShowToast("Call logged ✓"))
+                    if (result.isSuccess) {
+                        emitEffect(OverlaySideEffect.ShowToast("Call logged ✓"))
+                        emitEffect(OverlaySideEffect.CallLogSaved)
+                    } else {
+                        emitEffect(OverlaySideEffect.ShowToast("Failed to log call: ${result.exceptionOrNull()?.message}"))
+                    }
                 }
             }
         }

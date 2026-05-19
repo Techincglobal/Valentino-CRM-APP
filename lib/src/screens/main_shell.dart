@@ -9,7 +9,7 @@ import 'tickets_screen.dart';
 import 'sales_screen.dart' show SalesScreen, SalesScreenController;
 import 'quotes_screen.dart' show QuotesScreen, QuotesScreenController;
 import 'settings_screen.dart';
-import 'call_logs_screen.dart';
+import 'call_logs_screen.dart' show CallLogsScreen, CallLogsScreenController;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MainShell
@@ -27,8 +27,9 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  final _salesKey  = GlobalKey();
-  final _quotesKey = GlobalKey();
+  final _salesKey    = GlobalKey();
+  final _quotesKey   = GlobalKey();
+  final _callLogsKey = GlobalKey();
 
   static const _overlayChannel = MethodChannel('crm_caller_nxtgen/native_overlay');
 
@@ -47,6 +48,8 @@ class _MainShellState extends State<MainShell> {
   Future<dynamic> _handleNativeCall(MethodCall call) async {
     if (call.method == 'onPipelineRefreshNeeded') {
       (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
+    } else if (call.method == 'onCallLogSaved') {
+      (_callLogsKey.currentState as CallLogsScreenController?)?.refreshLogs();
     }
   }
 
@@ -57,8 +60,9 @@ class _MainShellState extends State<MainShell> {
       (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
     } else if (i == 3) {
       (_quotesKey.currentState as QuotesScreenController?)?.refreshQuotes();
+    } else if (i == 4) {
+      (_callLogsKey.currentState as CallLogsScreenController?)?.refreshLogs();
     }
-    // index 4 = Call Logs, index 5 = Settings — no refresh needed
   }
 
   late final _pages = [
@@ -71,7 +75,7 @@ class _MainShellState extends State<MainShell> {
     TicketsScreen(user: widget.user),
     SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(3)),
     QuotesScreen(key: _quotesKey),
-    const CallLogsScreen(),
+    CallLogsScreen(key: _callLogsKey),
     SettingsScreen(user: widget.user),
   ];
 

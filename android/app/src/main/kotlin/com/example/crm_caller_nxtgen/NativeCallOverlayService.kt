@@ -55,6 +55,7 @@ class NativeCallOverlayService : Service() {
         const val ACTION_CALL_ENDED       = "crm_caller_nxtgen.action.CALL_ENDED"
         const val ACTION_HIDE             = "crm_caller_nxtgen.action.HIDE"
         const val ACTION_PIPELINE_REFRESH = "crm_caller_nxtgen.action.PIPELINE_REFRESH"
+        const val ACTION_CALL_LOG_SAVED   = "crm_caller_nxtgen.action.CALL_LOG_SAVED"
         const val EXTRA_PHONE        = "phone"
         const val EXTRA_NAME         = "name"
         const val EXTRA_TYPE         = "type"
@@ -434,6 +435,11 @@ class NativeCallOverlayService : Service() {
                     is OverlaySideEffect.PipelineRefreshNeeded -> {
                         LocalBroadcastManager.getInstance(applicationContext)
                             .sendBroadcast(Intent(ACTION_PIPELINE_REFRESH))
+                    }
+
+                    is OverlaySideEffect.CallLogSaved -> {
+                        LocalBroadcastManager.getInstance(applicationContext)
+                            .sendBroadcast(Intent(ACTION_CALL_LOG_SAVED))
                     }
 
                     is OverlaySideEffect.Vibrate -> {

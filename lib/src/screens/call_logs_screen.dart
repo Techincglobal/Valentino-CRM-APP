@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../services/call_log_service.dart';
 import '../theme/app_theme.dart';
 
+abstract class CallLogsScreenController {
+  void refreshLogs();
+}
+
 class CallLogsScreen extends StatefulWidget {
   const CallLogsScreen({super.key});
 
@@ -10,9 +14,13 @@ class CallLogsScreen extends StatefulWidget {
 }
 
 class _CallLogsScreenState extends State<CallLogsScreen>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin
+    implements CallLogsScreenController {
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void refreshLogs() => _load();
 
   List<CallLog> _logs = [];
   bool _loading = true;

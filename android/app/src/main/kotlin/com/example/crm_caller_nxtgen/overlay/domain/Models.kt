@@ -317,4 +317,6 @@ sealed class OverlaySideEffect {
     object CancelAutoDismiss : OverlaySideEffect()
     /** Notify Flutter to refresh the CRM pipeline tab (lead or opportunity created). */
     object PipelineRefreshNeeded : OverlaySideEffect()
+    /** Notify Flutter to refresh the Call Logs tab. */
+    object CallLogSaved : OverlaySideEffect()
 }

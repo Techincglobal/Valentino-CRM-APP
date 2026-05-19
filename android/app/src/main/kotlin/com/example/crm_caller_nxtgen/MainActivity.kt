@@ -38,6 +38,14 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private val callLogSavedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            mainScope.launch {
+                flutterChannel?.invokeMethod("onCallLogSaved", null)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingOpenPhone = intent?.getStringExtra("open_phone")
@@ -48,11 +56,16 @@ class MainActivity : FlutterActivity() {
             pipelineRefreshReceiver,
             IntentFilter(NativeCallOverlayService.ACTION_PIPELINE_REFRESH),
         )
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            callLogSavedReceiver,
+            IntentFilter(NativeCallOverlayService.ACTION_CALL_LOG_SAVED),
+        )
     }
 
     override fun onDestroy() {
         super.onDestroy()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(pipelineRefreshReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(callLogSavedReceiver)
     }
 
     private fun requestRuntimePermissions() {

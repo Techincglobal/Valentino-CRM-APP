@@ -33,7 +33,7 @@ class CallLog {
         phoneNo:           j['phone_no']?.toString() ?? '',
         durationSeconds:   ((j['duration'] ?? 0) as num?)?.toInt() ?? 0,
         sentOrReceived:    j['sent_or_received']?.toString() ?? 'Received',
-        callType:          j['communication_medium']?.toString() ?? 'Regular',
+        callType:          j['call_type']?.toString() ?? 'Regular',
         referenceDoctype:  j['reference_doctype']?.toString() ?? '',
         referenceName:     j['reference_name']?.toString() ?? '',
         creation:          j['creation']?.toString() ?? '',
@@ -81,18 +81,16 @@ class CallLog {
 
 class CallLogService {
   static Future<List<CallLog>> getCallLogs() async {
-    try {
-      final resp = await ApiService.post(
-          '/api/method/nxtgen_crm_mobile.api.get_call_logs', {});
-      if (resp.statusCode != 200) return [];
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['message'] as List?) ?? [];
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(CallLog.fromJson)
-          .toList();
-    } catch (_) {
-      return [];
+    final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.get_call_logs', {});
+    if (resp.statusCode != 200) {
+      throw Exception('Server error ${resp.statusCode}: ${resp.body}');
     }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['message'] as List?) ?? [];
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(CallLog.fromJson)
+        .toList();
   }
 }

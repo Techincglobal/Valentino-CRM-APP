@@ -33,7 +33,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -210,27 +209,45 @@ fun KnownContactDashboard(
             modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedButton(
-                onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
-                modifier = Modifier.weight(1f).height(44.dp),
-                colors   = ButtonDefaults.outlinedButtonColors(contentColor = Red500),
-                border   = androidx.compose.foundation.BorderStroke(1.dp, Red500.copy(alpha = 0.35f)),
-                shape    = RoundedCornerShape(12.dp),
+            // Log a Ticket
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, Red500.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                    .background(Red500.copy(alpha = 0.06f))
+                    .clickable { onEvent(OverlayEvent.OpenComplaintPopup) },
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Warning, null, tint = Red500, modifier = Modifier.size(15.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Log a Ticket", color = Red500, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(Icons.Default.Warning, null, tint = Red500, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Log Ticket", color = Red500, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1)
+                }
             }
-            OutlinedButton(
-                onClick  = { onEvent(OverlayEvent.OpenLogCallForm) },
-                modifier = Modifier.weight(1f).height(44.dp),
-                colors   = ButtonDefaults.outlinedButtonColors(contentColor = Blue500),
-                border   = androidx.compose.foundation.BorderStroke(1.dp, Blue500.copy(alpha = 0.35f)),
-                shape    = RoundedCornerShape(12.dp),
+            // Log Call
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, Blue500.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                    .background(Blue500.copy(alpha = 0.06f))
+                    .clickable { onEvent(OverlayEvent.OpenLogCallForm) },
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Phone, null, tint = Blue500, modifier = Modifier.size(15.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Log Call", color = Blue500, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(Icons.Default.Phone, null, tint = Blue500, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Log Call", color = Blue500, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1)
+                }
             }
         }
 
