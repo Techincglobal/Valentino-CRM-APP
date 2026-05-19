@@ -2,7 +2,10 @@ package com.example.crm_caller_nxtgen
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -11,6 +14,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.crm_caller_nxtgen.overlay.data.FrappeRepository
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -24,13 +28,31 @@ class MainActivity : FlutterActivity() {
     private val repository by lazy { FrappeRepository(applicationContext) }
     private val mainScope = CoroutineScope(Dispatchers.Main)
 
+    private var flutterChannel: MethodChannel? = null
+
+    private val pipelineRefreshReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            mainScope.launch {
+                flutterChannel?.invokeMethod("onPipelineRefreshNeeded", null)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingOpenPhone = intent?.getStringExtra("open_phone")
         requestRuntimePermissions()
         requestBatteryOptimizationExemption()
-        // Start persistent call monitor so overlay works even when app is in background/killed
         CallMonitorService.start(this)
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            pipelineRefreshReceiver,
+            IntentFilter(NativeCallOverlayService.ACTION_PIPELINE_REFRESH),
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(pipelineRefreshReceiver)
     }
 
     private fun requestRuntimePermissions() {
@@ -154,10 +176,11 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(
+        flutterChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "crm_caller_nxtgen/native_overlay",
-        ).setMethodCallHandler { call, result ->
+        )
+        flutterChannel!!.setMethodCallHandler { call, result ->
             when (call.method) {
                 "canDrawOverlays" -> {
                     result.success(

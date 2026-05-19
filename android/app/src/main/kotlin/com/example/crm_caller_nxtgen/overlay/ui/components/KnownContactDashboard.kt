@@ -60,6 +60,7 @@ import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
 private val Indigo500  = Color(0xFF6366F1)
 private val Blue400    = Color(0xFF60A5FA)
+private val Blue500    = Color(0xFF3B82F6)
 private val Emerald500 = Color(0xFF10B981)
 private val Amber500   = Color(0xFFF59E0B)
 private val Red500     = Color(0xFFEF4444)
@@ -186,34 +187,51 @@ fun KnownContactDashboard(
             )
         }
 
+        AnimatedVisibility(
+            visible = activeSheet == ActiveSheet.LOG_CALL,
+            enter   = fadeIn(tween(120)),
+            exit    = fadeOut(tween(120)),
+        ) {
+            LogCallInlineForm(
+                isDark     = isDark,
+                isWhatsApp = false,
+                onCancel   = { onEvent(OverlayEvent.CancelSheet) },
+                onSubmit   = { notes, callType -> onEvent(OverlayEvent.SubmitCallLog(notes, callType)) },
+            )
+        }
+
         HorizontalDivider(
             color     = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.08f else 0.06f),
             thickness = 1.dp,
         )
 
-        // Log Complaint
-        OutlinedButton(
-            onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Red500),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Red500.copy(alpha = 0.35f)),
-            shape  = RoundedCornerShape(12.dp),
+        // Secondary action row: Log a Ticket + Log Call
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(
-                imageVector        = Icons.Default.Warning,
-                contentDescription = null,
-                tint               = Red500,
-                modifier           = Modifier.size(15.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text       = "Log Complaint",
-                color      = Red500,
-                fontWeight = FontWeight.SemiBold,
-                fontSize   = 13.sp,
-            )
+            OutlinedButton(
+                onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
+                modifier = Modifier.weight(1f).height(44.dp),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = Red500),
+                border   = androidx.compose.foundation.BorderStroke(1.dp, Red500.copy(alpha = 0.35f)),
+                shape    = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Default.Warning, null, tint = Red500, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Log a Ticket", color = Red500, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+            }
+            OutlinedButton(
+                onClick  = { onEvent(OverlayEvent.OpenLogCallForm) },
+                modifier = Modifier.weight(1f).height(44.dp),
+                colors   = ButtonDefaults.outlinedButtonColors(contentColor = Blue500),
+                border   = androidx.compose.foundation.BorderStroke(1.dp, Blue500.copy(alpha = 0.35f)),
+                shape    = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Default.Phone, null, tint = Blue500, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Log Call", color = Blue500, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+            }
         }
 
         // Status chips

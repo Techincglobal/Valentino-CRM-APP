@@ -105,6 +105,7 @@ sealed class OverlayState {
         val phoneNumber: String,
         val callPhase: CallPhase = CallPhase.RINGING,
         val isExpanded: Boolean = false,
+        val activeSheet: ActiveSheet = ActiveSheet.NONE,
         val isRecording: Boolean = false,
     ) : OverlayState()
 
@@ -139,10 +140,11 @@ sealed class OverlayState {
         val identity: CallerIdentity,
         val durationSeconds: Long,
         val isExpanded: Boolean = true,
+        val activeSheet: ActiveSheet = ActiveSheet.NONE,
     ) : OverlayState()
 }
 
-enum class ActiveSheet { NONE, OPPORTUNITY, ADD_LEAD, ADD_NOTE, QUOTE }
+enum class ActiveSheet { NONE, OPPORTUNITY, ADD_LEAD, ADD_NOTE, QUOTE, LOG_CALL }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPLAINT POPUP STATE  (second WindowManager window)
@@ -182,6 +184,14 @@ val OverlayState.isExpanded: Boolean
         is OverlayState.SubmittingLead   -> true
         is OverlayState.PostCall         -> isExpanded
         else -> false
+    }
+
+val OverlayState.activeSheetOrNone: ActiveSheet
+    get() = when (this) {
+        is OverlayState.UnknownCaller -> activeSheet
+        is OverlayState.KnownCaller   -> activeSheet
+        is OverlayState.PostCall      -> activeSheet
+        else                          -> ActiveSheet.NONE
     }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -253,6 +263,13 @@ sealed class OverlayEvent {
     ) : OverlayEvent()
     data class QuoteCreated(val docname: String) : OverlayEvent()
 
+    // Call logging
+    object OpenLogCallForm : OverlayEvent()
+    data class SubmitCallLog(
+        val notes: String,
+        val callType: String = "Regular",
+    ) : OverlayEvent()
+
     // Cancel sub-form
     object CancelSheet : OverlayEvent()
 
@@ -298,4 +315,6 @@ sealed class OverlaySideEffect {
     object StopRecording : OverlaySideEffect()
     /** Legacy — kept as no-op so old references compile. */
     object CancelAutoDismiss : OverlaySideEffect()
+    /** Notify Flutter to refresh the CRM pipeline tab (lead or opportunity created). */
+    object PipelineRefreshNeeded : OverlaySideEffect()
 }

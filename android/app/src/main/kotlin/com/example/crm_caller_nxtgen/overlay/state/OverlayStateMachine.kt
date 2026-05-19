@@ -250,7 +250,7 @@ class OverlayStateMachine(
                         onSuccess = {
                             _complaintState.value = ComplaintPopupState.Hidden
                             emitEffect(OverlaySideEffect.HideComplaintPopup)
-                            emitEffect(OverlaySideEffect.ShowToast("Complaint logged"))
+                            emitEffect(OverlaySideEffect.ShowToast("Ticket logged ✓"))
                             // Re-expand main overlay
                             when (val cur = _state.value) {
                                 is OverlayState.KnownCaller   -> _state.value = cur.copy(isExpanded = true)
@@ -337,6 +337,7 @@ class OverlayStateMachine(
                                 isRecording = wasRecording,
                             )
                             emitEffect(OverlaySideEffect.ShowToast("Lead created: ${identity.name}"))
+                            emitEffect(OverlaySideEffect.PipelineRefreshNeeded)
                         },
                         onFailure = { err ->
                             _state.value = OverlayState.UnknownCaller(phone, phase, isExpanded = true)
@@ -389,6 +390,7 @@ class OverlayStateMachine(
                                 activeSheet = ActiveSheet.NONE,
                             )
                             emitEffect(OverlaySideEffect.ShowToast("Opportunity saved"))
+                            emitEffect(OverlaySideEffect.PipelineRefreshNeeded)
                         },
                         onFailure = { err ->
                             _state.value = current.copy(activeSheet = ActiveSheet.OPPORTUNITY)
@@ -485,6 +487,38 @@ class OverlayStateMachine(
                         isExpanded  = true,
                         activeSheet = current.action,
                     )
+                }
+            }
+
+            // ── Call logging ──────────────────────────────────────────────────
+
+            is OverlayEvent.OpenLogCallForm -> {
+                when (current) {
+                    is OverlayState.KnownCaller   -> _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.LOG_CALL)
+                    is OverlayState.PostCall      -> _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.LOG_CALL)
+                    is OverlayState.UnknownCaller -> _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.LOG_CALL)
+                    else -> {}
+                }
+            }
+
+            is OverlayEvent.SubmitCallLog -> {
+                val phone    = current.phoneNumber ?: return
+                val identity = current.knownIdentity ?: CallerIdentity.Unknown
+                val duration = repository.getSessionDuration(phone)
+
+                // Close the sheet immediately so UI feels responsive
+                when (current) {
+                    is OverlayState.KnownCaller   -> _state.value = current.copy(activeSheet = ActiveSheet.NONE)
+                    is OverlayState.PostCall      -> _state.value = current.copy(activeSheet = ActiveSheet.NONE)
+                    is OverlayState.UnknownCaller -> _state.value = current.copy(activeSheet = ActiveSheet.NONE)
+                    else -> {}
+                }
+
+                scope.launch {
+                    runCatching {
+                        repository.createCallLog(identity, phone, duration, event.notes, event.callType)
+                    }
+                    emitEffect(OverlaySideEffect.ShowToast("Call logged ✓"))
                 }
             }
         }

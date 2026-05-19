@@ -2,6 +2,7 @@ package com.example.crm_caller_nxtgen.overlay.data
 
 import android.content.Context
 import com.example.crm_caller_nxtgen.core.db.AppDatabase
+import com.example.crm_caller_nxtgen.core.db.CallLogEntity
 import com.example.crm_caller_nxtgen.core.db.ComplaintEntity
 import com.example.crm_caller_nxtgen.core.db.LeadEntity
 import com.example.crm_caller_nxtgen.core.db.NoteEntity
@@ -369,6 +370,67 @@ class FrappeRepository(private val context: Context) {
                     phone        = phone,
                 )
                 db.complaintDao().updateComplaint(entity.copy(
+                    frappeDocname = remote.docname,
+                    isSynced      = true,
+                ))
+            }
+        } catch (_: Exception) { /* SyncWorker retry */ }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CALL LOG — local-first, then sync to Frappe Communication doctype
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createCallLog(
+        identity: CallerIdentity,
+        phoneArg: String,
+        durationSeconds: Long,
+        notes: String,
+        callType: String,
+        direction: String = "Inbound",
+    ): Unit = withContext(Dispatchers.IO) {
+        val phone = when (identity) {
+            is CallerIdentity.Lead     -> identity.phone
+            is CallerIdentity.Customer -> identity.phone
+            else -> phoneArg
+        }
+        val leadDocname = when (identity) {
+            is CallerIdentity.Lead     -> identity.docname
+            is CallerIdentity.Customer -> identity.leadDocname
+            else -> ""
+        }
+        val callerName = when (identity) {
+            is CallerIdentity.Unknown  -> "Unknown"
+            is CallerIdentity.Lead     -> identity.name
+            is CallerIdentity.Customer -> identity.name
+        }
+
+        val entity = CallLogEntity(
+            id              = UUID.randomUUID().toString(),
+            phoneNumber     = phone,
+            callerName      = callerName,
+            leadDocname     = leadDocname,
+            durationSeconds = durationSeconds,
+            notes           = notes,
+            callType        = callType,
+            direction       = direction,
+            createdAt       = System.currentTimeMillis(),
+            isSynced        = false,
+        )
+        db.callLogDao().insert(entity)
+
+        try {
+            if (api.getConfig().isValid) {
+                val remote = api.createCallLog(
+                    phone           = phone,
+                    callerName      = callerName,
+                    leadDocname     = leadDocname.ifBlank { null },
+                    durationSeconds = durationSeconds,
+                    notes           = notes,
+                    callType        = callType,
+                    direction       = direction,
+                )
+                db.callLogDao().update(entity.copy(
                     frappeDocname = remote.docname,
                     isSynced      = true,
                 ))

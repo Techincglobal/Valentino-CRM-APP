@@ -67,7 +67,7 @@ fun ExpandedOverlayCard(
             phone       = state.phoneNumber
             identity    = CallerIdentity.Unknown
             callPhase   = state.callPhase
-            activeSheet = ActiveSheet.NONE
+            activeSheet = state.activeSheet
             isPostCall  = false
         }
         is OverlayState.KnownCaller -> {
@@ -81,7 +81,7 @@ fun ExpandedOverlayCard(
             phone       = state.phoneNumber
             identity    = state.identity
             callPhase   = CallPhase.ENDED
-            activeSheet = ActiveSheet.NONE
+            activeSheet = state.activeSheet
             isPostCall  = true
         }
         else -> return
@@ -156,9 +156,10 @@ fun ExpandedOverlayCard(
                 when (identity) {
                     is CallerIdentity.Unknown -> {
                         UnknownCallerForm(
-                            phone    = phone,
-                            onEvent  = onEvent,
-                            onSubmit = { name, email, company, note ->
+                            phone       = phone,
+                            activeSheet = activeSheet,
+                            onEvent     = onEvent,
+                            onSubmit    = { name, email, company, note ->
                                 onEvent(OverlayEvent.SubmitLead(name, email, company, note))
                             },
                         )

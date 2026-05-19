@@ -50,6 +50,7 @@ data class FrappeLeadResult(
 data class FrappeOpportunityResult(val docname: String)
 data class FrappeComplaintResult(val docname: String)
 data class FrappeQuotationResult(val docname: String)
+data class FrappeCallLogResult(val docname: String)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FrappeApiService
@@ -384,6 +385,50 @@ class FrappeApiService(private val context: Context) {
         val data = JSONObject(response.body?.string() ?: "{}")
         val msg  = data.optJSONObject("message") ?: data
         FrappeQuotationResult(docname = msg.optString("name", ""))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CREATE CALL LOG  →  nxtgen_crm_mobile.api.create_call_log
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createCallLog(
+        phone: String,
+        callerName: String,
+        leadDocname: String?,
+        durationSeconds: Long,
+        notes: String,
+        callType: String,
+        direction: String,
+    ): FrappeCallLogResult = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+
+        val body = JSONObject().apply {
+            put("phone",        normalisePhone(phone))
+            put("caller_name",  callerName)
+            put("duration",     durationSeconds)
+            put("notes",        notes)
+            put("call_type",    callType)
+            put("direction",    direction)
+            if (!leadDocname.isNullOrBlank()) put("lead_docname", leadDocname)
+        }
+
+        val request = Request.Builder()
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_call_log")
+            .header("Cookie", config.cookieHeader)
+            .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
+            .post(body.toString().toRequestBody(JSON))
+            .build()
+
+        val response = httpClient.newCall(request).execute()
+        if (!response.isSuccessful) {
+            throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
+        }
+
+        val msg = JSONObject(response.body?.string() ?: "{}").optJSONObject("message")
+            ?: throw RuntimeException("Invalid response")
+        FrappeCallLogResult(docname = msg.optString("name"))
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -14,8 +14,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         OpportunityEntity::class,
         ComplaintEntity::class,
         NoteEntity::class,
+        CallLogEntity::class,
     ],
-    version = 4,             // bumped from 3 → 4 for cachedAt + latestNote on leads
+    version = 5,             // bumped from 4 → 5 for call_logs table
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun opportunityDao(): OpportunityDao
     abstract fun complaintDao(): ComplaintDao
     abstract fun noteDao(): NoteDao
+    abstract fun callLogDao(): CallLogDao
 
     companion object {
         @Volatile
@@ -55,6 +57,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `call_logs` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `frappeDocname` TEXT NOT NULL DEFAULT '',
+                        `phoneNumber` TEXT NOT NULL,
+                        `callerName` TEXT NOT NULL,
+                        `leadDocname` TEXT NOT NULL DEFAULT '',
+                        `durationSeconds` INTEGER NOT NULL,
+                        `notes` TEXT NOT NULL,
+                        `callType` TEXT NOT NULL,
+                        `direction` TEXT NOT NULL DEFAULT 'Inbound',
+                        `createdAt` INTEGER NOT NULL,
+                        `isSynced` INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -62,7 +84,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "crm_caller_database",
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
                 instance

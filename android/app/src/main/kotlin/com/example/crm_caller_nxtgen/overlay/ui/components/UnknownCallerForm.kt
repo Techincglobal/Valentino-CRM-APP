@@ -54,6 +54,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.crm_caller_nxtgen.overlay.domain.ActiveSheet
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ private val AccentIndigo = Color(0xFF6366F1)
 private val AccentAmber  = Color(0xFFF59E0B)
 private val AccentRed    = Color(0xFFEF4444)
 private val AccentGreen  = Color(0xFF22C55E)
+private val AccentBlue   = Color(0xFF3B82F6)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -96,6 +98,7 @@ private fun validateEmail(v: String): String? {
 @Composable
 fun UnknownCallerForm(
     phone: String,
+    activeSheet: ActiveSheet = ActiveSheet.NONE,
     onEvent: (OverlayEvent) -> Unit,
     onSubmit: (name: String, email: String, company: String, note: String) -> Unit,
 ) {
@@ -278,23 +281,42 @@ fun UnknownCallerForm(
             }
         }
 
-        // ── Log Complaint ─────────────────────────────────────────────────────
-        TextButton(
-            onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
-            modifier = Modifier.fillMaxWidth(),
+        Spacer(Modifier.height(4.dp))
+
+        // ── Secondary actions row ─────────────────────────────────────────────
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(
-                imageVector        = Icons.Default.Warning,
-                contentDescription = null,
-                tint               = AccentRed.copy(alpha = 0.75f),
-                modifier           = Modifier.size(14.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text       = "Log a Complaint Instead",
-                color      = AccentRed.copy(alpha = 0.75f),
-                fontSize   = 12.sp,
-                fontWeight = FontWeight.Medium,
+            TextButton(
+                onClick  = { onEvent(OverlayEvent.OpenComplaintPopup) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(Icons.Default.Warning, null, tint = AccentRed.copy(alpha = 0.75f), modifier = Modifier.size(13.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Log a Ticket", color = AccentRed.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            }
+            TextButton(
+                onClick  = { onEvent(OverlayEvent.OpenLogCallForm) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(Icons.Default.Phone, null, tint = AccentBlue.copy(alpha = 0.75f), modifier = Modifier.size(13.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Log Call", color = AccentBlue.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+
+        // ── Log Call inline form ──────────────────────────────────────────────
+        AnimatedVisibility(
+            visible = activeSheet == ActiveSheet.LOG_CALL,
+            enter   = fadeIn() + expandVertically(),
+            exit    = fadeOut() + shrinkVertically(),
+        ) {
+            LogCallInlineForm(
+                isDark      = false,
+                isWhatsApp  = phone.startsWith("wa:"),
+                onCancel    = { onEvent(OverlayEvent.CancelSheet) },
+                onSubmit    = { notes, callType -> onEvent(OverlayEvent.SubmitCallLog(notes, callType)) },
             )
         }
     }

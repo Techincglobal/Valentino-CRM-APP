@@ -67,6 +67,9 @@ dependencies {
     implementation("androidx.savedstate:savedstate-ktx:1.2.1")
     
     
+    // LocalBroadcastManager (removed from core in API 26+ but kept as standalone artifact)
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
+
     // HTTP client for Frappe API
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 

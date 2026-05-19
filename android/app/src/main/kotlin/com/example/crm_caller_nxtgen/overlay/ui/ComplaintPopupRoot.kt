@@ -138,7 +138,7 @@ private fun ComplaintCard(
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
                         Text(
-                            "COMPLAINT",
+                            "SUPPORT TICKET",
                             color         = Red500,
                             fontSize      = 10.sp,
                             fontWeight    = FontWeight.Bold,
@@ -147,7 +147,7 @@ private fun ComplaintCard(
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text       = "Log Complaint",
+                        text       = "Log a Ticket",
                         color      = TextPrimary,
                         fontSize   = 18.sp,
                         fontWeight = FontWeight.Bold,
@@ -208,7 +208,7 @@ private fun ComplaintCard(
             OutlinedTextField(
                 value         = category,
                 onValueChange = { category = it },
-                label         = { Text("Category / Reason") },
+                label         = { Text("Subject / Category") },
                 modifier      = Modifier.fillMaxWidth(),
                 colors        = fieldColors,
                 shape         = RoundedCornerShape(12.dp),

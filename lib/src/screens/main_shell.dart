@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/user_model.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
@@ -8,6 +9,7 @@ import 'tickets_screen.dart';
 import 'sales_screen.dart' show SalesScreen, SalesScreenController;
 import 'quotes_screen.dart' show QuotesScreen, QuotesScreenController;
 import 'settings_screen.dart';
+import 'call_logs_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MainShell
@@ -28,6 +30,26 @@ class _MainShellState extends State<MainShell> {
   final _salesKey  = GlobalKey();
   final _quotesKey = GlobalKey();
 
+  static const _overlayChannel = MethodChannel('crm_caller_nxtgen/native_overlay');
+
+  @override
+  void initState() {
+    super.initState();
+    _overlayChannel.setMethodCallHandler(_handleNativeCall);
+  }
+
+  @override
+  void dispose() {
+    _overlayChannel.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  Future<dynamic> _handleNativeCall(MethodCall call) async {
+    if (call.method == 'onPipelineRefreshNeeded') {
+      (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
+    }
+  }
+
   void _onTap(int i) {
     if (i == _index) return;
     setState(() => _index = i);
@@ -36,6 +58,7 @@ class _MainShellState extends State<MainShell> {
     } else if (i == 3) {
       (_quotesKey.currentState as QuotesScreenController?)?.refreshQuotes();
     }
+    // index 4 = Call Logs, index 5 = Settings — no refresh needed
   }
 
   late final _pages = [
@@ -48,6 +71,7 @@ class _MainShellState extends State<MainShell> {
     TicketsScreen(user: widget.user),
     SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(3)),
     QuotesScreen(key: _quotesKey),
+    const CallLogsScreen(),
     SettingsScreen(user: widget.user),
   ];
 
@@ -122,7 +146,9 @@ class _GlassNavBar extends StatelessWidget {
         const SizedBox(width: 4),
         _NavPill(icon: Icons.receipt_long_rounded,          label: 'Quotes',   selected: currentIndex == 3, onTap: () => onTap(3)),
         const SizedBox(width: 4),
-        _NavPill(icon: Icons.settings_rounded,              label: 'Settings', selected: currentIndex == 4, onTap: () => onTap(4)),
+        _NavPill(icon: Icons.call_rounded,                  label: 'Calls',    selected: currentIndex == 4, onTap: () => onTap(4)),
+        const SizedBox(width: 4),
+        _NavPill(icon: Icons.settings_rounded,              label: 'Settings', selected: currentIndex == 5, onTap: () => onTap(5)),
       ],
     );
 

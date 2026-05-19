@@ -40,6 +40,7 @@ import com.example.crm_caller_nxtgen.overlay.state.OverlayStateMachine
 import com.example.crm_caller_nxtgen.overlay.ui.ComplaintPopupRoot
 import com.example.crm_caller_nxtgen.overlay.ui.OverlayRoot
 import com.example.crm_caller_nxtgen.overlay.ui.WindowLifecycleOwner
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,10 +50,11 @@ import kotlinx.coroutines.launch
 class NativeCallOverlayService : Service() {
 
     companion object {
-        const val ACTION_SHOW        = "crm_caller_nxtgen.action.SHOW"
-        const val ACTION_CALL_ACTIVE = "crm_caller_nxtgen.action.CALL_ACTIVE"
-        const val ACTION_CALL_ENDED  = "crm_caller_nxtgen.action.CALL_ENDED"
-        const val ACTION_HIDE        = "crm_caller_nxtgen.action.HIDE"
+        const val ACTION_SHOW             = "crm_caller_nxtgen.action.SHOW"
+        const val ACTION_CALL_ACTIVE      = "crm_caller_nxtgen.action.CALL_ACTIVE"
+        const val ACTION_CALL_ENDED       = "crm_caller_nxtgen.action.CALL_ENDED"
+        const val ACTION_HIDE             = "crm_caller_nxtgen.action.HIDE"
+        const val ACTION_PIPELINE_REFRESH = "crm_caller_nxtgen.action.PIPELINE_REFRESH"
         const val EXTRA_PHONE        = "phone"
         const val EXTRA_NAME         = "name"
         const val EXTRA_TYPE         = "type"
@@ -428,6 +430,11 @@ class NativeCallOverlayService : Service() {
                     is OverlaySideEffect.CancelAutoDismiss -> { /* no-op — auto-dismiss removed */ }
 
                     is OverlaySideEffect.OpenFlutter -> { /* handled in MainActivity via MethodChannel */ }
+
+                    is OverlaySideEffect.PipelineRefreshNeeded -> {
+                        LocalBroadcastManager.getInstance(applicationContext)
+                            .sendBroadcast(Intent(ACTION_PIPELINE_REFRESH))
+                    }
 
                     is OverlaySideEffect.Vibrate -> {
                         val vib = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator

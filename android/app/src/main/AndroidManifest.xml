@@ -106,6 +106,21 @@
                 android:value="CRM Call Monitor: Runs persistently to detect incoming calls and display CRM overlay for sales agents even when the app is in the background." />
         </service>
 
+        <!--
+            WhatsAppCallMonitor: NotificationListenerService that detects WhatsApp /
+            WhatsApp Business incoming call notifications and shows the CRM overlay.
+            Requires the user to grant Notification Access in system settings.
+        -->
+        <service
+            android:name=".WhatsAppCallMonitor"
+            android:exported="true"
+            android:label="CRM WhatsApp Call Monitor"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
+
         <!-- Phone state BroadcastReceiver (fallback when CallMonitorService is down) -->
         <receiver
             android:name=".CallStateReceiver"

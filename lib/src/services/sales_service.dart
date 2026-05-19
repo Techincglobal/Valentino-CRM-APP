@@ -374,31 +374,20 @@ class QuotesSummary {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SalesService {
-  static const _oppFields =
-      '["name","title","customer_name","party_name","opportunity_from","opportunity_amount",'
-      '"stage","status","expected_closing","modified"]';
-
-  static const _leadFields =
-      '["name","first_name","lead_name","email_id","mobile_no","status","modified"]';
-
   static const _quoteFields =
       '["name","customer_name","party_name","grand_total","net_total","status","modified","currency"]';
 
   static const _orderFields =
       '["name","customer_name","grand_total","status","delivery_status","billing_status","currency","transaction_date","modified"]';
 
-  /// Fetch open opportunities from Frappe (latest 50, newest first).
+  /// Fetch opportunities owned by the current user (latest 100, newest first).
   static Future<List<Opportunity>> getOpportunities() async {
     try {
-      final resp = await ApiService.get(
-        '/api/resource/Opportunity'
-        '?fields=$_oppFields'
-        '&limit=50'
-        '&order_by=modified%20desc',
-      );
+      final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.get_opportunities', {});
       if (resp.statusCode != 200) return [];
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['data'] as List?) ?? [];
+      final list = (body['message'] as List?) ?? [];
       return list
           .whereType<Map<String, dynamic>>()
           .map(Opportunity.fromJson)
@@ -408,18 +397,14 @@ class SalesService {
     }
   }
 
-  /// Fetch leads from Frappe (latest 50, newest first).
+  /// Fetch leads owned by or created by the current user (latest 100, newest first).
   static Future<List<CrmLead>> getLeads() async {
     try {
-      final resp = await ApiService.get(
-        '/api/resource/Lead'
-        '?fields=$_leadFields'
-        '&limit=50'
-        '&order_by=modified%20desc',
-      );
+      final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.get_leads', {});
       if (resp.statusCode != 200) return [];
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['data'] as List?) ?? [];
+      final list = (body['message'] as List?) ?? [];
       return list
           .whereType<Map<String, dynamic>>()
           .map(CrmLead.fromJson)
