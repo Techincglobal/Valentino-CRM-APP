@@ -235,7 +235,7 @@ class NativeCallOverlayService : Service() {
         p.y += dy.toInt()
         windowX = p.x
         windowY = p.y
-        try { windowManager?.updateViewLayout(composeView, p) } catch (_: Exception) {}
+        try { windowManager?.updateViewLayout(composeView, p) } catch (e: Exception) { android.util.Log.w("CrmOverlay", "updateViewLayout: ${e.message}") }
     }
 
     private fun snapToEdge() {
@@ -252,12 +252,12 @@ class NativeCallOverlayService : Service() {
         }
         
         windowX = p.x
-        try { windowManager?.updateViewLayout(composeView, p) } catch (_: Exception) {}
+        try { windowManager?.updateViewLayout(composeView, p) } catch (e: Exception) { android.util.Log.w("CrmOverlay", "updateViewLayout: ${e.message}") }
     }
 
     private fun setWindowFocusable(focusable: Boolean) {
         params = buildWindowParams(focusable)
-        try { windowManager?.updateViewLayout(composeView, params) } catch (_: Exception) {}
+        try { windowManager?.updateViewLayout(composeView, params) } catch (e: Exception) { android.util.Log.w("CrmOverlay", "setFocusable: ${e.message}") }
     }
 
     private fun buildWindowParams(focusable: Boolean): WindowManager.LayoutParams {
@@ -297,7 +297,7 @@ class NativeCallOverlayService : Service() {
                 lifecycleOwner?.onPause()
                 lifecycleOwner?.onStop()
                 lifecycleOwner?.onDestroy()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("CrmOverlay", "removeOverlay: ${e.message}") }
         }
         composeView    = null
         lifecycleOwner = null
@@ -330,12 +330,12 @@ class NativeCallOverlayService : Service() {
         val popupParams = buildComplaintWindowParams()
         try {
             windowManager?.addView(complaintView, popupParams)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("CrmOverlay", "addComplaintView: ${e.message}") }
     }
 
     private fun removeComplaintPopup() {
         complaintView?.let { v ->
-            try { windowManager?.removeView(v) } catch (_: Exception) {}
+            try { windowManager?.removeView(v) } catch (e: Exception) { android.util.Log.w("CrmOverlay", "removeComplaintView: ${e.message}") }
             complaintLifecycle?.apply {
                 onPause()
                 onStop()

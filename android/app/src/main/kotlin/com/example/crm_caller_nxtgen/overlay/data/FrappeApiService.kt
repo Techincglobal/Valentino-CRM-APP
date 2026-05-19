@@ -148,6 +148,28 @@ class FrappeApiService(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Central POST executor — refreshes CSRF and retries once on 403
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private suspend fun executePost(request: Request): okhttp3.Response {
+        var response = httpClient.newCall(request).execute()
+        if (response.code == 403) {
+            // CSRF expired — refresh token and retry with updated config
+            refreshCsrfToken()
+            val newConfig = getConfig()
+            val retryRequest = request.newBuilder()
+                .apply {
+                    if (newConfig.csrfToken.isNotBlank())
+                        header("X-Frappe-CSRF-Token", newConfig.csrfToken)
+                }
+                .build()
+            response.close()
+            response = httpClient.newCall(retryRequest).execute()
+        }
+        return response
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // LOOKUP: find lead by phone number via get_caller_details API
     // Returns null when not found.
     // ─────────────────────────────────────────────────────────────────────────
@@ -223,7 +245,7 @@ class FrappeApiService(private val context: Context) {
         Log.d(TAG, "║  Body : $requestBodyStr")
         Log.d(TAG, "╚════════════════════════════════════════════════════════")
 
-        val response = httpClient.newCall(request).execute()
+        val response = executePost(request)
         val rawBody = response.body?.string() ?: ""
 
         val statusLine = "${response.code} ${response.message}"
@@ -293,7 +315,7 @@ class FrappeApiService(private val context: Context) {
             .post(body.toString().toRequestBody(JSON))
             .build()
 
-        val response = httpClient.newCall(request).execute()
+        val response = executePost(request)
         if (!response.isSuccessful) {
             throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
         }
@@ -335,7 +357,7 @@ class FrappeApiService(private val context: Context) {
             .post(body.toString().toRequestBody(JSON))
             .build()
 
-        val response = httpClient.newCall(request).execute()
+        val response = executePost(request)
         if (!response.isSuccessful) {
             throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
         }
@@ -377,7 +399,7 @@ class FrappeApiService(private val context: Context) {
             .post(body.toString().toRequestBody(JSON))
             .build()
 
-        val response = httpClient.newCall(request).execute()
+        val response = executePost(request)
         if (!response.isSuccessful) {
             throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
         }
@@ -421,7 +443,7 @@ class FrappeApiService(private val context: Context) {
             .post(body.toString().toRequestBody(JSON))
             .build()
 
-        val response = httpClient.newCall(request).execute()
+        val response = executePost(request)
         if (!response.isSuccessful) {
             throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
         }
@@ -453,7 +475,7 @@ class FrappeApiService(private val context: Context) {
             .post(body.toString().toRequestBody(JSON))
             .build()
 
-        httpClient.newCall(request).execute().close()
+        executePost(request).close()
     }
 
     // ─────────────────────────────────────────────────────────────────────────

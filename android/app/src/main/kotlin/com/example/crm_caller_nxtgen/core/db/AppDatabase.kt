@@ -74,6 +74,10 @@ abstract class AppDatabase : RoomDatabase() {
                         `isSynced` INTEGER NOT NULL
                     )
                 """.trimIndent())
+                // Index leads by phone for fast lookup on every incoming call
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phoneNumber)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_call_logs_phone ON call_logs(phoneNumber)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_call_logs_created ON call_logs(createdAt DESC)")
             }
         }
 
@@ -85,6 +89,9 @@ abstract class AppDatabase : RoomDatabase() {
                     "crm_caller_database",
                 )
                     .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    // Safety net: if a device has a DB version older than 2 (pre-release),
+                    // wipe and recreate rather than crash.
+                    .fallbackToDestructiveMigrationFrom(1)
                     .build()
                 INSTANCE = instance
                 instance

@@ -62,18 +62,6 @@ class OverlayStateMachine(
                 activeJob?.cancel()
                 _state.value = OverlayState.LoadingIdentity(event.phoneNumber, CallPhase.RINGING)
                 activeJob = scope.launch {
-                    if (event.phoneNumber == "555-KNOWN") {
-                        val fakeCustomer = CallerIdentity.Customer(
-                            docname     = "DEV-TEST-001",
-                            leadDocname = "",
-                            name        = "Alex Mercer",
-                            company     = "ACME Corp",
-                            email       = "alex@acme.com",
-                            phone       = "+1 555 010 2026",
-                        )
-                        transition(OverlayEvent.IdentityResolved(fakeCustomer))
-                        return@launch
-                    }
                     // Wrap in runCatching so a DB/network crash can't leave overlay
                     // stuck at LoadingIdentity forever showing a spinner
                     runCatching { repository.lookupIdentityByPhone(event.phoneNumber) }
