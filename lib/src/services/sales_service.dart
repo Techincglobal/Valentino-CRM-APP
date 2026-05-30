@@ -385,14 +385,14 @@ class SalesService {
     try {
       final resp = await ApiService.post(
         '/api/method/nxtgen_crm_mobile.api.get_opportunities', {});
-      if (resp.statusCode != 200) return [];
+      if (resp.statusCode != 200) {
+        return [];
+      }
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       final list = (body['message'] as List?) ?? [];
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(Opportunity.fromJson)
-          .toList();
-    } catch (_) {
+      final result = list.whereType<Map<String, dynamic>>().map(Opportunity.fromJson).toList();
+      return result;
+    } catch (e) {
       return [];
     }
   }
@@ -402,14 +402,14 @@ class SalesService {
     try {
       final resp = await ApiService.post(
         '/api/method/nxtgen_crm_mobile.api.get_leads', {});
-      if (resp.statusCode != 200) return [];
+      if (resp.statusCode != 200) {
+        return [];
+      }
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       final list = (body['message'] as List?) ?? [];
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(CrmLead.fromJson)
-          .toList();
-    } catch (_) {
+      final result = list.whereType<Map<String, dynamic>>().map(CrmLead.fromJson).toList();
+      return result;
+    } catch (e) {
       return [];
     }
   }
@@ -423,14 +423,14 @@ class SalesService {
         '&limit=50'
         '&order_by=modified%20desc',
       );
-      if (resp.statusCode != 200) return [];
+      if (resp.statusCode != 200) {
+        return [];
+      }
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       final list = (body['data'] as List?) ?? [];
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(Quotation.fromJson)
-          .toList();
-    } catch (_) {
+      final result = list.whereType<Map<String, dynamic>>().map(Quotation.fromJson).toList();
+      return result;
+    } catch (e) {
       return [];
     }
   }
@@ -444,14 +444,14 @@ class SalesService {
         '&limit=50'
         '&order_by=modified%20desc',
       );
-      if (resp.statusCode != 200) return [];
+      if (resp.statusCode != 200) {
+        return [];
+      }
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       final list = (body['data'] as List?) ?? [];
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(SalesOrder.fromJson)
-          .toList();
-    } catch (_) {
+      final result = list.whereType<Map<String, dynamic>>().map(SalesOrder.fromJson).toList();
+      return result;
+    } catch (e) {
       return [];
     }
   }
@@ -558,6 +558,34 @@ class SalesService {
     final won   = list.where((o) => o.status == 'Won').length;
     final total = list.fold<double>(0, (s, o) => s + o.amount);
     return PipelineSummary(open: open, won: won, total: list.length, totalValue: total);
+  }
+
+  /// Create (or update) a Lead from a call log.
+  /// Returns `(created, leadName)`. If a lead already exists for [mobileNo]
+  /// the note is appended and `created` will be `false`.
+  static Future<({bool created, String leadName})> createLeadFromCall({
+    required String firstName,
+    String mobileNo    = '',
+    String email       = '',
+    String noteContent = '',
+  }) async {
+    final payload = <String, dynamic>{'first_name': firstName};
+    if (mobileNo.isNotEmpty)    payload['mobile_no']    = mobileNo;
+    if (email.isNotEmpty)       payload['email_id']     = email;
+    if (noteContent.isNotEmpty) payload['note_content'] = noteContent;
+    final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.create_lead_with_note', payload);
+    if (resp.statusCode != 200) {
+      final err = 'Failed to create lead (${resp.statusCode})';
+      throw Exception(err);
+    }
+    final decoded = jsonDecode(resp.body);
+    final msg = (decoded is Map && decoded['message'] is Map)
+        ? Map<String, dynamic>.from(decoded['message'] as Map)
+        : <String, dynamic>{};
+    final created  = (msg['created'] as bool?) ?? false;
+    final leadName = msg['lead_name']?.toString() ?? '';
+    return (created: created, leadName: leadName);
   }
 }
 

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -56,12 +55,12 @@ class _MainShellState extends State<MainShell> {
   void _onTap(int i) {
     if (i == _index) return;
     setState(() => _index = i);
-    if (i == 2) {
-      (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
-    } else if (i == 3) {
-      (_quotesKey.currentState as QuotesScreenController?)?.refreshQuotes();
-    } else if (i == 4) {
+    if (i == 1) {
       (_callLogsKey.currentState as CallLogsScreenController?)?.refreshLogs();
+    } else if (i == 2) {
+      (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
+    } else if (i == 4) {
+      (_quotesKey.currentState as QuotesScreenController?)?.refreshQuotes();
     }
   }
 
@@ -72,10 +71,10 @@ class _MainShellState extends State<MainShell> {
         (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
       },
     ),
-    TicketsScreen(user: widget.user),
-    SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(3)),
-    QuotesScreen(key: _quotesKey),
     CallLogsScreen(key: _callLogsKey),
+    SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(4)),
+    TicketsScreen(user: widget.user),
+    QuotesScreen(key: _quotesKey),
     SettingsScreen(user: widget.user),
   ];
 
@@ -144,88 +143,50 @@ class _GlassNavBar extends StatelessWidget {
       children: [
         _NavPill(icon: Icons.home_rounded,                  label: 'Home',     selected: currentIndex == 0, onTap: () => onTap(0)),
         const SizedBox(width: 4),
-        _NavPill(icon: Icons.confirmation_number_rounded,   label: 'Tickets',  selected: currentIndex == 1, onTap: () => onTap(1)),
+        _NavPill(icon: Icons.call_rounded,                  label: 'Calls',    selected: currentIndex == 1, onTap: () => onTap(1)),
         const SizedBox(width: 4),
         _NavPill(icon: Icons.trending_up_rounded,           label: 'Pipeline', selected: currentIndex == 2, onTap: () => onTap(2)),
         const SizedBox(width: 4),
-        _NavPill(icon: Icons.receipt_long_rounded,          label: 'Quotes',   selected: currentIndex == 3, onTap: () => onTap(3)),
+        _NavPill(icon: Icons.confirmation_number_rounded,   label: 'Tickets',  selected: currentIndex == 3, onTap: () => onTap(3)),
         const SizedBox(width: 4),
-        _NavPill(icon: Icons.call_rounded,                  label: 'Calls',    selected: currentIndex == 4, onTap: () => onTap(4)),
+        _NavPill(icon: Icons.receipt_long_rounded,          label: 'Quotes',   selected: currentIndex == 4, onTap: () => onTap(4)),
         const SizedBox(width: 4),
         _NavPill(icon: Icons.settings_rounded,              label: 'Settings', selected: currentIndex == 5, onTap: () => onTap(5)),
       ],
     );
 
-    final Widget pill;
-
-    if (Platform.isIOS) {
-      // iOS: real frosted glass
-      pill = ClipRRect(
-        borderRadius: BorderRadius.circular(40),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF0D1117).withValues(alpha: 0.88)
-                  : Colors.white.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.10)
-                    : Colors.black.withValues(alpha: 0.07),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color:      Colors.black.withValues(alpha: isDark ? 0.45 : 0.14),
-                  blurRadius: 24,
-                  offset:     const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: pills,
-          ),
-        ),
-      );
-    } else {
-      // Android: solid gradient pill — blur is unreliable in release APKs
-      pill = Container(
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF1C2333), const Color(0xFF0D1117)]
-                : [Colors.white, const Color(0xFFF0F3FF)],
-          ),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
+    // Unified intense frosted glass for iOS 26 theme
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(40),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+        child: Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
             color: isDark
-                ? Colors.white.withValues(alpha: 0.12)
-                : AppColors.primary.withValues(alpha: 0.12),
-            width: 1.0,
+                ? const Color(0xFF161F33).withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.8),
+              width: 1.2,
+            ),
+            boxShadow: isDark 
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 32,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color:      Colors.black.withValues(alpha: isDark ? 0.60 : 0.12),
-              blurRadius: 28,
-              spreadRadius: 0,
-              offset:     const Offset(0, 8),
-            ),
-            BoxShadow(
-              color:      AppColors.primary.withValues(alpha: isDark ? 0.08 : 0.06),
-              blurRadius: 12,
-              offset:     const Offset(0, 2),
-            ),
-          ],
+          child: pills,
         ),
-        child: pills,
-      );
-    }
-
-    return pill;
+      ),
+    );
   }
 }
 

@@ -1,6 +1,69 @@
 import 'dart:convert';
 import 'api_service.dart';
 
+String _parseFrappeError(String body, String fallback) {
+  try {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return fallback;
+    // HTML error page (nginx/apache) — never show to user
+    if (trimmed.startsWith('<')) return fallback;
+
+    final decoded = jsonDecode(trimmed);
+    if (decoded is! Map) return fallback;
+
+    // 1. _server_messages — the most user-readable field Frappe provides
+    final raw = decoded['_server_messages'];
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final list = jsonDecode(raw);
+        if (list is List && list.isNotEmpty) {
+          try {
+            final inner = jsonDecode(list.first.toString());
+            if (inner is Map) {
+              final msg = inner['message']?.toString().trim();
+              if (msg != null && msg.isNotEmpty && !_looksInternal(msg)) return msg;
+            }
+          } catch (_) {
+            final s = list.first.toString().trim();
+            if (s.isNotEmpty && !_looksInternal(s)) return s;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. exception field — strip the Python class prefix, keep the human message
+    final exc = decoded['exception']?.toString() ?? '';
+    if (exc.isNotEmpty) {
+      // "frappe.exceptions.SomeError: The human message here"
+      final idx = exc.indexOf(': ');
+      final msg = (idx >= 0 ? exc.substring(idx + 2) : exc)
+          .split('\n')
+          .first
+          .trim();
+      if (msg.isNotEmpty && !_looksInternal(msg)) return msg;
+    }
+
+    // 3. exc_type as last resort — still better than raw JSON
+    final excType = decoded['exc_type']?.toString().trim() ?? '';
+    if (excType.isNotEmpty) return excType;
+  } catch (_) {}
+  return fallback;
+}
+
+/// Returns true if [msg] is a Python/Frappe internal message that should
+/// never be shown directly to the user.
+bool _looksInternal(String msg) {
+  final lower = msg.toLowerCase();
+  return msg.length > 200 ||
+      lower.contains('traceback') ||
+      lower.contains('get_attr') ||
+      lower.contains('no attribute') ||
+      lower.contains('file "') ||
+      lower.contains('line ') ||
+      msg.contains('{') ||
+      msg.contains('\\n');
+}
+
 class CallLog {
   final String name;
   final String subject;
@@ -64,6 +127,20 @@ class CallLog {
     }
   }
 
+  String get fullDateLabel {
+    if (creation.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(creation);
+      final months = ['Jan','Feb','Mar','Apr','May','Jun',
+                      'Jul','Aug','Sep','Oct','Nov','Dec'];
+      final h = dt.hour.toString().padLeft(2, '0');
+      final m = dt.minute.toString().padLeft(2, '0');
+      return '${dt.day} ${months[dt.month - 1]} ${dt.year}  •  $h:$m';
+    } catch (_) {
+      return creation;
+    }
+  }
+
   String get callerLabel {
     // Subject is like "📞 Call — John Doe" or "📱 WhatsApp Call — Jane"
     final parts = subject.split('— ');
@@ -84,7 +161,7 @@ class CallLogService {
     final resp = await ApiService.post(
         '/api/method/nxtgen_crm_mobile.api.get_call_logs', {});
     if (resp.statusCode != 200) {
-      throw Exception('Server error ${resp.statusCode}: ${resp.body}');
+      throw Exception(_parseFrappeError(resp.body, 'Could not load call logs (${resp.statusCode})'));
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
     final list = (body['message'] as List?) ?? [];
@@ -92,5 +169,35 @@ class CallLogService {
         .whereType<Map<String, dynamic>>()
         .map(CallLog.fromJson)
         .toList();
+  }
+
+  static Future<String> createCallLog({
+    required String phone,
+    required String callerName,
+    required int durationSeconds,
+    required String direction,
+    required String callType,
+    String notes = '',
+    String? leadDocname,
+  }) async {
+    final payload = <String, dynamic>{
+      'phone':        phone,
+      'caller_name':  callerName,
+      'duration':     durationSeconds,
+      'notes':        notes,
+      'call_type':    callType,
+      'direction':    direction,
+    };
+    if (leadDocname != null && leadDocname.isNotEmpty) {
+      payload['lead_docname'] = leadDocname;
+    }
+    final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.create_call_log', payload);
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Could not create call log (${resp.statusCode})'));
+    }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final msg  = body['message'] as Map<String, dynamic>? ?? {};
+    return msg['name']?.toString() ?? '';
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -227,12 +228,47 @@ class GradientScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
     return Scaffold(
       backgroundColor: context.ac.bgBase,
       extendBodyBehindAppBar: extendBodyBehindAppBar,
       appBar: appBar,
       floatingActionButton: floatingActionButton,
-      body: body,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // iOS 26 Dynamic Mesh Gradients
+          Positioned(
+            top: -150, left: -100,
+            child: Container(
+              width: 400, height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? AppColors.primary.withValues(alpha: 0.25) : AppColors.primaryLight.withValues(alpha: 0.35),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 50, right: -150,
+            child: Container(
+              width: 350, height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? AppColors.accent.withValues(alpha: 0.2) : AppColors.accentLight.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+          // Heavy blur to melt the circles into a smooth mesh gradient
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          // Foreground Content
+          body,
+        ],
+      ),
     );
   }
 }
@@ -255,24 +291,41 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ac = context.ac;
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: color ?? ac.bgCard,
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: ac.borderLight, width: 1.0),
-        boxShadow: context.isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+    final isDark = context.isDark;
+    
+    // Glassy background color
+    final bgColor = color != null 
+        ? color!.withValues(alpha: isDark ? 0.25 : 0.45)
+        : (isDark ? const Color(0xFF161F33).withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.65));
+        
+    // Glare edge reflection
+    final borderColor = isDark 
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.white.withValues(alpha: 0.7);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: borderColor, width: 1.2),
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+          ),
+          child: child,
+        ),
       ),
-      child: child,
     );
   }
 }
@@ -566,15 +619,34 @@ class AppSheetContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ac = context.ac;
-    return Container(
-      decoration: BoxDecoration(
-        color: ac.bgCard,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: ac.borderLight)),
+    final isDark = context.isDark;
+    
+    final bgColor = isDark 
+        ? const Color(0xFF0F172A).withValues(alpha: 0.75) 
+        : Colors.white.withValues(alpha: 0.85);
+        
+    final borderColor = isDark 
+        ? Colors.white.withValues(alpha: 0.15)
+        : Colors.white.withValues(alpha: 0.7);
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border(
+              top: BorderSide(color: borderColor, width: 1.5),
+              left: BorderSide(color: borderColor, width: 0.5),
+              right: BorderSide(color: borderColor, width: 0.5),
+            ),
+          ),
+          padding: padding,
+          child: child,
+        ),
       ),
-      padding: padding,
-      child: child,
     );
   }
 }

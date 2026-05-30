@@ -192,7 +192,7 @@ fun UnknownCallerForm(
                 emailTouched = true
                 emailError   = validateEmail(email.trim())
             },
-            label         = "Email (optional)",
+            label         = "Email",
             icon          = Icons.Default.Email,
             error         = if (emailTouched) emailError else null,
             isValid       = emailValid,
@@ -207,7 +207,7 @@ fun UnknownCallerForm(
             value         = company,
             onValueChange = { company = it },
             onFocusLost   = {},
-            label         = "Company (optional)",
+            label         = "Company",
             icon          = Icons.Default.Business,
             error         = null,
             isValid       = company.isNotBlank(),
@@ -223,7 +223,7 @@ fun UnknownCallerForm(
         OutlinedTextField(
             value         = note,
             onValueChange = { note = it },
-            label         = { Text("Quick note (optional)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
+            label         = { Text("Quick note", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
             placeholder   = { Text("What's this call about?", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 13.sp) },
             leadingIcon   = {
                 Icon(Icons.Default.Notes, contentDescription = null,

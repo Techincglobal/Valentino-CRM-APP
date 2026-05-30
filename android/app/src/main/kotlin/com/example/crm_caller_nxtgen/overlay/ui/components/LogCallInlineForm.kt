@@ -75,7 +75,7 @@ fun LogCallInlineForm(
         OutlinedTextField(
             value         = notes,
             onValueChange = { notes = it },
-            label         = { Text("Notes (optional)", color = onSurfaceVariant, fontSize = 12.sp) },
+            label         = { Text("Notes", color = onSurfaceVariant, fontSize = 12.sp) },
             placeholder   = { Text("What was discussed?", color = onSurfaceVariant.copy(alpha = 0.5f), fontSize = 12.sp) },
             modifier      = Modifier.fillMaxWidth(),
             colors        = fieldColors(accent),

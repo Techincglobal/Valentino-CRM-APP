@@ -103,27 +103,33 @@ class FrappeRepository(private val context: Context) {
                 val entity = if (localLead != null) {
                     // Refresh existing cache entry in place
                     localLead.copy(
-                        frappeDocname = remote.docname,
-                        name          = remote.leadName,
-                        email         = remote.email,
-                        company       = remote.companyName,
-                        status        = remote.status,
-                        isSynced      = true,
-                        cachedAt      = now,
-                        latestNote    = remote.latestNote,
+                        frappeDocname      = remote.docname,
+                        name               = remote.leadName,
+                        email              = remote.email,
+                        company            = remote.companyName,
+                        status             = remote.status,
+                        isSynced           = true,
+                        cachedAt           = now,
+                        latestNote         = remote.latestNote,
+                        latestQuoteSubject = remote.latestQuoteSubject,
+                        latestQuoteAmount  = remote.latestQuoteAmount,
+                        latestQuoteStatus  = remote.latestQuoteStatus,
                     )
                 } else {
                     LeadEntity(
-                        id            = UUID.randomUUID().toString(),
-                        frappeDocname = remote.docname,
-                        phoneNumber   = phone,
-                        name          = remote.leadName,
-                        email         = remote.email,
-                        company       = remote.companyName,
-                        status        = remote.status,
-                        isSynced      = true,
-                        cachedAt      = now,
-                        latestNote    = remote.latestNote,
+                        id                 = UUID.randomUUID().toString(),
+                        frappeDocname      = remote.docname,
+                        phoneNumber        = phone,
+                        name               = remote.leadName,
+                        email              = remote.email,
+                        company            = remote.companyName,
+                        status             = remote.status,
+                        isSynced           = true,
+                        cachedAt           = now,
+                        latestNote         = remote.latestNote,
+                        latestQuoteSubject = remote.latestQuoteSubject,
+                        latestQuoteAmount  = remote.latestQuoteAmount,
+                        latestQuoteStatus  = remote.latestQuoteStatus,
                     )
                 }
                 db.leadDao().insertLead(entity)  // REPLACE strategy handles both insert + update
@@ -445,13 +451,16 @@ private val CallerIdentity.displayName: String
     }
 
 fun LeadEntity.toCallerIdentity(): CallerIdentity.Lead = CallerIdentity.Lead(
-    docname      = frappeDocname,
-    localId      = id,
-    name         = name ?: "Unknown",
-    company      = company ?: "",
-    email        = email ?: "",
-    phone        = phoneNumber,
-    status       = status,
-    isCustomer   = status == "Converted",
-    latestNote   = latestNote,
+    docname            = frappeDocname,
+    localId            = id,
+    name               = name ?: "Unknown",
+    company            = company ?: "",
+    email              = email ?: "",
+    phone              = phoneNumber,
+    status             = status,
+    isCustomer         = status == "Converted",
+    latestNote         = latestNote,
+    latestQuoteSubject = latestQuoteSubject,
+    latestQuoteAmount  = latestQuoteAmount,
+    latestQuoteStatus  = latestQuoteStatus,
 )

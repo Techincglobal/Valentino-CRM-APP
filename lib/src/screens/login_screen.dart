@@ -48,6 +48,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _login() async {
     final usr = _userCtrl.text.trim();
     final pwd = _passCtrl.text.trim();
+
     if (usr.isEmpty) {
       _showError('Please enter your username or email.');
       return;

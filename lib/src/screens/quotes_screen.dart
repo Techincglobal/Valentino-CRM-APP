@@ -60,6 +60,16 @@ class _QuotesScreenState extends State<QuotesScreen>
     super.dispose();
   }
 
+  void _showCreateQuoteForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => _NewQuoteSheet(onCreated: _loadFromApi),
+    );
+  }
+
   Future<void> _openQuoteDetail(Quotation quote) async {
     final result = await showModalBottomSheet<dynamic>(
       context:           context,
@@ -114,6 +124,18 @@ class _QuotesScreenState extends State<QuotesScreen>
     final ac = context.ac;
     return Scaffold(
       backgroundColor: ac.bgBase,
+      floatingActionButton: AnimatedBuilder(
+        animation: _tab,
+        builder: (_, _) => _tab.index == 0
+            ? FloatingActionButton.extended(
+                onPressed: _showCreateQuoteForm,
+                backgroundColor: _amber,
+                icon: const Icon(Icons.description_rounded, color: Colors.white, size: 18),
+                label: const Text('New Quote',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+              )
+            : const SizedBox.shrink(),
+      ),
       body: NestedScrollView(
         headerSliverBuilder: (_, _) => [
           SliverToBoxAdapter(child: _Header(summary: _summary)),
@@ -2181,6 +2203,389 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// New Quote sheet — searches leads and creates a new draft quotation
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NewQuoteSheet extends StatefulWidget {
+  final VoidCallback onCreated;
+  const _NewQuoteSheet({required this.onCreated});
+
+  @override
+  State<_NewQuoteSheet> createState() => _NewQuoteSheetState();
+}
+
+class _NewQuoteSheetState extends State<_NewQuoteSheet> {
+  final _searchCtrl  = TextEditingController();
+  final _subjectCtrl = TextEditingController();
+  final _amountCtrl  = TextEditingController();
+  final _noteCtrl    = TextEditingController();
+
+  List<CrmLead> _suggestions = [];
+  CrmLead?      _selected;
+  bool          _searching   = false;
+  String        _partyType   = 'Lead';
+  String        _currency    = 'LKR';
+  bool          _busy        = false;
+  String?       _error;
+  String?       _leadError;
+  String?       _subjectError;
+  String?       _amountError;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchLeads('');
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _subjectCtrl.dispose();
+    _amountCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchLeads(String q) async {
+    setState(() => _searching = true);
+    try {
+      final all = await SalesService.getLeads();
+      if (!mounted) return;
+      final lower = q.toLowerCase();
+      setState(() {
+        _suggestions = q.isEmpty
+            ? all.take(20).toList()
+            : all.where((l) =>
+                l.displayName.toLowerCase().contains(lower) ||
+                l.mobile.contains(q) ||
+                l.email.toLowerCase().contains(lower)).toList();
+        _searching = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    setState(() { _leadError = null; _subjectError = null; _amountError = null; _error = null; });
+
+    if (_selected == null) {
+      setState(() => _leadError = 'Select a lead first');
+      return;
+    }
+    if (_subjectCtrl.text.trim().isEmpty) {
+      setState(() => _subjectError = 'Subject is required');
+      return;
+    }
+    final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0;
+    if (amount < 0) {
+      setState(() => _amountError = 'Enter a valid amount');
+      return;
+    }
+
+    setState(() { _busy = true; _error = null; });
+    try {
+      await SalesService.createQuotation(
+        leadDocname: _selected!.name,
+        partyType:   _partyType,
+        subject:     _subjectCtrl.text.trim(),
+        amount:      amount,
+        note:        _noteCtrl.text.trim(),
+        currency:    _currency,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onCreated();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Quotation created for ${_selected!.displayName}'),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+    } catch (e) {
+      setState(() { _busy = false; _error = e.toString().replaceFirst('Exception: ', ''); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    final inset  = MediaQuery.of(context).viewInsets.bottom;
+    final maxH   = MediaQuery.of(context).size.height * 0.90;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Center(child: Container(
+          margin: const EdgeInsets.only(top: 12, bottom: 6),
+          width: 36, height: 4,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        )),
+        Flexible(child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(22, 8, 22, 20 + inset),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Header
+            Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: _amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _amber.withValues(alpha: 0.30)),
+                ),
+                child: const Icon(Icons.description_rounded, color: _amber, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('New Quotation', style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                Text('Create a draft quote linked to a lead', style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+              ])),
+            ]),
+            const SizedBox(height: 20),
+
+            if (_error != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.10), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.30))),
+                child: Row(children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13))),
+                ]),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Party type toggle
+            Text('Party Type', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+            const SizedBox(height: 8),
+            Row(children: ['Lead', 'Customer'].map((t) {
+              final sel = t == _partyType;
+              return Expanded(child: Padding(
+                padding: EdgeInsets.only(right: t == 'Lead' ? 6 : 0, left: t == 'Customer' ? 6 : 0),
+                child: GestureDetector(
+                  onTap: () => setState(() => _partyType = t),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: sel ? _amber.withValues(alpha: 0.15) : ac.bgInput,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: sel ? _amber.withValues(alpha: 0.50) : ac.border),
+                    ),
+                    child: Center(child: Text(t, style: TextStyle(color: sel ? _amber : ac.textSecondary, fontWeight: sel ? FontWeight.w700 : FontWeight.w400, fontSize: 13))),
+                  ),
+                ),
+              ));
+            }).toList()),
+            const SizedBox(height: 14),
+
+            // Lead search / selected chip
+            Text('Select Lead *', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+            const SizedBox(height: 8),
+            if (_selected != null)
+              GestureDetector(
+                onTap: () => setState(() { _selected = null; _searchCtrl.clear(); _searchLeads(''); }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(color: _amber.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(12), border: Border.all(color: _amber.withValues(alpha: 0.40))),
+                  child: Row(children: [
+                    const Icon(Icons.person_rounded, color: _amber, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_selected!.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600))),
+                    Icon(Icons.close_rounded, color: ac.textSecondary, size: 16),
+                  ]),
+                ),
+              )
+            else ...[
+              TextField(
+                controller: _searchCtrl,
+                enabled: !_busy,
+                onChanged: (v) {
+                  setState(() => _leadError = null);
+                  _searchLeads(v.trim());
+                },
+                style: TextStyle(color: ac.textPrimary, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Search by name, phone or email…',
+                  hintStyle: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 13),
+                  errorText: _leadError,
+                  filled: true,
+                  fillColor: ac.bgInput,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _amber, width: 1.5)),
+                  prefixIcon: const Icon(Icons.search_rounded, color: _slate, size: 18),
+                ),
+              ),
+              if (_searching)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: _amber))))
+              else if (_suggestions.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  decoration: BoxDecoration(color: ac.bgInput, borderRadius: BorderRadius.circular(12), border: Border.all(color: ac.border)),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _suggestions.length,
+                    itemBuilder: (_, i) {
+                      final l = _suggestions[i];
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => setState(() { _selected = l; _suggestions = []; }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(l.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                            if (l.mobile.isNotEmpty)
+                              Text(l.mobile, style: TextStyle(color: ac.textSecondary, fontSize: 11)),
+                          ]),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+            const SizedBox(height: 14),
+
+            // Subject
+            Text('Subject *', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _subjectCtrl,
+              enabled: !_busy,
+              onChanged: (_) => setState(() => _subjectError = null),
+              style: TextStyle(color: ac.textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'e.g. Proposal for Q3 supply',
+                hintStyle: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 13),
+                errorText: _subjectError,
+                filled: true, fillColor: ac.bgInput,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _amber, width: 1.5)),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Currency + Amount row
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Currency dropdown
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(color: ac.bgInput, borderRadius: BorderRadius.circular(12), border: Border.all(color: ac.border)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _currency,
+                      dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+                      style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                      items: const [
+                        DropdownMenuItem(value: 'LKR', child: Text('LKR')),
+                        DropdownMenuItem(value: 'USD', child: Text('USD')),
+                        DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                        DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                        DropdownMenuItem(value: 'INR', child: Text('INR')),
+                        DropdownMenuItem(value: 'AED', child: Text('AED')),
+                      ],
+                      onChanged: _busy ? null : (v) { if (v != null) setState(() => _currency = v); },
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(width: 12),
+              // Amount
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Total Amount', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _amountCtrl,
+                  enabled: !_busy,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() => _amountError = null),
+                  style: TextStyle(color: ac.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: '0.00',
+                    hintStyle: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 13),
+                    errorText: _amountError,
+                    filled: true, fillColor: ac.bgInput,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _amber, width: 1.5)),
+                  ),
+                ),
+              ])),
+            ]),
+            const SizedBox(height: 14),
+
+            // Note
+            Text('Note', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _noteCtrl,
+              enabled: !_busy,
+              maxLines: 3,
+              style: TextStyle(color: ac.textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Optional note for this quotation…',
+                hintStyle: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 13),
+                filled: true, fillColor: ac.bgInput,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _amber, width: 1.5)),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Buttons
+            Row(children: [
+              Expanded(child: OutlinedButton(
+                onPressed: _busy ? null : () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(color: ac.border),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('Cancel', style: TextStyle(color: ac.textSecondary, fontWeight: FontWeight.w600)),
+              )),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: FilledButton.icon(
+                onPressed: _busy ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _amber,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: _busy
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.description_rounded, color: Colors.white, size: 18),
+                label: Text(_busy ? 'Creating…' : 'Create Quote',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+              )),
+            ]),
+          ]),
+        )),
+      ]),
     );
   }
 }

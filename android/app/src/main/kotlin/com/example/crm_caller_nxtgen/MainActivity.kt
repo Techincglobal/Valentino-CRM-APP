@@ -1,7 +1,6 @@
 package com.example.crm_caller_nxtgen
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -10,7 +9,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -50,7 +48,6 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         pendingOpenPhone = intent?.getStringExtra("open_phone")
         requestRuntimePermissions()
-        requestBatteryOptimizationExemption()
         CallMonitorService.start(this)
         LocalBroadcastManager.getInstance(this).registerReceiver(
             pipelineRefreshReceiver,
@@ -85,6 +82,16 @@ class MainActivity : FlutterActivity() {
         }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), REQUEST_PERMISSIONS)
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        val phoneStateGranted = permissions.indices.any { i ->
+            permissions[i] == Manifest.permission.READ_PHONE_STATE && grantResults[i] == PackageManager.PERMISSION_GRANTED
+        }
+        if (phoneStateGranted) {
+            CallMonitorService.start(this)
         }
     }
 
@@ -148,30 +155,6 @@ class MainActivity : FlutterActivity() {
                 startActivity(intent)
                 return  // opened successfully
             } catch (_: Exception) { }
-        }
-    }
-
-    /**
-     * Requests that the system not kill our services via battery optimization.
-     * Critical for Xiaomi (MIUI), Oppo (ColorOS), and Samsung (One UI) which
-     * aggressively kill background services unless explicitly whitelisted.
-     */
-    @SuppressLint("BatteryLife")
-    private fun requestBatteryOptimizationExemption() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val pm = getSystemService(POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                try {
-                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:$packageName")
-                    })
-                } catch (_: Exception) {
-                    // Some OEMs remove this intent — fall back to the general battery settings
-                    try {
-                        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                    } catch (_: Exception) { }
-                }
-            }
         }
     }
 

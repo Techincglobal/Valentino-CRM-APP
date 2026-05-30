@@ -514,6 +514,11 @@ class OverlayStateMachine(
                     }
                 }
             }
+
+            is OverlayEvent.OpenInApp -> {
+                val phone = current.phoneNumber ?: return
+                emitEffect(OverlaySideEffect.OpenFlutter("lead_detail", mapOf("phone" to phone)))
+            }
         }
     }
 

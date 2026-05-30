@@ -19,21 +19,14 @@
     <!-- Boot auto-start -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
-    <!-- ⚠️ PLAY STORE POLICY RISK: requesting REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 
-         is heavily restricted. In V2, we will remove this and use in-app guides 
-         for manual whitelisting to avoid immediate rejection. -->
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
-
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <!-- Call recording (microphone) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <!-- External storage for recordings (only needed below API 29) -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -43,15 +36,15 @@
         android:maxSdkVersion="32"/>
 
     <application
-        android:label="crm_caller_nxtgen"
+        android:label="CRM Caller"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:replace="android:appComponentFactory"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory">
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.example.crm_caller_nxtgen.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -84,7 +77,7 @@
             manifest declaration itself triggers full type validation on create.
         -->
         <service
-            android:name=".NativeCallOverlayService"
+            android:name="com.example.crm_caller_nxtgen.NativeCallOverlayService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
@@ -98,7 +91,7 @@
             (bypasses Android 8+ background ForegroundService start restriction).
         -->
         <service
-            android:name=".CallMonitorService"
+            android:name="com.example.crm_caller_nxtgen.CallMonitorService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
@@ -112,7 +105,7 @@
             Requires the user to grant Notification Access in system settings.
         -->
         <service
-            android:name=".WhatsAppCallMonitor"
+            android:name="com.example.crm_caller_nxtgen.WhatsAppCallMonitor"
             android:exported="true"
             android:label="CRM WhatsApp Call Monitor"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
@@ -123,7 +116,7 @@
 
         <!-- Phone state BroadcastReceiver (fallback when CallMonitorService is down) -->
         <receiver
-            android:name=".CallStateReceiver"
+            android:name="com.example.crm_caller_nxtgen.CallStateReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="1000">
@@ -134,7 +127,7 @@
 
         <!-- BootReceiver: restarts CallMonitorService after device reboot -->
         <receiver
-            android:name=".BootReceiver"
+            android:name="com.example.crm_caller_nxtgen.BootReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="1000">

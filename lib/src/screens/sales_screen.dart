@@ -182,6 +182,25 @@ class _SalesScreenState extends State<SalesScreen>
     );
   }
 
+  void _showCreateOpportunityForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => _CreateOppSheet(onCreated: (opp) {
+        setState(() {
+          _opps = [opp, ..._opps.where((o) => o.name != opp.name)];
+          _summary = SalesService.summarise(_opps);
+        });
+        _tab.animateTo(1);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) _loadFromApi();
+        });
+      }),
+    );
+  }
+
   void _showConvertForm(CrmLead lead) {
     showModalBottomSheet(
       context: context,
@@ -278,15 +297,27 @@ class _SalesScreenState extends State<SalesScreen>
       backgroundColor: ac.bgBase,
       floatingActionButton: AnimatedBuilder(
         animation: _tab,
-        builder: (_, _) => _tab.index == 0
-            ? FloatingActionButton.extended(
-                onPressed: _showCreateLeadForm,
-                backgroundColor: _indigo,
-                icon: const Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
-                label: const Text('New Lead',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
-              )
-            : const SizedBox.shrink(),
+        builder: (_, _) {
+          if (_tab.index == 0) {
+            return FloatingActionButton.extended(
+              onPressed: _showCreateLeadForm,
+              backgroundColor: _indigo,
+              icon: const Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
+              label: const Text('New Lead',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+            );
+          }
+          if (_tab.index == 1) {
+            return FloatingActionButton.extended(
+              onPressed: _showCreateOpportunityForm,
+              backgroundColor: const Color(0xFF8B5CF6),
+              icon: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 18),
+              label: const Text('New Opportunity',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+            );
+          }
+          return const SizedBox.shrink();
+        },
       ),
       body: NestedScrollView(
         headerSliverBuilder: (_, _) => [
@@ -1019,7 +1050,7 @@ class _ConvertSheetState extends State<_ConvertSheet> {
               );
             }).toList()),
             const SizedBox(height: 14),
-            _GlassField(controller: _noteCtrl, label: 'Note (optional)', maxLines: 2, enabled: !_busy),
+            _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
             const SizedBox(height: 20),
             Row(children: [
               Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
@@ -1656,7 +1687,7 @@ class _ItemCardState extends State<_ItemCard> {
 
         const SizedBox(height: 7),
         // ── Row 2: description ──
-        _TinyField(ctrl: widget.item.descriptionCtrl, hint: 'Description (optional)', enabled: widget.enabled, onChanged: widget.onChanged),
+        _TinyField(ctrl: widget.item.descriptionCtrl, hint: 'Description', enabled: widget.enabled, onChanged: widget.onChanged),
         const SizedBox(height: 7),
         // ── Row 3: qty | rate | amount ──
         Row(children: [
@@ -1931,7 +1962,7 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
               errorText: _emailError, onChanged: () => setState(() => _emailError = null),
             ),
             const SizedBox(height: 12),
-            _GlassField(controller: _noteCtrl, label: 'Note (optional)', maxLines: 2, enabled: !_busy),
+            _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
             const SizedBox(height: 20),
             Row(children: [
               Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
@@ -2315,3 +2346,245 @@ SnackBar _successSnack(String msg) => SnackBar(
   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
   margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Create Opportunity sheet — searches leads by name and creates a new opp
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CreateOppSheet extends StatefulWidget {
+  final void Function(Opportunity) onCreated;
+  const _CreateOppSheet({required this.onCreated});
+
+  @override
+  State<_CreateOppSheet> createState() => _CreateOppSheetState();
+}
+
+class _CreateOppSheetState extends State<_CreateOppSheet> {
+  final _searchCtrl  = TextEditingController();
+  final _valueCtrl   = TextEditingController();
+  final _closingCtrl = TextEditingController();
+  final _noteCtrl    = TextEditingController();
+
+  List<CrmLead> _suggestions = [];
+  CrmLead?      _selected;
+  bool          _searching = false;
+  String        _stage     = 'Prospecting';
+  bool          _busy      = false;
+  String?       _error;
+  String?       _valueError;
+  String?       _leadError;
+
+  @override
+  void initState() {
+    super.initState();
+    final closing = DateTime.now().add(const Duration(days: 30));
+    _closingCtrl.text =
+        '${closing.year}-${closing.month.toString().padLeft(2, '0')}-${closing.day.toString().padLeft(2, '0')}';
+    // Pre-load suggestions
+    _searchLeads('');
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _valueCtrl.dispose();
+    _closingCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchLeads(String q) async {
+    setState(() => _searching = true);
+    try {
+      final all = await SalesService.getLeads();
+      if (!mounted) return;
+      final lower = q.toLowerCase();
+      setState(() {
+        _suggestions = q.isEmpty
+            ? all.take(20).toList()
+            : all.where((l) =>
+                l.displayName.toLowerCase().contains(lower) ||
+                l.mobile.contains(q) ||
+                l.email.toLowerCase().contains(lower)).toList();
+        _searching = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(_closingCtrl.text) ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 1825)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(primary: Color(0xFF8B5CF6), surface: Color(0xFF1A2235)),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      _closingCtrl.text =
+          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    }
+  }
+
+  Future<void> _submit() async {
+    setState(() { _leadError = null; _valueError = null; _error = null; });
+    if (_selected == null) {
+      setState(() => _leadError = 'Select a lead first');
+      return;
+    }
+    final value = double.tryParse(_valueCtrl.text.trim());
+    if (value == null || value < 0) {
+      setState(() => _valueError = 'Enter a valid positive number');
+      return;
+    }
+    setState(() { _busy = true; _error = null; });
+    try {
+      final opp = await SalesServiceOps.createOpportunity(
+        leadDocname: _selected!.name,
+        partyName:   _selected!.displayName,
+        amount:      value,
+        stage:       _stage,
+        closingDate: _closingCtrl.text.trim(),
+        note:        _noteCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onCreated(opp);
+      ScaffoldMessenger.of(context).showSnackBar(
+        _successSnack('Opportunity created for ${_selected!.displayName}'),
+      );
+    } catch (e) {
+      setState(() { _busy = false; _error = e.toString().replaceFirst('Exception: ', ''); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inset  = MediaQuery.of(context).viewInsets.bottom;
+    final ac     = context.ac;
+    const purple = Color(0xFF8B5CF6);
+    return _GlassSheet(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SheetHandle(),
+            _SheetHeader(icon: Icons.trending_up_rounded, color: purple, title: 'New Opportunity', subtitle: 'Link to an existing lead'),
+            const SizedBox(height: 20),
+            if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
+
+            // Lead picker
+            Text('Select Lead *', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+            const SizedBox(height: 8),
+            if (_selected != null)
+              GestureDetector(
+                onTap: () => setState(() { _selected = null; _searchCtrl.clear(); }),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: purple.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: purple.withValues(alpha: 0.40)),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.person_rounded, color: purple, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_selected!.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600))),
+                    Icon(Icons.close_rounded, color: ac.textSecondary, size: 16),
+                  ]),
+                ),
+              )
+            else ...[
+              _GlassField(
+                controller: _searchCtrl,
+                label: 'Search lead name…',
+                enabled: !_busy,
+                errorText: _leadError,
+                onChanged: () {
+                  setState(() => _leadError = null);
+                  _searchLeads(_searchCtrl.text.trim());
+                },
+              ),
+              if (_searching)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: purple))))
+              else if (_suggestions.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  decoration: BoxDecoration(
+                    color: ac.bgInput,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: ac.border),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _suggestions.length,
+                    itemBuilder: (_, i) {
+                      final l = _suggestions[i];
+                      return InkWell(
+                        onTap: () => setState(() { _selected = l; _suggestions = []; }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(l.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                            if (l.mobile.isNotEmpty)
+                              Text(l.mobile, style: TextStyle(color: ac.textSecondary, fontSize: 11)),
+                          ]),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+            const SizedBox(height: 14),
+            _GlassField(
+              controller: _valueCtrl, label: 'Expected Value *',
+              keyboardType: TextInputType.number, enabled: !_busy,
+              errorText: _valueError, onChanged: () => setState(() => _valueError = null),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _busy ? null : _pickDate,
+              child: AbsorbPointer(child: _GlassField(controller: _closingCtrl, label: 'Expected Closing Date', enabled: !_busy)),
+            ),
+            const SizedBox(height: 16),
+            Text('Stage', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: _oppStages.map((s) {
+              final sel = s == _stage;
+              return GestureDetector(
+                onTap: _busy ? null : () => setState(() => _stage = s),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: sel ? LinearGradient(colors: [purple.withValues(alpha: 0.30), purple.withValues(alpha: 0.14)]) : null,
+                    color: sel ? null : ac.bgInput,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: sel ? purple.withValues(alpha: 0.55) : ac.border),
+                  ),
+                  child: Text(s, style: TextStyle(color: sel ? Colors.white : ac.textSecondary, fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w400)),
+                ),
+              );
+            }).toList()),
+            const SizedBox(height: 14),
+            _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Creating…' : 'Create Opportunity', icon: Icons.trending_up_rounded, color: purple, loading: _busy, onTap: _busy ? null : _submit)),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+}

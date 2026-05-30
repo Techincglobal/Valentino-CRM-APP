@@ -1809,7 +1809,7 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
           keyboardType: TextInputType.emailAddress,
           style: TextStyle(color: ac.textPrimary, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'Email (optional)',
+            hintText: 'Email',
             hintStyle: TextStyle(color: ac.textTertiary, fontSize: 13),
             prefixIcon: Icon(Icons.email_outlined, color: ac.textTertiary, size: 18),
             border: InputBorder.none,

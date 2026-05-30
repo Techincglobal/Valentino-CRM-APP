@@ -214,15 +214,14 @@ class TicketService {
       payload,
     );
     if (resp.statusCode != 200) {
-      throw Exception(_parseFrappeError(resp.body, 'Failed to load tickets (${resp.statusCode})'));
+      final err = _parseFrappeError(resp.body, 'Failed to load tickets (${resp.statusCode})');
+      throw Exception(err);
     }
     final decoded = jsonDecode(resp.body);
     final msg     = (decoded is Map) ? decoded['message'] : null;
     final list    = (msg is List) ? msg : <dynamic>[];
-    return list
-        .whereType<Map<String, dynamic>>()
-        .map(SupportTicket.fromJson)
-        .toList();
+    final tickets = list.whereType<Map<String, dynamic>>().map(SupportTicket.fromJson).toList();
+    return tickets;
   }
 
   static Future<SupportTicketDetail> getTicketDetail(String name) async {
@@ -262,7 +261,8 @@ class TicketService {
       payload,
     );
     if (resp.statusCode != 200) {
-      throw Exception(_parseFrappeError(resp.body, 'Failed to create ticket (${resp.statusCode})'));
+      final err = _parseFrappeError(resp.body, 'Failed to create ticket (${resp.statusCode})');
+      throw Exception(err);
     }
     final decoded = jsonDecode(resp.body);
     final msg     = (decoded is Map && decoded['message'] is Map)
@@ -312,6 +312,29 @@ class TicketService {
           .whereType<Map<String, dynamic>>()
           .map(CustomerResult.fromJson)
           .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Fetch tickets raised by a specific email address (latest 10).
+  static Future<List<SupportTicket>> getTicketsByEmail(String email) async {
+    if (email.isEmpty) return [];
+    try {
+      final encodedFilters = Uri.encodeComponent(
+        '[["raised_by","=","$email"]]',
+      );
+      final resp = await ApiService.get(
+        '/api/resource/HD%20Ticket'
+        '?fields=["name","subject","status","priority","raised_by","creation","modified"]'
+        '&filters=$encodedFilters'
+        '&limit=10'
+        '&order_by=creation%20desc',
+      );
+      if (resp.statusCode != 200) return [];
+      final decoded = jsonDecode(resp.body);
+      final list    = (decoded is Map) ? ((decoded['data'] as List?) ?? []) : <dynamic>[];
+      return list.whereType<Map<String, dynamic>>().map(SupportTicket.fromJson).toList();
     } catch (_) {
       return [];
     }

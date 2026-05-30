@@ -9,6 +9,10 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+
 class WindowLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val mLifecycleRegistry = LifecycleRegistry(this)
@@ -50,13 +54,9 @@ class WindowLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegi
         mViewModelStore.clear()
     }
 
-    /**
-     * Attach this owner to a view tree and register the view tree to these owners.
-     */
     fun attachTo(view: View) {
-        // Fallback to manual tag setting if extension functions fail to resolve
-        view.setTag(androidx.lifecycle.runtime.R.id.view_tree_lifecycle_owner, this)
-        view.setTag(androidx.savedstate.R.id.view_tree_saved_state_registry_owner, this)
-        view.setTag(androidx.lifecycle.viewmodel.R.id.view_tree_view_model_store_owner, this)
+        view.setViewTreeLifecycleOwner(this)
+        view.setViewTreeSavedStateRegistryOwner(this)
+        view.setViewTreeViewModelStoreOwner(this)
     }
 }

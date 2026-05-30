@@ -15,4 +15,7 @@ data class LeadEntity(
     val isSynced: Boolean,
     val cachedAt: Long = 0L,             // epoch-ms when last refreshed from server
     val latestNote: String = "",          // most recent note from Frappe — shown on call
+    val latestQuoteSubject: String = "",  // most recent quotation subject/title
+    val latestQuoteAmount: Double = 0.0,  // most recent quotation grand total
+    val latestQuoteStatus: String = "",   // "Draft", "Submitted", "Cancelled", etc.
 )

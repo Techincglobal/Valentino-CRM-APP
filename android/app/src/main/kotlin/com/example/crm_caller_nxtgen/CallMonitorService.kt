@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
@@ -87,6 +88,7 @@ class CallMonitorService : Service() {
         try {
             createNotificationChannel()
             startForeground(NOTIF_ID, buildNotification())
+            registerPhoneListener()
         } catch (_: Exception) { }
         return START_STICKY
     }
@@ -101,6 +103,14 @@ class CallMonitorService : Service() {
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun registerPhoneListener() {
+        if (telephonyCallback != null || legacyListener != null) {
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_PHONE_STATE)
+            != PackageManager.PERMISSION_GRANTED) {
+            android.util.Log.w("CrmMonitor", "Cannot register phone listener: READ_PHONE_STATE permission not granted")
+            return
+        }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val cb = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
@@ -119,6 +129,7 @@ class CallMonitorService : Service() {
                 @Suppress("DEPRECATION")
                 telephonyManager?.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
             }
+            android.util.Log.i("CrmMonitor", "Phone listener registered successfully")
         } catch (e: Exception) {
             // Some OEMs (MIUI, ColorOS) may restrict TelephonyCallback registration.
             // CallStateReceiver broadcast is still active as fallback.

@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.crm_caller_nxtgen"
+    namespace = "com.techincglobal.crmcaller"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -25,23 +25,41 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.crm_caller_nxtgen"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion // SYSTEM_ALERT_WINDOW requires API 23+
+        applicationId = "com.techincglobal.crmcaller"
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            // Set these via environment variables or a local.properties file — never commit keys.
+            // keytool -genkey -v -keystore release.jks -alias crm_caller -keyalg RSA -keysize 2048 -validity 10000
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: (rootProject.projectDir.absolutePath + "/release.jks")
+            val keystorePass = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            val envKeyAlias = System.getenv("KEY_ALIAS") ?: "crm_caller"
+            val envKeyPass = System.getenv("KEY_PASSWORD") ?: ""
+            storeFile = file(keystorePath)
+            storePassword = keystorePass
+            keyAlias = envKeyAlias
+            keyPassword = envKeyPass
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = if (System.getenv("KEYSTORE_PATH") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
@@ -86,7 +104,7 @@ dependencies {
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "17"
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }

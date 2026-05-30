@@ -77,7 +77,7 @@ class NativeCallOverlayService : Service() {
     private var params: WindowManager.LayoutParams?   = null
 
     private var windowX = 0
-    private var windowY = 0 // start at top of screen (status bar height clearance handled by gravity)
+    private var windowY = 180 // start ~100dp below status bar so nav bar doesn't immediately cover it
 
     // ── Complaint popup window (second overlay) ───────────────────────────────
     private var complaintView: ComposeView?           = null
@@ -232,7 +232,7 @@ class NativeCallOverlayService : Service() {
     private fun handleDrag(dx: Float, dy: Float) {
         val p = params ?: return
         p.x += dx.toInt()
-        p.y += dy.toInt()
+        p.y = (p.y + dy.toInt()).coerceIn(0, maxAllowedY())
         windowX = p.x
         windowY = p.y
         try { windowManager?.updateViewLayout(composeView, p) } catch (e: Exception) { android.util.Log.w("CrmOverlay", "updateViewLayout: ${e.message}") }
@@ -242,7 +242,7 @@ class NativeCallOverlayService : Service() {
         val p = params ?: return
         val displayMetrics = resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
-        
+
         // Snap to left or right side with margin
         val margin = (EDGE_MARGIN_DP * displayMetrics.density).toInt()
         p.x = if (p.x + (composeView?.width ?: 0) / 2 < screenWidth / 2) {
@@ -250,9 +250,37 @@ class NativeCallOverlayService : Service() {
         } else {
             screenWidth - (composeView?.width ?: 0) - margin
         }
-        
+
+        // Clamp Y so overlay never slides under the navigation bar
+        p.y = p.y.coerceIn(0, maxAllowedY())
+
         windowX = p.x
+        windowY = p.y
         try { windowManager?.updateViewLayout(composeView, p) } catch (e: Exception) { android.util.Log.w("CrmOverlay", "updateViewLayout: ${e.message}") }
+    }
+
+    /** Returns the nav bar height in pixels, using WindowInsets on API 30+. */
+    private fun navBarHeightPx(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val wm = getSystemService(WindowManager::class.java)
+                val insets = wm.currentWindowMetrics.windowInsets
+                insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+            } catch (_: Exception) { 0 }
+        } else {
+            val id = resources.getIdentifier("navigation_bar_height", "dimen", "android")
+            if (id > 0) resources.getDimensionPixelSize(id) else 0
+        }
+    }
+
+    /** Maximum Y coordinate so the overlay stays above the navigation bar with an 8dp gap. */
+    private fun maxAllowedY(): Int {
+        val dm        = resources.displayMetrics
+        val screenH   = dm.heightPixels
+        val navBar    = navBarHeightPx()
+        val viewH     = composeView?.height ?: 0
+        val marginPx  = (8 * dm.density).toInt()
+        return (screenH - navBar - viewH - marginPx).coerceAtLeast(0)
     }
 
     private fun setWindowFocusable(focusable: Boolean) {
@@ -430,7 +458,14 @@ class NativeCallOverlayService : Service() {
 
                     is OverlaySideEffect.CancelAutoDismiss -> { /* no-op — auto-dismiss removed */ }
 
-                    is OverlaySideEffect.OpenFlutter -> { /* handled in MainActivity via MethodChannel */ }
+                    is OverlaySideEffect.OpenFlutter -> {
+                        val phone = effect.args["phone"] ?: ""
+                        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            if (phone.isNotBlank()) putExtra("open_phone", phone)
+                        }
+                        try { if (launchIntent != null) startActivity(launchIntent) } catch (_: Exception) { }
+                    }
 
                     is OverlaySideEffect.PipelineRefreshNeeded -> {
                         LocalBroadcastManager.getInstance(applicationContext)

@@ -1770,7 +1770,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
 
               const SizedBox(height: 22),
 
-              Text('FEEDBACK (OPTIONAL)',
+              Text('FEEDBACK',
                   style: TextStyle(color: ac.textTertiary, fontSize: 10,
                       fontWeight: FontWeight.w800, letterSpacing: 1.1)),
               const SizedBox(height: 8),

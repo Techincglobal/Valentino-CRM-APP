@@ -174,6 +174,9 @@ fun ExpandedOverlayCard(
                         )
                     }
                 }
+                // Extra space so content clears the Android navigation bar when the
+                // overlay is dragged near the bottom of the screen.
+                Spacer(modifier = Modifier.height(72.dp))
             }
         }
     }

@@ -45,6 +45,9 @@ data class FrappeLeadResult(
     val mobileNo: String,
     val status: String,
     val latestNote: String = "",
+    val latestQuoteSubject: String = "",
+    val latestQuoteAmount: Double = 0.0,
+    val latestQuoteStatus: String = "",
 )
 
 data class FrappeOpportunityResult(val docname: String)
@@ -198,15 +201,48 @@ class FrappeApiService(private val context: Context) {
 
             if (!msg.optBoolean("found", false)) return@withContext null
 
+            val docname = msg.optString("docname")
+
+            // Fetch the latest quotation for this lead (best-effort, non-blocking)
+            val quote = if (docname.isNotBlank()) fetchLatestQuote(config, docname) else null
+
             FrappeLeadResult(
-                docname     = msg.optString("docname"),
-                leadName    = msg.optString("name"),
-                companyName = "",
-                email       = msg.optString("email_id"),
-                mobileNo    = msg.optString("mobile_no").ifBlank { msg.optString("phone") },
-                status      = "Lead",
-                latestNote  = msg.optString("latest_note"),
+                docname            = docname,
+                leadName           = msg.optString("name"),
+                companyName        = "",
+                email              = msg.optString("email_id"),
+                mobileNo           = msg.optString("mobile_no").ifBlank { msg.optString("phone") },
+                status             = "Lead",
+                latestNote         = msg.optString("latest_note"),
+                latestQuoteSubject = quote?.optString("title") ?: quote?.optString("name") ?: "",
+                latestQuoteAmount  = quote?.optDouble("grand_total", 0.0) ?: 0.0,
+                latestQuoteStatus  = quote?.optString("status") ?: "",
             )
+        } catch (_: Exception) { null }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FETCH LATEST QUOTATION for a lead/party (best-effort)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun fetchLatestQuote(config: FrappeConfig, partyDocname: String): JSONObject? {
+        return try {
+            val fields = "%5B%22name%22%2C%22title%22%2C%22grand_total%22%2C%22status%22%2C%22currency%22%5D"
+            val filters = "%5B%5B%22party_name%22%2C%22%3D%22%2C%22${partyDocname.encodeUrl()}%22%5D%5D"
+            val url = "${config.serverUrl}/api/resource/Quotation" +
+                "?fields=$fields&filters=$filters&limit=1&order_by=modified%20desc"
+            val resp = httpClient.newCall(
+                Request.Builder()
+                    .url(url)
+                    .header("Cookie", config.cookieHeader)
+                    .header("Content-Type", "application/json")
+                    .get()
+                    .build()
+            ).execute()
+            if (!resp.isSuccessful) return null
+            val body = resp.body?.string() ?: return null
+            val arr = JSONObject(body).optJSONArray("data") ?: return null
+            if (arr.length() == 0) null else arr.getJSONObject(0)
         } catch (_: Exception) { null }
     }
 

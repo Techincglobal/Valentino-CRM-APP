@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'storage_service.dart';
 
+
 class AuthService {
   static Future<Map<String, dynamic>> login({
     required String baseUrl,
@@ -38,7 +39,6 @@ class AuthService {
         await StorageService.saveBaseUrl(baseUrl);
         await StorageService.saveSessionId(sid);
 
-        // Extract and persist CSRF token — required for all POST/PUT/DELETE
         final csrf = _extractCookieValue(cookies, 'csrf_token');
         if (csrf != null && csrf.isNotEmpty) {
           await StorageService.saveCsrfToken(csrf);
@@ -51,18 +51,16 @@ class AuthService {
         }
         return data;
       } else {
-        // Parse Frappe's error body for a clean message
-        throw Exception(_parseErrorBody(response.body, response.statusCode));
+        final msg = _parseErrorBody(response.body, response.statusCode);
+        throw Exception(msg);
       }
     } on SocketException {
-      throw Exception(
-          'Cannot reach the server. Check your site URL and internet connection.');
+      throw Exception('Cannot reach the server. Check your site URL and internet connection.');
     } on TimeoutException {
       throw Exception('Request timed out. The server took too long to respond.');
     } on FormatException {
       throw Exception('Unexpected response from server. Please try again.');
     }
-    // Other exceptions (our own) bubble up naturally
   }
 
   /// Parses Frappe JSON error body → clean user-facing string.

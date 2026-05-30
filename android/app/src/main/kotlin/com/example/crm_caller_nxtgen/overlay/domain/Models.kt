@@ -23,7 +23,10 @@ sealed class CallerIdentity {
         val status: String = "Lead", // "New", "Lead", "Interested", "Converted"
         val hasOpportunity: Boolean = false,
         val isCustomer: Boolean = false,
-        val latestNote: String = "", // most recent note from Frappe — shown on incoming call
+        val latestNote: String = "",         // most recent note from Frappe — shown on incoming call
+        val latestQuoteSubject: String = "", // most recent quotation subject
+        val latestQuoteAmount: Double = 0.0, // most recent quotation grand total
+        val latestQuoteStatus: String = "",  // "Draft", "Submitted", etc.
     ) : CallerIdentity()
 
     /** Phone matched a Customer in Frappe. */
@@ -34,7 +37,10 @@ sealed class CallerIdentity {
         val company: String,
         val email: String = "",
         val phone: String,
-        val latestNote: String = "", // most recent note from Frappe — shown on incoming call
+        val latestNote: String = "",         // most recent note from Frappe — shown on incoming call
+        val latestQuoteSubject: String = "",
+        val latestQuoteAmount: Double = 0.0,
+        val latestQuoteStatus: String = "",
     ) : CallerIdentity()
 }
 
@@ -272,6 +278,9 @@ sealed class OverlayEvent {
 
     // Cancel sub-form
     object CancelSheet : OverlayEvent()
+
+    // Launch the Flutter app and navigate to the caller's profile
+    object OpenInApp : OverlayEvent()
 
     // Legacy complaint sheet event — kept for no-op backward compat
     object OpenComplaintForm : OverlayEvent()
