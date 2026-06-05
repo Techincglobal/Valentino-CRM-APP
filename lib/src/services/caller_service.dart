@@ -97,9 +97,10 @@ class CallerService {
     String? mobile,
     String? note,
   }) async {
+    final cleanEmail = (email != null && email.contains('@') && email.contains('.')) ? email : null;
     final response = await ApiService.post("$_base.create_lead_with_note", {
       "first_name": firstName,
-      "email_id": email,
+      "email_id": cleanEmail,
       "mobile_no": mobile,
       "note_content": note,
     });
