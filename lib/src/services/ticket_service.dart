@@ -246,6 +246,7 @@ class TicketService {
     String priority   = 'Medium',
     String ticketType = '',
     String agentGroup = '',
+    String customer   = '',
   }) async {
     final payload = <String, dynamic>{
       'subject':     subject,
@@ -255,6 +256,7 @@ class TicketService {
     };
     if (ticketType.isNotEmpty) payload['ticket_type']  = ticketType;
     if (agentGroup.isNotEmpty) payload['agent_group']  = agentGroup;
+    if (customer.isNotEmpty)   payload['customer']     = customer;
 
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.create_support_ticket',

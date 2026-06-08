@@ -107,13 +107,19 @@ class AuthService {
   }
 
   /// Extracts a named cookie value from a combined Set-Cookie header string.
-  /// Handles Dart http library joining multiple Set-Cookie headers with ', '.
+  /// Dart's http package joins multiple Set-Cookie headers with ', '.
+  /// We split on ', ' only when followed by a cookie-name= pattern to avoid
+  /// breaking on 'Expires=Mon, 09 Jun 2026' date values.
   static String? _extractCookieValue(String cookieHeader, String name) {
-    for (final segment in cookieHeader.split(RegExp(r'[;,]'))) {
-      final trimmed = segment.trim();
-      if (trimmed.startsWith('$name=')) {
-        final value = trimmed.substring(name.length + 1).trim();
-        if (value.isNotEmpty) return value;
+    // Split individual cookies: ', ' followed by a word char + '=' is a new cookie.
+    final cookies = cookieHeader.split(RegExp(r',\s*(?=[a-zA-Z_][a-zA-Z0-9_\-]*=)'));
+    for (final cookie in cookies) {
+      for (final part in cookie.split(';')) {
+        final trimmed = part.trim();
+        if (trimmed.startsWith('$name=')) {
+          final value = trimmed.substring(name.length + 1).trim();
+          if (value.isNotEmpty) return value;
+        }
       }
     }
     return null;

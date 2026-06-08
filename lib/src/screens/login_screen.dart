@@ -215,27 +215,6 @@ class _LoginScreenState extends State<LoginScreen>
                             onTap: _loading ? null : _login,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: AppOutlineButton(
-                            label: 'Dev Skip Login',
-                            icon: Icons.developer_mode,
-                            onTap: () async {
-                              await StorageService.saveSessionId('dev_dummy_sid');
-                              await StorageService.saveFullName('Dev Test User');
-                              if (!context.mounted) return;
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => MainShell(
-                                    user: UserModel(username: 'Dev Test User'),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
                       ],
                     ),
                   ),

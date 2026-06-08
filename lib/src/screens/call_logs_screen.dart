@@ -1232,12 +1232,18 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
         noteContent: _noteCtrl.text.trim(),
       );
       if (!mounted) return;
+      // Capture messenger before Navigator.pop disposes the sheet's context.
+      final sm = ScaffoldMessenger.of(context);
       Navigator.pop(context);
-      if (result.created) {
-        _snack('Lead created: ${result.leadName}', _green, root: true);
-      } else {
-        _snack('Lead already exists — note added to ${result.leadName}', _amber, root: true);
-      }
+      sm.showSnackBar(SnackBar(
+        content: Text(result.created
+            ? 'Lead created: ${result.leadName}'
+            : 'Lead already exists — note added to ${result.leadName}'),
+        backgroundColor: result.created ? _green : _amber,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ));
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -1245,7 +1251,8 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
     }
   }
 
-  void _snack(String msg, Color color, {bool root = false}) {
+  void _snack(String msg, Color color) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: color,

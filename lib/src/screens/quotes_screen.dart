@@ -1265,7 +1265,7 @@ class _QuoteDetailSheetState extends State<_QuoteDetailSheet> {
                 onTap:   _submit,
               ),
             ],
-            if (d.isSubmitted) ...[
+            if (d.isSubmitted && d.status != 'Ordered') ...[
               const SizedBox(height: 10),
               _ActionButton(
                 label:  'Make Sales Order',

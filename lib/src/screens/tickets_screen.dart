@@ -522,6 +522,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   // Customer search
   final _customerSearchCtrl = TextEditingController();
   String _selectedCustomerName = '';
+  String _selectedCustomerDocname = '';
   List<CustomerResult> _customerResults = [];
   bool   _searchingCustomers = false;
   bool   _showCustomerDropdown = false;
@@ -575,6 +576,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   void _selectCustomer(CustomerResult c) {
     setState(() {
       _selectedCustomerName    = c.display;
+      _selectedCustomerDocname = c.name;
       _customerSearchCtrl.text = c.display;
       _showCustomerDropdown    = false;
       _customerResults         = [];
@@ -584,10 +586,11 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
 
   void _clearCustomer() {
     setState(() {
-      _selectedCustomerName = '';
+      _selectedCustomerName    = '';
+      _selectedCustomerDocname = '';
       _customerSearchCtrl.clear();
-      _showCustomerDropdown = false;
-      _customerResults      = [];
+      _showCustomerDropdown    = false;
+      _customerResults         = [];
     });
   }
 
@@ -601,6 +604,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
         raisedBy:    _emailCtrl.text.trim(),
         priority:    _priority,
         ticketType:  _selectedType,
+        customer:    _selectedCustomerDocname,
       );
       if (!mounted) return;
       Navigator.pop(context, true);

@@ -98,12 +98,11 @@ class CallerService {
     String? note,
   }) async {
     final cleanEmail = (email != null && email.contains('@') && email.contains('.')) ? email : null;
-    final response = await ApiService.post("$_base.create_lead_with_note", {
-      "first_name": firstName,
-      "email_id": cleanEmail,
-      "mobile_no": mobile,
-      "note_content": note,
-    });
+    final payload = <String, dynamic>{"first_name": firstName};
+    if (cleanEmail != null) payload["email_id"] = cleanEmail;
+    if (mobile != null && mobile.isNotEmpty) payload["mobile_no"] = mobile;
+    if (note != null && note.isNotEmpty) payload["note_content"] = note;
+    final response = await ApiService.post("$_base.create_lead_with_note", payload);
 
     final data = jsonDecode(response.body);
 

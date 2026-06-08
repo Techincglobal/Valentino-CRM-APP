@@ -63,6 +63,8 @@ class MainActivity : FlutterActivity() {
         super.onDestroy()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(pipelineRefreshReceiver)
         LocalBroadcastManager.getInstance(this).unregisterReceiver(callLogSavedReceiver)
+        flutterChannel = null
+        mainScope.cancel()
     }
 
     private fun requestRuntimePermissions() {
