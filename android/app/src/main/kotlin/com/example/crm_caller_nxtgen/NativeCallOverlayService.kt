@@ -77,7 +77,7 @@ class NativeCallOverlayService : Service() {
     private var params: WindowManager.LayoutParams?   = null
 
     private var windowX = 0
-    private var windowY = 180 // start ~100dp below status bar so nav bar doesn't immediately cover it
+    private var windowY: Int = 0 // initialised in onCreate() after displayMetrics is available
 
     // ── Complaint popup window (second overlay) ───────────────────────────────
     private var complaintView: ComposeView?           = null
@@ -108,6 +108,8 @@ class NativeCallOverlayService : Service() {
             callRecorder  = CallRecorder(applicationContext)
 
             windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+            // Start ~100dp below the status bar, scaled to actual screen density.
+            windowY = (100 * resources.displayMetrics.density).toInt()
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock     = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:overlay_wakelock")
             callWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "crm:call_wakelock")

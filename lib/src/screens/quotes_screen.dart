@@ -41,11 +41,11 @@ class _QuotesScreenState extends State<QuotesScreen>
 
   late final TabController _tab;
 
-  // TEMP_DISABLE: mock fallback — restore List.of(_mockQuotes/_mockOrders) for dev
   List<Quotation>  _quotes  = const [];
   List<SalesOrder> _orders  = const [];
   QuotesSummary    _summary = const QuotesSummary(totalQuotes: 0, draftQuotes: 0, openOrders: 0, totalValue: 0);
-  bool _loading = false;
+  bool   _loading = false;
+  String _error   = '';
 
   @override
   void initState() {
@@ -96,7 +96,7 @@ class _QuotesScreenState extends State<QuotesScreen>
   }
 
   Future<void> _loadFromApi() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = ''; });
     try {
       final results = await Future.wait([
         SalesService.getQuotations(),
@@ -106,15 +106,17 @@ class _QuotesScreenState extends State<QuotesScreen>
       final quotes = results[0] as List<Quotation>;
       final orders = results[1] as List<SalesOrder>;
       setState(() {
-        // TEMP_DISABLE: mock fallback — restore ternaries with _mockQuotes/_mockOrders for dev
         _quotes  = quotes;
         _orders  = orders;
         _summary = SalesService.summariseQuotes(_quotes, _orders);
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _error   = e.toString().replaceFirst('Exception: ', '');
+      });
     }
   }
 
@@ -150,8 +152,8 @@ class _QuotesScreenState extends State<QuotesScreen>
         body: TabBarView(
           controller: _tab,
           children: [
-            _QuotesTab(quotes: _quotes, loading: _loading, onRetry: _loadFromApi, onTap: _openQuoteDetail),
-            _OrdersTab(orders: _orders, loading: _loading, onRetry: _loadFromApi, onTap: _openOrderDetail),
+            _QuotesTab(quotes: _quotes, loading: _loading, error: _error, onRetry: _loadFromApi, onTap: _openQuoteDetail),
+            _OrdersTab(orders: _orders, loading: _loading, error: _error, onRetry: _loadFromApi, onTap: _openOrderDetail),
           ],
         ),
       ),
@@ -447,11 +449,13 @@ class _GlassBadge extends StatelessWidget {
 class _QuotesTab extends StatelessWidget {
   final List<Quotation>           quotes;
   final bool                      loading;
+  final String                    error;
   final VoidCallback              onRetry;
   final void Function(Quotation)  onTap;
   const _QuotesTab({
     required this.quotes,
     required this.loading,
+    required this.error,
     required this.onRetry,
     required this.onTap,
   });
@@ -462,8 +466,8 @@ class _QuotesTab extends StatelessWidget {
     if (quotes.isEmpty) {
       return _EmptyState(
         icon:     Icons.description_outlined,
-        title:    'No quotations yet',
-        subtitle: 'Quotations created from opportunities will appear here',
+        title:    error.isNotEmpty ? 'Could not load quotations' : 'No quotations yet',
+        subtitle: error.isNotEmpty ? error : 'Quotations created from opportunities will appear here',
         onRetry:  onRetry,
       );
     }
@@ -623,11 +627,13 @@ class _QuoteCard extends StatelessWidget {
 class _OrdersTab extends StatelessWidget {
   final List<SalesOrder>          orders;
   final bool                      loading;
+  final String                    error;
   final VoidCallback              onRetry;
   final void Function(SalesOrder) onTap;
   const _OrdersTab({
     required this.orders,
     required this.loading,
+    required this.error,
     required this.onRetry,
     required this.onTap,
   });
@@ -638,8 +644,8 @@ class _OrdersTab extends StatelessWidget {
     if (orders.isEmpty) {
       return _EmptyState(
         icon:     Icons.local_shipping_outlined,
-        title:    'No sales orders yet',
-        subtitle: 'Sales orders will appear here once created',
+        title:    error.isNotEmpty ? 'Could not load sales orders' : 'No sales orders yet',
+        subtitle: error.isNotEmpty ? error : 'Sales orders will appear here once created',
         onRetry:  onRetry,
       );
     }

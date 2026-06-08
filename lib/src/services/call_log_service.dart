@@ -94,7 +94,7 @@ class CallLog {
         subject:           j['subject']?.toString() ?? '',
         content:           j['content']?.toString() ?? '',
         phoneNo:           j['phone_no']?.toString() ?? '',
-        durationSeconds:   ((j['duration'] ?? 0) as num?)?.toInt() ?? 0,
+        durationSeconds:   int.tryParse(j['duration']?.toString() ?? '0') ?? 0,
         sentOrReceived:    j['sent_or_received']?.toString() ?? 'Received',
         callType:          j['call_type']?.toString() ?? 'Regular',
         referenceDoctype:  j['reference_doctype']?.toString() ?? '',

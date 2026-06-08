@@ -1150,7 +1150,6 @@ class _QuoteSheetState extends State<_QuoteSheet> {
     final subject    = _subjectCtrl.text.trim();
     if (subject.isEmpty) { setState(() => _subjectError = 'Subject is required'); return; }
     final validItems = _items.where((i) => i.itemCodeCtrl.text.trim().isNotEmpty).toList();
-    if (validItems.isEmpty) { setState(() => _error = 'Add at least one item with an item code'); return; }
     setState(() { _busy = true; _error = null; });
     try {
       final docname = await SalesService.createQuotation(

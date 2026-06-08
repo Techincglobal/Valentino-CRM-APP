@@ -416,44 +416,34 @@ class SalesService {
 
   /// Fetch quotations from Frappe (latest 50, newest first).
   static Future<List<Quotation>> getQuotations() async {
-    try {
-      final resp = await ApiService.get(
-        '/api/resource/Quotation'
-        '?fields=$_quoteFields'
-        '&limit=50'
-        '&order_by=modified%20desc',
-      );
-      if (resp.statusCode != 200) {
-        return [];
-      }
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['data'] as List?) ?? [];
-      final result = list.whereType<Map<String, dynamic>>().map(Quotation.fromJson).toList();
-      return result;
-    } catch (e) {
-      return [];
+    final resp = await ApiService.get(
+      '/api/resource/Quotation'
+      '?fields=${Uri.encodeComponent(_quoteFields)}'
+      '&limit=50'
+      '&order_by=modified%20desc',
+    );
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Could not load quotations (${resp.statusCode})'));
     }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['data'] as List?) ?? [];
+    return list.whereType<Map<String, dynamic>>().map(Quotation.fromJson).toList();
   }
 
   /// Fetch sales orders from Frappe (latest 50, newest first).
   static Future<List<SalesOrder>> getSalesOrders() async {
-    try {
-      final resp = await ApiService.get(
-        '/api/resource/Sales%20Order'
-        '?fields=$_orderFields'
-        '&limit=50'
-        '&order_by=modified%20desc',
-      );
-      if (resp.statusCode != 200) {
-        return [];
-      }
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['data'] as List?) ?? [];
-      final result = list.whereType<Map<String, dynamic>>().map(SalesOrder.fromJson).toList();
-      return result;
-    } catch (e) {
-      return [];
+    final resp = await ApiService.get(
+      '/api/resource/Sales%20Order'
+      '?fields=${Uri.encodeComponent(_orderFields)}'
+      '&limit=50'
+      '&order_by=modified%20desc',
+    );
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Could not load sales orders (${resp.statusCode})'));
     }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['data'] as List?) ?? [];
+    return list.whereType<Map<String, dynamic>>().map(SalesOrder.fromJson).toList();
   }
 
   /// Create a quotation linked to a lead or customer.

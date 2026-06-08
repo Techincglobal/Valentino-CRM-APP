@@ -581,17 +581,22 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
       if (mounted) setState(() => _ctxLoading = false);
       return;
     }
-    final ctx = await CallerService.getCallerContext(phone);
-    List<SupportTicket> tickets = [];
-    if (ctx.email.isNotEmpty) {
-      tickets = await TicketService.getTicketsByEmail(ctx.email);
+    try {
+      final ctx = await CallerService.getCallerContext(phone);
+      List<SupportTicket> tickets = [];
+      if (ctx.email.isNotEmpty) {
+        tickets = await TicketService.getTicketsByEmail(ctx.email);
+      }
+      if (!mounted) return;
+      setState(() {
+        _ctx        = ctx;
+        _tickets    = tickets;
+        _ctxLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _ctxLoading = false);
     }
-    if (!mounted) return;
-    setState(() {
-      _ctx        = ctx;
-      _tickets    = tickets;
-      _ctxLoading = false;
-    });
   }
 
   void _openCreateLead() {
