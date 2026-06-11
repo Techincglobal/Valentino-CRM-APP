@@ -160,9 +160,8 @@ class _SalesScreenState extends State<SalesScreen>
       final opps  = results[0] as List<Opportunity>;
       final leads = results[1] as List<CrmLead>;
       setState(() {
-        // Only update if the server actually returned data — never wipe existing lists.
-        if (opps.isNotEmpty)  _opps  = opps;
-        if (leads.isNotEmpty) _leads = leads;
+        _opps    = opps;
+        _leads   = leads;
         _summary = SalesService.summarise(_opps);
         _loading = false;
       });

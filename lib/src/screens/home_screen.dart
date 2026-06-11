@@ -184,55 +184,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _forceShowOverlay(bool isKnown) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      final name    = isKnown ? 'Test Caller' : 'Unknown Number';
-      final type    = isKnown ? 'Test Contact' : '';
-      final docname = isKnown ? 'TEST-CALLER' : '';
-
-      final testPhone = isKnown ? '555-KNOWN' : '555-UNKNOWN';
-
-      // Clear the local Room cache for the test number so each unknown-call
-      // simulation always starts fresh, even if a lead was created last time.
-      if (!isKnown && Platform.isAndroid) {
-        try {
-          await _nativeOverlayChannel.invokeMethod('clearLocalLeadByPhone', testPhone);
-        } catch (_) {}
-      }
-
-      await prefs.setString('crm_caller_phone', testPhone);
-      await prefs.setString('crm_caller_name', name);
-      await prefs.setString('crm_caller_type', type);
-      await prefs.setString('crm_caller_docname', docname);
-      await prefs.setBool('crm_caller_found', isKnown);
-
-      final data = {
-        'phone':    testPhone,
-        'name':     name,
-        'type':     type,
-        'docname':  docname,
-        'found':    isKnown,
-        'event_id': DateTime.now().millisecondsSinceEpoch,
-      };
-      if (Platform.isAndroid) {
-        var overlayGranted =
-            await _nativeOverlayChannel.invokeMethod<bool>('canDrawOverlays') ??
-            false;
-        if (!overlayGranted) {
-          await _nativeOverlayChannel.invokeMethod('openOverlaySettings');
-          return;
-        }
-        await _showNativeOverlay(data);
-        return;
-      }
-      await _showNativeOverlay(data);
-    } catch (e) {
-      _showError('Could not show overlay: $e');
-    }
-  }
-
   Future<void> _saveCallerDataToPrefs(
       String phone, Map<String, dynamic> response) async {
     final prefs = await SharedPreferences.getInstance();
@@ -294,6 +245,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       ));
       if (mounted) _phoneController.clear();
+      widget.onOpportunityCreated?.call(); // refreshes Sales pipeline tab
     } else if (outcome == 'opportunity_created') {
       messenger.showSnackBar(SnackBar(
         content: const Text('Opportunity created — check the Pipeline tab'),
@@ -372,8 +324,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 16),
             const _OverlayPermissionCard(),
-            const SizedBox(height: 16),
-            _TestOverlayCard(onTest: _forceShowOverlay),
             const SizedBox(height: 16),
             const _RecentNotesWidget(),
             if (_bgLogs.isNotEmpty) ...[
@@ -1115,203 +1065,6 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// SIMULATE INCOMING CALL CARD
-// ════════════════════════════════════════════════════════════════════════════
-
-class _TestOverlayCard extends StatelessWidget {
-  final Future<void> Function(bool isKnown) onTest;
-  const _TestOverlayCard({required this.onTest});
-
-  @override
-  Widget build(BuildContext context) {
-    final ac = context.ac;
-    final isDark = context.isDark;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111827) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ac.border),
-        boxShadow: isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(Icons.phone_in_talk,
-                    color: Color(0xFF6366F1), size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Simulate Incoming Call',
-                      style: TextStyle(
-                        color: ac.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    Text(
-                      'Test the overlay without a real call',
-                      style: TextStyle(color: ac.textSecondary, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _SimBtn(
-                  label: 'Unknown Caller',
-                  subtitle: 'New number, no CRM match',
-                  icon: Icons.person_outline,
-                  color: const Color(0xFFF59E0B),
-                  bgColor: const Color(0xFFFFFBEB),
-                  borderColor: const Color(0xFFFDE68A),
-                  onTap: () => onTest(false),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SimBtn(
-                  label: 'Known Contact',
-                  subtitle: 'Existing lead or customer',
-                  icon: Icons.person,
-                  color: const Color(0xFF6366F1),
-                  bgColor: const Color(0xFFEEF2FF),
-                  borderColor: const Color(0xFFC7D2FE),
-                  onTap: () => onTest(true),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: ac.bgInput,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: ac.border),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, size: 14, color: ac.textTertiary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Overlay only appears for incoming calls on device. Use these buttons to preview.',
-                    style: TextStyle(
-                      color: ac.textTertiary,
-                      fontSize: 11,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SimBtn extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final Color bgColor;
-  final Color borderColor;
-  final VoidCallback onTap;
-
-  const _SimBtn({
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.bgColor,
-    required this.borderColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isDark ? color.withValues(alpha: 0.12) : bgColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? color.withValues(alpha: 0.30) : borderColor,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: isDark ? 0.20 : 0.15),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Icon(icon, color: color, size: 17),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: color.withValues(alpha: 0.70),
-                fontSize: 10,
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-// ════════════════════════════════════════════════════════════════════════════
 // BACKGROUND LOGS CARD
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1446,6 +1199,10 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   bool    _creatingOpp  = false;
   String? _error;
 
+  // Set after a lead is saved — drives the "Create Opportunity" transition
+  String _newLeadDocname     = '';
+  String _newLeadDisplayName = '';
+
   late final bool   _found;
   late final String _displayName;
   late final String _docname;
@@ -1496,9 +1253,11 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   Future<void> _createOpportunity() async {
     setState(() { _creatingOpp = true; _error = null; });
     try {
+      final lead = _newLeadDocname.isNotEmpty ? _newLeadDocname : _docname;
+      final name = _newLeadDocname.isNotEmpty ? _newLeadDisplayName : _displayName;
       await SalesServiceOps.createOpportunity(
-        leadDocname: _docname,
-        partyName:   _displayName,
+        leadDocname: lead,
+        partyName:   name,
         amount:      0,
         stage:       'Prospecting',
       );
@@ -1515,13 +1274,20 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
     if (name.isEmpty) { setState(() => _error = 'Name is required'); return; }
     setState(() { _creatingLead = true; _error = null; });
     try {
-      await CallerService.createLead(
+      final result = await CallerService.createLead(
         firstName: name,
         email:  _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
         mobile: widget.phone,
       );
       if (!mounted) return;
-      Navigator.pop(context, 'lead_created');
+      // Transition to the "Create Opportunity" view rather than closing.
+      // The Done / opportunity buttons handle the final pop.
+      setState(() {
+        _newLeadDocname     = result['lead_name']?.toString() ?? '';
+        _newLeadDisplayName = name;
+        _creatingLead       = false;
+        _error              = null;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() { _creatingLead = false; _error = e.toString().replaceFirst('Exception: ', ''); });
@@ -1584,8 +1350,9 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
                   ]),
                   const SizedBox(height: 18),
 
-                  if (_found) ..._foundContent(ac, isDark)
-                  else        ..._unknownContent(ac, isDark),
+                  if (_newLeadDocname.isNotEmpty) ..._newLeadContent(ac, isDark)
+                  else if (_found)               ..._foundContent(ac, isDark)
+                  else                           ..._unknownContent(ac, isDark),
 
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -1606,6 +1373,111 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
         ],
       ),
     );
+  }
+
+  List<Widget> _newLeadContent(AdaptiveColors ac, bool isDark) {
+    final initial = _newLeadDisplayName.isNotEmpty ? _newLeadDisplayName[0].toUpperCase() : '?';
+    return [
+      // Success banner
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF10B981).withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.30)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('Lead saved — create an opportunity?',
+              style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600))),
+        ]),
+      ),
+      const SizedBox(height: 14),
+
+      // Lead card
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+        ),
+        child: Row(children: [
+          Container(
+            width: 52, height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [Color(0xFF818CF8), Color(0xFF4F46E5)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_newLeadDisplayName, style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+            const SizedBox(height: 4),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _indigo.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _indigo.withValues(alpha: 0.28)),
+                ),
+                child: const Text('Lead', style: TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.phone_rounded, size: 12, color: _slate),
+              const SizedBox(width: 4),
+              Flexible(child: Text(widget.phone, style: const TextStyle(color: _slate, fontSize: 12), overflow: TextOverflow.ellipsis)),
+            ]),
+          ])),
+        ]),
+      ),
+      const SizedBox(height: 20),
+
+      // Create Opportunity button
+      GestureDetector(
+        onTap: _creatingOpp ? null : _createOpportunity,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
+          ),
+          child: Center(
+            child: _creatingOpp
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.trending_up_rounded, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Text('Create Opportunity', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                  ]),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+
+      // Done (just close, lead already saved)
+      GestureDetector(
+        onTap: () => Navigator.pop(context, 'lead_created'),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+          ),
+          child: Center(child: Text('Done', style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
+        ),
+      ),
+    ];
   }
 
   List<Widget> _foundContent(AdaptiveColors ac, bool isDark) {

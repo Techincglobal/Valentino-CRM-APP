@@ -517,7 +517,6 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   final _formKey     = GlobalKey<FormState>();
   final _subjectCtrl = TextEditingController();
   final _descCtrl    = TextEditingController();
-  late  final TextEditingController _emailCtrl;
 
   // Customer search
   final _customerSearchCtrl = TextEditingController();
@@ -536,12 +535,11 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   bool   _submitting = false;
   String _error      = '';
 
-  static const _priorities = ['Low', 'Medium', 'High', 'Urgent'];
+  static const _priorities = ['Low', 'Medium', 'High'];
 
   @override
   void initState() {
     super.initState();
-    _emailCtrl = TextEditingController(text: widget.userEmail);
     _loadTicketTypes();
   }
 
@@ -549,7 +547,6 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   void dispose() {
     _subjectCtrl.dispose();
     _descCtrl.dispose();
-    _emailCtrl.dispose();
     _customerSearchCtrl.dispose();
     super.dispose();
   }
@@ -601,7 +598,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
       await TicketService.createTicket(
         subject:     _subjectCtrl.text.trim(),
         description: _descCtrl.text.trim(),
-        raisedBy:    _emailCtrl.text.trim(),
+        raisedBy:    widget.userEmail,
         priority:    _priority,
         ticketType:  _selectedType,
         customer:    _selectedCustomerDocname,
@@ -688,23 +685,6 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                   hint:      'Brief title for the issue',
                   isDark:    isDark, ac: ac,
                   validator: (v) => (v?.trim().isEmpty ?? true) ? 'Subject is required' : null,
-                ),
-
-                const SizedBox(height: 16),
-
-                // ── Raised By ─────────────────────────────────────────────
-                _FieldLabel(label: 'RAISED BY', required: true, ac: ac),
-                const SizedBox(height: 6),
-                _InputField(
-                  controller:  _emailCtrl,
-                  hint:        'email@example.com',
-                  isDark:      isDark, ac: ac,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (v) {
-                    if (v?.trim().isEmpty ?? true) return 'Email is required';
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v!.trim())) return 'Enter a valid email';
-                    return null;
-                  },
                 ),
 
                 const SizedBox(height: 16),

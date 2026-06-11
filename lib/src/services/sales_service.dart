@@ -374,75 +374,51 @@ class QuotesSummary {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SalesService {
-  static const _quoteFields =
-      '["name","customer_name","party_name","grand_total","net_total","status","modified","currency"]';
-
-  static const _orderFields =
-      '["name","customer_name","grand_total","status","delivery_status","billing_status","currency","transaction_date","modified"]';
-
   /// Fetch opportunities owned by the current user (latest 100, newest first).
   static Future<List<Opportunity>> getOpportunities() async {
-    try {
-      final resp = await ApiService.post(
-        '/api/method/nxtgen_crm_mobile.api.get_opportunities', {});
-      if (resp.statusCode != 200) {
-        return [];
-      }
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['message'] as List?) ?? [];
-      final result = list.whereType<Map<String, dynamic>>().map(Opportunity.fromJson).toList();
-      return result;
-    } catch (e) {
-      return [];
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.get_opportunities', {});
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Could not load opportunities (${resp.statusCode})'));
     }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['message'] as List?) ?? [];
+    return list.whereType<Map<String, dynamic>>().map(Opportunity.fromJson).toList();
   }
 
   /// Fetch leads owned by or created by the current user (latest 100, newest first).
   static Future<List<CrmLead>> getLeads() async {
-    try {
-      final resp = await ApiService.post(
-        '/api/method/nxtgen_crm_mobile.api.get_leads', {});
-      if (resp.statusCode != 200) {
-        return [];
-      }
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final list = (body['message'] as List?) ?? [];
-      final result = list.whereType<Map<String, dynamic>>().map(CrmLead.fromJson).toList();
-      return result;
-    } catch (e) {
-      return [];
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.get_leads', {});
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Could not load leads (${resp.statusCode})'));
     }
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    final list = (body['message'] as List?) ?? [];
+    return list.whereType<Map<String, dynamic>>().map(CrmLead.fromJson).toList();
   }
 
-  /// Fetch quotations from Frappe (latest 50, newest first).
+  /// Fetch quotations for the current user via custom endpoint (bypasses role restrictions).
   static Future<List<Quotation>> getQuotations() async {
-    final resp = await ApiService.get(
-      '/api/resource/Quotation'
-      '?fields=${Uri.encodeComponent(_quoteFields)}'
-      '&limit=50'
-      '&order_by=modified%20desc',
-    );
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.get_quotations_for_user', {});
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Could not load quotations (${resp.statusCode})'));
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    final list = (body['data'] as List?) ?? [];
+    final list = (body['message'] as List?) ?? [];
     return list.whereType<Map<String, dynamic>>().map(Quotation.fromJson).toList();
   }
 
-  /// Fetch sales orders from Frappe (latest 50, newest first).
+  /// Fetch sales orders for the current user via custom endpoint (bypasses role restrictions).
   static Future<List<SalesOrder>> getSalesOrders() async {
-    final resp = await ApiService.get(
-      '/api/resource/Sales%20Order'
-      '?fields=${Uri.encodeComponent(_orderFields)}'
-      '&limit=50'
-      '&order_by=modified%20desc',
-    );
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.get_sales_orders_for_user', {});
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Could not load sales orders (${resp.statusCode})'));
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
-    final list = (body['data'] as List?) ?? [];
+    final list = (body['message'] as List?) ?? [];
     return list.whereType<Map<String, dynamic>>().map(SalesOrder.fromJson).toList();
   }
 
