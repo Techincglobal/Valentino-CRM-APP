@@ -387,7 +387,7 @@ class _CallLogCard extends StatelessWidget {
     final isDark = context.isDark;
     final isWA   = log.isWhatsApp;
     final accent = isWA ? _green : _blue;
-    final isOutgoing = log.sentOrReceived.toLowerCase() == 'sent';
+    final isOutgoing = !log.isInbound;
 
     return GestureDetector(
       onTap: () => _openDetail(context),
@@ -441,10 +441,10 @@ class _CallLogCard extends StatelessWidget {
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 3),
                 Row(children: [
-                  if (log.phoneNo.isNotEmpty) ...[
+                  if (log.phoneNumber.isNotEmpty) ...[
                     Icon(Icons.phone_outlined, size: 11, color: ac.textTertiary),
                     const SizedBox(width: 3),
-                    Text(log.phoneNo,
+                    Text(log.phoneNumber,
                         style: TextStyle(color: ac.textTertiary, fontSize: 11)),
                     const SizedBox(width: 8),
                   ],
@@ -454,7 +454,7 @@ class _CallLogCard extends StatelessWidget {
                     color: isOutgoing ? _rose : _green,
                   ),
                   const SizedBox(width: 3),
-                  Text(log.sentOrReceived,
+                  Text(log.direction,
                       style: TextStyle(
                         color: isOutgoing ? _rose : _green,
                         fontSize: 11, fontWeight: FontWeight.w600,
@@ -491,20 +491,20 @@ class _CallLogCard extends StatelessWidget {
               label: isWA ? 'WhatsApp' : 'Regular',
               color: accent,
             ),
-            if (log.referenceDoctype.isNotEmpty) ...[
+            if (log.linkedDoctype.isNotEmpty) ...[
               const SizedBox(width: 6),
               _Chip(
                 icon:  Icons.link_rounded,
-                label: log.referenceDoctype,
+                label: log.linkedDoctype,
                 color: _indigo,
               ),
             ],
-            if (log.referenceName.isNotEmpty) ...[
+            if (log.linkedDocname.isNotEmpty) ...[
               const SizedBox(width: 6),
               Flexible(
                 child: _Chip(
                   icon:  Icons.tag_rounded,
-                  label: log.referenceName,
+                  label: log.linkedDocname,
                   color: _slate,
                 ),
               ),
@@ -519,8 +519,8 @@ class _CallLogCard extends StatelessWidget {
             ]),
           ]),
 
-          // ── Row 3: content preview ────────────────────────────────────────
-          if (log.content.isNotEmpty) ...[
+          // ── Row 3: notes preview ──────────────────────────────────────────
+          if (log.notes.isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -536,7 +536,7 @@ class _CallLogCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(log.content,
+                  child: Text(log.notes,
                       style: TextStyle(
                         color: isDark ? Colors.white.withValues(alpha: 0.75) : ac.textPrimary,
                         fontSize: 12, fontWeight: FontWeight.w500, height: 1.4,
@@ -576,7 +576,7 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
   }
 
   Future<void> _loadContext() async {
-    final phone = widget.log.phoneNo;
+    final phone = widget.log.phoneNumber;
     if (phone.isEmpty) {
       if (mounted) setState(() => _ctxLoading = false);
       return;
@@ -612,8 +612,8 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
   }
 
   void _copyPhone() {
-    if (widget.log.phoneNo.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: widget.log.phoneNo));
+    if (widget.log.phoneNumber.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: widget.log.phoneNumber));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: const Text('Phone number copied'),
       backgroundColor: _blue,
@@ -631,7 +631,7 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
     final log    = widget.log;
     final isWA   = log.isWhatsApp;
     final accent = isWA ? _green : _blue;
-    final isOutgoing = log.sentOrReceived.toLowerCase() == 'sent';
+    final isOutgoing = !log.isInbound;
     final bottom = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
 
     return Container(
@@ -684,13 +684,13 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                           fontWeight: FontWeight.w800, letterSpacing: -0.4,
                         )),
                     const SizedBox(height: 5),
-                    if (log.phoneNo.isNotEmpty)
+                    if (log.phoneNumber.isNotEmpty)
                       GestureDetector(
                         onTap: _copyPhone,
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(Icons.phone_outlined, size: 13, color: _blue),
                           const SizedBox(width: 4),
-                          Text(log.phoneNo,
+                          Text(log.phoneNumber,
                               style: const TextStyle(color: _blue, fontSize: 13, fontWeight: FontWeight.w600)),
                           const SizedBox(width: 4),
                           const Icon(Icons.copy_outlined, size: 11, color: _blue),
@@ -720,7 +720,7 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                       size: 13, color: isOutgoing ? _rose : _green,
                     ),
                     const SizedBox(width: 4),
-                    Text(log.sentOrReceived,
+                    Text(log.direction,
                         style: TextStyle(
                           color: isOutgoing ? _rose : _green,
                           fontSize: 11, fontWeight: FontWeight.w700,
@@ -739,7 +739,7 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                   _DetailRow(label: 'Type', value: log.callType,
                       icon: isWA ? Icons.chat_rounded : Icons.phone_rounded,
                       color: accent, ac: ac, isDark: isDark),
-                  _DetailRow(label: 'Direction', value: log.sentOrReceived,
+                  _DetailRow(label: 'Direction', value: log.direction,
                       icon: isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
                       color: isOutgoing ? _rose : _green, ac: ac, isDark: isDark),
                   if (log.durationLabel.isNotEmpty)
@@ -755,27 +755,17 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
 
               const SizedBox(height: 14),
 
-              // ── Subject ───────────────────────────────────────────────────
-              if (log.subject.isNotEmpty) ...[
-                _DetailSection(
-                  title: 'Subject', icon: Icons.subject_rounded,
-                  accent: _indigo, ac: ac, isDark: isDark,
-                  children: [_TextBlock(text: log.subject, ac: ac, isDark: isDark)],
-                ),
-                const SizedBox(height: 14),
-              ],
-
-              // ── Reference ─────────────────────────────────────────────────
-              if (log.referenceDoctype.isNotEmpty || log.referenceName.isNotEmpty) ...[
+              // ── Linked Document ───────────────────────────────────────────
+              if (log.linkedDoctype.isNotEmpty || log.linkedDocname.isNotEmpty) ...[
                 _DetailSection(
                   title: 'Linked To', icon: Icons.link_rounded,
                   accent: _indigo, ac: ac, isDark: isDark,
                   children: [
-                    if (log.referenceDoctype.isNotEmpty)
-                      _DetailRow(label: 'Doctype', value: log.referenceDoctype,
+                    if (log.linkedDoctype.isNotEmpty)
+                      _DetailRow(label: 'Doctype', value: log.linkedDoctype,
                           icon: Icons.folder_outlined, color: _indigo, ac: ac, isDark: isDark),
-                    if (log.referenceName.isNotEmpty)
-                      _DetailRow(label: 'Record', value: log.referenceName,
+                    if (log.linkedDocname.isNotEmpty)
+                      _DetailRow(label: 'Record', value: log.linkedDocname,
                           icon: Icons.tag_rounded, color: _slate, ac: ac, isDark: isDark),
                   ],
                 ),
@@ -783,11 +773,11 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
               ],
 
               // ── Call Notes ────────────────────────────────────────────────
-              if (log.content.isNotEmpty) ...[
+              if (log.notes.isNotEmpty) ...[
                 _DetailSection(
                   title: 'Call Notes', icon: Icons.notes_rounded,
                   accent: accent, ac: ac, isDark: isDark,
-                  children: [_TextBlock(text: log.content, ac: ac, isDark: isDark, maxLines: null)],
+                  children: [_TextBlock(text: log.notes, ac: ac, isDark: isDark, maxLines: null)],
                 ),
                 const SizedBox(height: 14),
               ],
@@ -1203,9 +1193,9 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
     super.initState();
     final label = widget.log.callerLabel;
     _nameCtrl  = TextEditingController(text: _looksLikeName(label) ? label : '');
-    _phoneCtrl = TextEditingController(text: widget.log.phoneNo);
+    _phoneCtrl = TextEditingController(text: widget.log.phoneNumber);
     _emailCtrl = TextEditingController();
-    _noteCtrl  = TextEditingController(text: widget.log.content);
+    _noteCtrl  = TextEditingController(text: widget.log.notes);
   }
 
   @override
@@ -1543,7 +1533,8 @@ class _LogCallSheetState extends State<_LogCallSheet> {
         direction:       _direction,
         callType:        _callType,
         notes:           _notesCtrl.text.trim(),
-        leadDocname:     _selectedLead?.name,
+        linkedDoctype:   _selectedLead != null ? 'Lead' : null,
+        linkedDocname:   _selectedLead?.name,
       );
       if (!mounted) return;
       Navigator.pop(context);

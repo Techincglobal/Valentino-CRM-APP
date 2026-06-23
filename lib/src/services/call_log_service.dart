@@ -5,13 +5,11 @@ String _parseFrappeError(String body, String fallback) {
   try {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return fallback;
-    // HTML error page (nginx/apache) — never show to user
     if (trimmed.startsWith('<')) return fallback;
 
     final decoded = jsonDecode(trimmed);
     if (decoded is! Map) return fallback;
 
-    // 1. _server_messages — the most user-readable field Frappe provides
     final raw = decoded['_server_messages'];
     if (raw is String && raw.isNotEmpty) {
       try {
@@ -31,10 +29,8 @@ String _parseFrappeError(String body, String fallback) {
       } catch (_) {}
     }
 
-    // 2. exception field — strip the Python class prefix, keep the human message
     final exc = decoded['exception']?.toString() ?? '';
     if (exc.isNotEmpty) {
-      // "frappe.exceptions.SomeError: The human message here"
       final idx = exc.indexOf(': ');
       final msg = (idx >= 0 ? exc.substring(idx + 2) : exc)
           .split('\n')
@@ -43,15 +39,12 @@ String _parseFrappeError(String body, String fallback) {
       if (msg.isNotEmpty && !_looksInternal(msg)) return msg;
     }
 
-    // 3. exc_type as last resort — still better than raw JSON
     final excType = decoded['exc_type']?.toString().trim() ?? '';
     if (excType.isNotEmpty) return excType;
   } catch (_) {}
   return fallback;
 }
 
-/// Returns true if [msg] is a Python/Frappe internal message that should
-/// never be shown directly to the user.
 bool _looksInternal(String msg) {
   final lower = msg.toLowerCase();
   return msg.length > 200 ||
@@ -66,43 +59,57 @@ bool _looksInternal(String msg) {
 
 class CallLog {
   final String name;
-  final String subject;
-  final String content;
-  final String phoneNo;
+  final String phoneNumber;
+  final String callerName;
+  final String direction;    // Inbound / Outbound
+  final String callType;     // Regular / WhatsApp
+  final String callDatetime;
   final int durationSeconds;
-  final String sentOrReceived;
-  final String callType;       // "Regular" or "WhatsApp"
-  final String referenceDoctype;
-  final String referenceName;
+  final String status;       // Answered / Missed / etc
+  final String callOutcome;
+  final String linkedDoctype;
+  final String linkedDocname;
+  final String agent;
+  final String notes;
   final String creation;
 
   const CallLog({
     required this.name,
-    required this.subject,
-    required this.content,
-    required this.phoneNo,
-    required this.durationSeconds,
-    required this.sentOrReceived,
+    required this.phoneNumber,
+    required this.callerName,
+    required this.direction,
     required this.callType,
-    required this.referenceDoctype,
-    required this.referenceName,
+    required this.callDatetime,
+    required this.durationSeconds,
+    required this.status,
+    required this.callOutcome,
+    required this.linkedDoctype,
+    required this.linkedDocname,
+    required this.agent,
+    required this.notes,
     required this.creation,
   });
 
   factory CallLog.fromJson(Map<String, dynamic> j) => CallLog(
-        name:              j['name']?.toString() ?? '',
-        subject:           j['subject']?.toString() ?? '',
-        content:           j['content']?.toString() ?? '',
-        phoneNo:           j['phone_no']?.toString() ?? '',
-        durationSeconds:   int.tryParse(j['duration']?.toString() ?? '0') ?? 0,
-        sentOrReceived:    j['sent_or_received']?.toString() ?? 'Received',
-        callType:          j['call_type']?.toString() ?? 'Regular',
-        referenceDoctype:  j['reference_doctype']?.toString() ?? '',
-        referenceName:     j['reference_name']?.toString() ?? '',
-        creation:          j['creation']?.toString() ?? '',
+        name:            j['name']?.toString() ?? '',
+        phoneNumber:     j['phone_number']?.toString() ?? '',
+        callerName:      j['caller_name']?.toString() ?? '',
+        direction:       j['direction']?.toString() ?? 'Inbound',
+        callType:        j['call_type']?.toString() ?? 'Regular',
+        callDatetime:    j['call_datetime']?.toString() ?? '',
+        durationSeconds: int.tryParse(j['duration']?.toString() ?? '0') ?? 0,
+        status:          j['status']?.toString() ?? '',
+        callOutcome:     j['call_outcome']?.toString() ?? '',
+        linkedDoctype:   j['linked_doctype']?.toString() ?? '',
+        linkedDocname:   j['linked_docname']?.toString() ?? '',
+        agent:           j['agent']?.toString() ?? '',
+        notes:           j['notes']?.toString() ?? '',
+        creation:        j['creation']?.toString() ?? '',
       );
 
   bool get isWhatsApp => callType == 'WhatsApp';
+  bool get isInbound  => direction == 'Inbound';
+  bool get isMissed   => status == 'Missed';
 
   String get durationLabel {
     if (durationSeconds <= 0) return '';
@@ -113,9 +120,10 @@ class CallLog {
   }
 
   String get timeLabel {
-    if (creation.isEmpty) return '';
+    final src = callDatetime.isNotEmpty ? callDatetime : creation;
+    if (src.isEmpty) return '';
     try {
-      final dt = DateTime.parse(creation);
+      final dt = DateTime.parse(src);
       final now = DateTime.now();
       final diff = now.difference(dt);
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
@@ -128,31 +136,28 @@ class CallLog {
   }
 
   String get fullDateLabel {
-    if (creation.isEmpty) return '';
+    final src = callDatetime.isNotEmpty ? callDatetime : creation;
+    if (src.isEmpty) return '';
     try {
-      final dt = DateTime.parse(creation);
-      final months = ['Jan','Feb','Mar','Apr','May','Jun',
+      final dt = DateTime.parse(src);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun',
                       'Jul','Aug','Sep','Oct','Nov','Dec'];
       final h = dt.hour.toString().padLeft(2, '0');
       final m = dt.minute.toString().padLeft(2, '0');
       return '${dt.day} ${months[dt.month - 1]} ${dt.year}  •  $h:$m';
     } catch (_) {
-      return creation;
+      return src;
     }
   }
 
-  String get callerLabel {
-    // Subject is like "📞 Call — John Doe" or "📱 WhatsApp Call — Jane"
-    final parts = subject.split('— ');
-    if (parts.length > 1) return parts.last.trim();
-    return phoneNo.isNotEmpty ? phoneNo : subject;
-  }
+  String get callerLabel =>
+      callerName.isNotEmpty ? callerName : phoneNumber;
 
   String get initials {
-    final name = callerLabel.trim().split(RegExp(r'\s+'));
-    if (name.isEmpty) return '?';
-    if (name.length == 1) return name[0].isNotEmpty ? name[0][0].toUpperCase() : '?';
-    return '${name[0][0]}${name[1][0]}'.toUpperCase();
+    final parts = callerLabel.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 }
 
@@ -177,20 +182,33 @@ class CallLogService {
     required int durationSeconds,
     required String direction,
     required String callType,
+    String status = 'Answered',
+    String callOutcome = '',
     String notes = '',
-    String? leadDocname,
+    String? linkedDoctype,
+    String? linkedDocname,
+    String? recordingUrl,
   }) async {
     final payload = <String, dynamic>{
-      'phone':        phone,
+      'phone_number': phone,
       'caller_name':  callerName,
       'duration':     durationSeconds,
-      'notes':        notes,
-      'call_type':    callType,
       'direction':    direction,
+      'call_type':    callType,
+      'status':       status,
+      'notes':        notes,
     };
-    if (leadDocname != null && leadDocname.isNotEmpty) {
-      payload['lead_docname'] = leadDocname;
+    if (callOutcome.isNotEmpty) payload['call_outcome'] = callOutcome;
+    if (linkedDoctype != null && linkedDoctype.isNotEmpty) {
+      payload['linked_doctype'] = linkedDoctype;
     }
+    if (linkedDocname != null && linkedDocname.isNotEmpty) {
+      payload['linked_docname'] = linkedDocname;
+    }
+    if (recordingUrl != null && recordingUrl.isNotEmpty) {
+      payload['recording_url'] = recordingUrl;
+    }
+
     final resp = await ApiService.post(
         '/api/method/nxtgen_crm_mobile.api.create_call_log', payload);
     if (resp.statusCode != 200) {
