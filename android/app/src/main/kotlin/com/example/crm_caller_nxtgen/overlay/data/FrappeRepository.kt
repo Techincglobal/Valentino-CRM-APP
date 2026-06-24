@@ -54,19 +54,21 @@ class FrappeRepository(private val context: Context) {
     }
 
     fun getSessionDuration(phone: String): Long {
-        val start = sessionStarts[phone] ?: return 0L
+        val start = sessionStarts.remove(phone) ?: return 0L
         return (System.currentTimeMillis() - start) / 1000L
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TEST DATA CLEANUP
+    // TEST DATA CLEANUP — only callable in debug builds
     // ─────────────────────────────────────────────────────────────────────────
 
     suspend fun clearLocalLeadByPhone(phone: String) = withContext(Dispatchers.IO) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return@withContext
         db.leadDao().deleteLeadByPhone(phone, phone.takeLast(10))
     }
 
     suspend fun clearAllLocalLeads() = withContext(Dispatchers.IO) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return@withContext
         db.leadDao().deleteAllLeads()
     }
 
@@ -422,20 +424,23 @@ class FrappeRepository(private val context: Context) {
         )
         db.callLogDao().insert(entity)
 
-        if (!api.getConfig().isValid) throw IllegalStateException("Not connected to server")
-        val remote = api.createCallLog(
-            phone           = phone,
-            callerName      = callerName,
-            leadDocname     = leadDocname.ifBlank { null },
-            durationSeconds = durationSeconds,
-            notes           = notes,
-            callType        = callType,
-            direction       = direction,
-        )
-        db.callLogDao().update(entity.copy(
-            frappeDocname = remote.docname,
-            isSynced      = true,
-        ))
+        // Best-effort network sync — if offline or config missing, SyncWorker retries later
+        if (!api.getConfig().isValid) return@withContext
+        try {
+            val remote = api.createCallLog(
+                phone           = phone,
+                callerName      = callerName,
+                leadDocname     = leadDocname.ifBlank { null },
+                durationSeconds = durationSeconds,
+                notes           = notes,
+                callType        = callType,
+                direction       = direction,
+            )
+            db.callLogDao().update(entity.copy(
+                frappeDocname = remote.docname,
+                isSynced      = true,
+            ))
+        } catch (_: Exception) { /* SyncWorker retries unsynced call logs */ }
     }
 }
 

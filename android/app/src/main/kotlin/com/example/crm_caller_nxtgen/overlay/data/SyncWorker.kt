@@ -107,6 +107,26 @@ class SyncWorker(
             }
         }
 
+        // ── Sync unsynced call logs ───────────────────────────────────────────
+        val unsyncedCallLogs = db.callLogDao().getUnsynced()
+        for (log in unsyncedCallLogs) {
+            if (log.frappeDocname.isNotBlank()) continue
+            try {
+                val remote = api.createCallLog(
+                    phone           = log.phoneNumber,
+                    callerName      = log.callerName,
+                    leadDocname     = log.leadDocname.ifBlank { null },
+                    durationSeconds = log.durationSeconds,
+                    notes           = log.notes,
+                    callType        = log.callType,
+                    direction       = log.direction,
+                )
+                db.callLogDao().update(log.copy(frappeDocname = remote.docname, isSynced = true))
+            } catch (_: Exception) {
+                anyFailure = true
+            }
+        }
+
         if (anyFailure) Result.retry() else Result.success()
     }
 }

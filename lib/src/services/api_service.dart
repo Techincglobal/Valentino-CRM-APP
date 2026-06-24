@@ -183,15 +183,18 @@ class ApiService {
     };
     if (csrf != null && csrf.isNotEmpty) headers["X-Frappe-CSRF-Token"] = csrf;
 
-    final sw   = Stopwatch()..start();
-    final resp = await http
-        .delete(url, headers: headers)
-        .timeout(const Duration(seconds: 15));
-    sw.stop();
-
-    _logResponse('DELETE', endpoint, resp.statusCode, sw.elapsedMilliseconds, resp.body);
-    if (resp.statusCode == 401) await _handleUnauthorised();
-    return resp;
+    final sw = Stopwatch()..start();
+    try {
+      final resp = await http
+          .delete(url, headers: headers)
+          .timeout(const Duration(seconds: 15));
+      sw.stop();
+      if (resp.statusCode == 401) await _handleUnauthorised();
+      return resp;
+    } catch (e) {
+      sw.stop();
+      rethrow;
+    }
   }
 
   static void _logResponse(

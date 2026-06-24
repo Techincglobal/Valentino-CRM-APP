@@ -19,7 +19,7 @@ class SyncService {
         return;
       }
 
-      debugPrint('SyncService: Found ${actions.length} offline actions to sync.');
+      if (kDebugMode) debugPrint('SyncService: Found ${actions.length} offline actions to sync.');
 
       for (final action in actions) {
         final id = action['id'] as int;
@@ -40,17 +40,17 @@ class SyncService {
           }
           // Remove from queue upon success
           await DbService.removeQueuedAction(id);
-          debugPrint('SyncService: Successfully synced action $id ($method $endpoint)');
+          if (kDebugMode) debugPrint('SyncService: Successfully synced action $id ($method $endpoint)');
         } catch (e) {
           // If the error is network related, we break and stop syncing
           // If the server rejected it (e.g. 400), we probably should drop it or mark it failed,
           // but for simplicity we keep it in queue until next time.
-          debugPrint('SyncService: Failed to sync action $id: $e');
+          if (kDebugMode) debugPrint('SyncService: Failed to sync action $id: $e');
           break; // Stop syncing on first network failure
         }
       }
     } catch (e) {
-      debugPrint('SyncService: Sync process error: $e');
+      if (kDebugMode) debugPrint('SyncService: Sync process error: $e');
     } finally {
       _isSyncing = false;
     }

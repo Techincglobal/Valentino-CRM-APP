@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool _loading = false;
   int _callsToday = 0;
+  List<double> _weeklyData = List.filled(7, 0);
   List<String> _bgLogs = [];
   String _lastHandledPhone = '';
   DateTime? _lastHandledAt;
@@ -72,6 +73,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await prefs.setInt('crm_call_count', 0);
       if (mounted) setState(() => _callsToday = 0);
     }
+    await _loadWeeklyData(prefs);
+  }
+
+  Future<void> _loadWeeklyData([SharedPreferences? existingPrefs]) async {
+    final prefs = existingPrefs ?? await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final data = List.generate(7, (i) {
+      final day = now.subtract(Duration(days: 6 - i));
+      final key = 'crm_calls_${day.toIso8601String().split('T')[0]}';
+      return (prefs.getInt(key) ?? 0).toDouble();
+    });
+    if (mounted) setState(() => _weeklyData = data);
   }
 
   Future<void> _incrementCallCount() async {
@@ -85,7 +98,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await prefs.setString('crm_call_date', today);
     }
     await prefs.setInt('crm_call_count', newCount);
-    if (mounted) setState(() => _callsToday = newCount);
+    await prefs.setInt('crm_calls_$today', newCount);
+    if (mounted) {
+      setState(() {
+        _callsToday = newCount;
+        final updated = List<double>.from(_weeklyData);
+        updated[6] = newCount.toDouble();
+        _weeklyData = updated;
+      });
+    }
   }
 
   @override
@@ -160,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
 
   Future<void> _handleIncomingNumber(String phone) async {
-    if (!AppSettingsService.current.enableIncomingCallPopup) return;
+    // if (!AppSettingsService.current.enableIncomingCallPopup) return;
     if (_workflowOpen) return;
     _workflowOpen = true;
     if (mounted) setState(() => _loading = true);
@@ -310,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               callsToday: _callsToday,
             ),
             const SizedBox(height: 16),
-            const _DashboardCharts().animate().fade(duration: 400.ms).slideY(begin: 0.1, end: 0),
+            _DashboardCharts(weeklyData: _weeklyData).animate().fade(duration: 400.ms).slideY(begin: 0.1, end: 0),
             const SizedBox(height: 16),
             _ManualLookupCard(
               controller: _phoneController,
@@ -490,7 +511,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 // ════════════════════════════════════════════════════════════════════════════
 
 class _DashboardCharts extends StatelessWidget {
-  const _DashboardCharts();
+  final List<double> weeklyData;
+  const _DashboardCharts({required this.weeklyData});
 
   @override
   Widget build(BuildContext context) {
@@ -535,15 +557,10 @@ class _DashboardCharts extends StatelessWidget {
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 3),
-                      FlSpot(1, 4),
-                      FlSpot(2, 6),
-                      FlSpot(3, 4),
-                      FlSpot(4, 8),
-                      FlSpot(5, 6),
-                      FlSpot(6, 10),
-                    ],
+                    spots: List.generate(
+                      weeklyData.length,
+                      (i) => FlSpot(i.toDouble(), weeklyData[i]),
+                    ),
                     isCurved: true,
                     color: AppColors.primary,
                     barWidth: 3,

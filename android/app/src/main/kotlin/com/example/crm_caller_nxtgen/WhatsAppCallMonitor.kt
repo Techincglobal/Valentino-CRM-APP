@@ -64,7 +64,7 @@ class WhatsAppCallMonitor : NotificationListenerService() {
         if (sbn.key != activeNotificationKey) return
 
         activeNotificationKey = null
-        startService(Intent(this, NativeCallOverlayService::class.java).apply {
+        ContextCompat.startForegroundService(this, Intent(this, NativeCallOverlayService::class.java).apply {
             action = NativeCallOverlayService.ACTION_CALL_ENDED
             putExtra(NativeCallOverlayService.EXTRA_PHONE, "")
         })

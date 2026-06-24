@@ -1,17 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Block cleartext (HTTP) by default for all domains -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- Allow cleartext HTTP and user-installed CA certs (corporate self-signed).
+         Android <domain> elements match literal hostnames, not CIDR ranges, so LAN/VPN
+         IP ranges cannot be enumerated here. As an enterprise CRM deployed on controlled
+         networks, the IT team is responsible for restricting which server URLs agents use. -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system"/>
+            <certificates src="user"/>
         </trust-anchors>
     </base-config>
-
-    <!-- Allow cleartext for private/local networks only (self-hosted Frappe over LAN) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">10.0.0.0</domain>
-        <domain includeSubdomains="true">192.168.0.0</domain>
-        <domain includeSubdomains="true">172.16.0.0</domain>
-    </domain-config>
 </network-security-config>

@@ -10,10 +10,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,7 +25,7 @@ data class FrappeConfig(
     val sid: String,           // Frappe session id cookie
     val csrfToken: String,     // X-Frappe-CSRF-Token — required for POST/PUT/DELETE
 ) {
-    val isValid: Boolean get() = serverUrl.isNotBlank() && sid.isNotBlank()
+    val isValid: Boolean get() = serverUrl.isNotBlank() && sid.isNotBlank() && csrfToken.isNotBlank()
     val cookieHeader: String get() = "sid=$sid"
 }
 
@@ -297,15 +293,6 @@ class FrappeApiService(private val context: Context) {
             Log.e(TAG, "╚════════════════════════════════════════════════════════")
         }
 
-        writeApiLog(
-            label = "CREATE LEAD",
-            url = request.url.toString(),
-            requestBody = requestBodyStr,
-            statusCode = response.code,
-            responseBody = rawBody,
-            isError = !response.isSuccessful,
-        )
-
         if (!response.isSuccessful) {
             throw RuntimeException(parseFrappeError(rawBody, response.code))
         }
@@ -526,54 +513,6 @@ class FrappeApiService(private val context: Context) {
 
     private fun String.encodeUrl(): String =
         java.net.URLEncoder.encode(this, "UTF-8")
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // API log writer — appends each call to crm_api_log.md in app files dir
-    // Read via:  adb shell run-as com.example.crm_caller_nxtgen cat files/crm_api_log.md
-    // Or pull:   adb pull /data/data/com.example.crm_caller_nxtgen/files/crm_api_log.md
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private fun writeApiLog(
-        label: String,
-        url: String,
-        requestBody: String,
-        statusCode: Int,
-        responseBody: String,
-        isError: Boolean,
-    ) {
-        try {
-            val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-            val icon = if (isError) "❌" else "✅"
-            val entry = buildString {
-                appendLine()
-                appendLine("## $icon $label — $ts")
-                appendLine()
-                appendLine("**URL:** `$url`")
-                appendLine()
-                appendLine("**Request Body:**")
-                appendLine("```json")
-                appendLine(try { JSONObject(requestBody).toString(2) } catch (_: Exception) { requestBody })
-                appendLine("```")
-                appendLine()
-                appendLine("**Response — HTTP $statusCode:**")
-                appendLine("```json")
-                appendLine(try { JSONObject(responseBody).toString(2) } catch (_: Exception) { responseBody })
-                appendLine("```")
-                appendLine()
-                appendLine("---")
-            }
-
-            val logFile = File(context.filesDir, "crm_api_log.md")
-            // Prepend header on first write
-            if (!logFile.exists()) {
-                logFile.writeText("# CRM API Log\n\n")
-            }
-            logFile.appendText(entry)
-            Log.d(TAG, "API log written → ${logFile.absolutePath}")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to write API log file: ${e.message}")
-        }
-    }
 
     companion object {
         private const val TAG = "FrappeApi"
