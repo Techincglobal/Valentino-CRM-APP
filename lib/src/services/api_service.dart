@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'storage_service.dart';
+import 'db_service.dart';
 
 
 class SessionExpiredException implements Exception {
@@ -14,6 +16,7 @@ class ApiService {
 
   static Future<void> _handleUnauthorised() async {
     await StorageService.clearAll();
+    await DbService.clearAll(); // Wipe offline cache on logout
     _sessionExpiredController.add(null);
     throw const SessionExpiredException();
   }
@@ -27,17 +30,34 @@ class ApiService {
 
     final url = Uri.parse('$baseUrl$endpoint');
     final sw   = Stopwatch()..start();
-    final resp = await http
-        .get(url, headers: {"Cookie": "sid=$sid", "Content-Type": "application/json"})
-        .timeout(const Duration(seconds: 15));
-    sw.stop();
+    
+    try {
+      final resp = await http
+          .get(url, headers: {"Cookie": "sid=$sid", "Content-Type": "application/json"})
+          .timeout(const Duration(seconds: 15));
+      sw.stop();
 
-    _logResponse('GET', endpoint, resp.statusCode, sw.elapsedMilliseconds, resp.body);
-    if (resp.statusCode == 401) await _handleUnauthorised();
-    return resp;
+      _logResponse('GET', endpoint, resp.statusCode, sw.elapsedMilliseconds, resp.body);
+      if (resp.statusCode == 401) await _handleUnauthorised();
+      
+      // Cache successful response
+      if (resp.statusCode == 200) {
+        await DbService.cacheResponse(endpoint, resp.body);
+      }
+      return resp;
+    } catch (e) {
+      if (e is SocketException || e is TimeoutException) {
+        // Fallback to cache
+        final cachedData = await DbService.getCachedResponse(endpoint);
+        if (cachedData != null) {
+          return http.Response(cachedData, 200);
+        }
+      }
+      rethrow;
+    }
   }
 
-  static Future<http.Response> post(String endpoint, Map body) async {
+  static Future<http.Response> post(String endpoint, Map body, {bool skipQueue = false}) async {
     final baseUrl = await StorageService.getBaseUrl();
     final sid     = await StorageService.getSessionId();
     final csrf    = await StorageService.getCsrfToken();
@@ -53,38 +73,47 @@ class ApiService {
     if (csrf != null && csrf.isNotEmpty) headers["X-Frappe-CSRF-Token"] = csrf;
 
     final sw = Stopwatch()..start();
-    var resp = await http
-        .post(url, headers: headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 20));
+    try {
+      var resp = await http
+          .post(url, headers: headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 20));
 
-    if (resp.statusCode == 403) {
-      final newCsrf = await _refreshCsrf(baseUrl, sid);
-      if (newCsrf != null) {
-        headers["X-Frappe-CSRF-Token"] = newCsrf;
-        resp = await http
-            .post(url, headers: headers, body: jsonEncode(body))
-            .timeout(const Duration(seconds: 20));
+      if (resp.statusCode == 403) {
+        final newCsrf = await _refreshCsrf(baseUrl, sid);
+        if (newCsrf != null) {
+          headers["X-Frappe-CSRF-Token"] = newCsrf;
+          resp = await http
+              .post(url, headers: headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 20));
+        }
       }
-    }
 
-    // Follow redirects for POST if http->https
-    if (resp.statusCode == 307 || resp.statusCode == 308 || resp.statusCode == 301 || resp.statusCode == 302) {
-      final loc = resp.headers['location'];
-      if (loc != null) {
-        final newUrl = loc.startsWith('http') ? Uri.parse(loc) : Uri.parse('${url.scheme}://${url.host}$loc');
-        resp = await http
-            .post(newUrl, headers: headers, body: jsonEncode(body))
-            .timeout(const Duration(seconds: 20));
+      // Follow redirects for POST if http->https
+      if (resp.statusCode == 307 || resp.statusCode == 308 || resp.statusCode == 301 || resp.statusCode == 302) {
+        final loc = resp.headers['location'];
+        if (loc != null) {
+          final newUrl = loc.startsWith('http') ? Uri.parse(loc) : Uri.parse('${url.scheme}://${url.host}$loc');
+          resp = await http
+              .post(newUrl, headers: headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 20));
+        }
       }
-    }
-    sw.stop();
+      sw.stop();
 
-    _logResponse('POST', endpoint, resp.statusCode, sw.elapsedMilliseconds, resp.body);
-    if (resp.statusCode == 401) await _handleUnauthorised();
-    return resp;
+      _logResponse('POST', endpoint, resp.statusCode, sw.elapsedMilliseconds, resp.body);
+      if (resp.statusCode == 401) await _handleUnauthorised();
+      return resp;
+    } catch (e) {
+      if (!skipQueue && (e is SocketException || e is TimeoutException)) {
+        // Queue action for offline sync
+        await DbService.queueAction('POST', endpoint, body);
+        return http.Response('{"message": "Queued offline", "data": {}}', 200);
+      }
+      rethrow;
+    }
   }
 
-  static Future<http.Response> put(String endpoint, Map body) async {
+  static Future<http.Response> put(String endpoint, Map body, {bool skipQueue = false}) async {
     final baseUrl = await StorageService.getBaseUrl();
     final sid     = await StorageService.getSessionId();
     final csrf    = await StorageService.getCsrfToken();
@@ -100,35 +129,43 @@ class ApiService {
     if (csrf != null && csrf.isNotEmpty) headers["X-Frappe-CSRF-Token"] = csrf;
 
     final sw = Stopwatch()..start();
-    var resp = await http
-        .put(url, headers: headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 20));
+    try {
+      var resp = await http
+          .put(url, headers: headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 20));
 
-    if (resp.statusCode == 403) {
-      final newCsrf = await _refreshCsrf(baseUrl, sid);
-      if (newCsrf != null) {
-        headers["X-Frappe-CSRF-Token"] = newCsrf;
-        resp = await http
-            .put(url, headers: headers, body: jsonEncode(body))
-            .timeout(const Duration(seconds: 20));
+      if (resp.statusCode == 403) {
+        final newCsrf = await _refreshCsrf(baseUrl, sid);
+        if (newCsrf != null) {
+          headers["X-Frappe-CSRF-Token"] = newCsrf;
+          resp = await http
+              .put(url, headers: headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 20));
+        }
       }
-    }
 
-    // Follow redirects for PUT if http->https
-    if (resp.statusCode == 307 || resp.statusCode == 308 || resp.statusCode == 301 || resp.statusCode == 302) {
-      final loc = resp.headers['location'];
-      if (loc != null) {
-        final newUrl = loc.startsWith('http') ? Uri.parse(loc) : Uri.parse('${url.scheme}://${url.host}$loc');
-        resp = await http
-            .put(newUrl, headers: headers, body: jsonEncode(body))
-            .timeout(const Duration(seconds: 20));
+      // Follow redirects for PUT if http->https
+      if (resp.statusCode == 307 || resp.statusCode == 308 || resp.statusCode == 301 || resp.statusCode == 302) {
+        final loc = resp.headers['location'];
+        if (loc != null) {
+          final newUrl = loc.startsWith('http') ? Uri.parse(loc) : Uri.parse('${url.scheme}://${url.host}$loc');
+          resp = await http
+              .put(newUrl, headers: headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 20));
+        }
       }
-    }
-    sw.stop();
+      sw.stop();
 
-    _logResponse('PUT', endpoint, resp.statusCode, sw.elapsedMilliseconds, resp.body);
-    if (resp.statusCode == 401) await _handleUnauthorised();
-    return resp;
+      _logResponse('PUT', endpoint, resp.statusCode, sw.elapsedMilliseconds, resp.body);
+      if (resp.statusCode == 401) await _handleUnauthorised();
+      return resp;
+    } catch (e) {
+      if (!skipQueue && (e is SocketException || e is TimeoutException)) {
+        await DbService.queueAction('PUT', endpoint, body);
+        return http.Response('{"message": "Queued offline", "data": {}}', 200);
+      }
+      rethrow;
+    }
   }
 
   static Future<http.Response> delete(String endpoint) async {

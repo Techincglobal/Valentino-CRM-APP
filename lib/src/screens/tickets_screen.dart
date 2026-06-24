@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/user_model.dart';
 import '../services/ticket_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/skeleton_loader.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Brand tokens
@@ -208,7 +209,7 @@ class _TicketsScreenState extends State<TicketsScreen>
 
   Widget _buildBody(AdaptiveColors ac, bool isDark, double bottom) {
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: _violet, strokeWidth: 2.5));
+      return const Padding(padding: EdgeInsets.only(top: 20), child: SkeletonList());
     }
     if (_error.isNotEmpty) {
       return _buildError(ac);

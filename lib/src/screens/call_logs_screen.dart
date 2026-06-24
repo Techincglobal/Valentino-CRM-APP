@@ -5,6 +5,7 @@ import '../services/caller_service.dart';
 import '../services/sales_service.dart';
 import '../services/ticket_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/skeleton_loader.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Brand tokens
@@ -16,6 +17,28 @@ const _slate  = Color(0xFF94A3B8);
 const _indigo = Color(0xFF6366F1);
 const _amber  = Color(0xFFF59E0B);
 const _rose   = Color(0xFFF43F5E);
+
+Color _statusColor(String status) {
+  switch (status) {
+    case 'Answered':  return _green;
+    case 'Missed':    return _rose;
+    case 'Rejected':  return _rose;
+    case 'Busy':      return _amber;
+    case 'No Answer': return _slate;
+    default:          return _slate;
+  }
+}
+
+IconData _statusIcon(String status) {
+  switch (status) {
+    case 'Answered':  return Icons.call_rounded;
+    case 'Missed':    return Icons.call_missed_rounded;
+    case 'Rejected':  return Icons.call_end_rounded;
+    case 'Busy':      return Icons.phone_disabled_rounded;
+    case 'No Answer': return Icons.phone_missed_rounded;
+    default:          return Icons.call_rounded;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Controller interface — lets MainShell call refreshLogs()
@@ -66,6 +89,7 @@ class _CallLogsScreenState extends State<CallLogsScreen>
   }
 
   Future<void> _load() async {
+    HapticFeedback.lightImpact();
     setState(() { _loading = true; _error = ''; });
     try {
       final logs = await CallLogService.getCallLogs();
@@ -219,7 +243,7 @@ class _CallLogsScreenState extends State<CallLogsScreen>
 
   Widget _buildBody(AdaptiveColors ac, bool isDark, double bottom) {
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: _blue, strokeWidth: 2.5));
+      return const Padding(padding: EdgeInsets.only(top: 20), child: SkeletonList());
     }
     if (_error.isNotEmpty) {
       return _buildError(ac, isDark);
@@ -484,13 +508,21 @@ class _CallLogCard extends StatelessWidget {
             child: Divider(height: 1, color: accent.withValues(alpha: 0.12)),
           ),
 
-          // ── Row 2: type chip + reference tag ──────────────────────────────
+          // ── Row 2: type chip + status + reference tag ────────────────────
           Row(children: [
             _Chip(
               icon:  isWA ? Icons.chat_rounded : Icons.phone_rounded,
               label: isWA ? 'WhatsApp' : 'Regular',
               color: accent,
             ),
+            if (log.status.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              _Chip(
+                icon:  _statusIcon(log.status),
+                label: log.status,
+                color: _statusColor(log.status),
+              ),
+            ],
             if (log.linkedDoctype.isNotEmpty) ...[
               const SizedBox(width: 6),
               _Chip(
@@ -742,11 +774,21 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                   _DetailRow(label: 'Direction', value: log.direction,
                       icon: isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
                       color: isOutgoing ? _rose : _green, ac: ac, isDark: isDark),
+                  if (log.status.isNotEmpty)
+                    _DetailRow(label: 'Status', value: log.status,
+                        icon: _statusIcon(log.status),
+                        color: _statusColor(log.status), ac: ac, isDark: isDark),
+                  if (log.callOutcome.isNotEmpty)
+                    _DetailRow(label: 'Outcome', value: log.callOutcome,
+                        icon: Icons.flag_rounded, color: _indigo, ac: ac, isDark: isDark),
                   if (log.durationLabel.isNotEmpty)
                     _DetailRow(label: 'Duration', value: log.durationLabel,
                         icon: Icons.timer_rounded, color: _amber, ac: ac, isDark: isDark),
                   _DetailRow(label: 'Date & Time', value: log.fullDateLabel,
                       icon: Icons.calendar_today_rounded, color: _indigo, ac: ac, isDark: isDark),
+                  if (log.agent.isNotEmpty)
+                    _DetailRow(label: 'Agent', value: log.agent,
+                        icon: Icons.person_rounded, color: _slate, ac: ac, isDark: isDark),
                   if (log.name.isNotEmpty)
                     _DetailRow(label: 'Log ID', value: log.name,
                         icon: Icons.fingerprint_rounded, color: _slate, ac: ac, isDark: isDark),
@@ -1473,6 +1515,7 @@ class _LogCallSheetState extends State<_LogCallSheet> {
 
   String  _direction  = 'Inbound';
   String  _callType   = 'Regular';
+  String  _status     = 'Answered';
   bool    _busy       = false;
   String? _error;
   String? _phoneError;
@@ -1532,6 +1575,7 @@ class _LogCallSheetState extends State<_LogCallSheet> {
         durationSeconds: total,
         direction:       _direction,
         callType:        _callType,
+        status:          _status,
         notes:           _notesCtrl.text.trim(),
         linkedDoctype:   _selectedLead != null ? 'Lead' : null,
         linkedDocname:   _selectedLead?.name,
@@ -1554,6 +1598,47 @@ class _LogCallSheetState extends State<_LogCallSheet> {
         _error = e.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  static const _statusLabels = ['Answered', 'Missed', 'No Answer', 'Busy'];
+
+  Widget _buildStatusPills(AdaptiveColors ac, bool isDark) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _statusLabels.map((label) {
+        final color    = _statusColor(label);
+        final icon     = _statusIcon(label);
+        final selected = _status == label;
+        return GestureDetector(
+          onTap: _busy ? null : () => setState(() => _status = label),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? color.withValues(alpha: 0.15)
+                  : (isDark ? const Color(0xFF1A2235) : ac.bgInput),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? color : ac.border,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 13, color: selected ? color : ac.textSecondary),
+              const SizedBox(width: 5),
+              Text(label,
+                  style: TextStyle(
+                    color: selected ? color : ac.textSecondary,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  )),
+            ]),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   @override
@@ -1653,6 +1738,12 @@ class _LogCallSheetState extends State<_LogCallSheet> {
                   onSelect: (v) => setState(() => _callType = v),
                 )),
               ]),
+              const SizedBox(height: 12),
+
+              // Status pills
+              _buildLabel(ac, 'Call Status'),
+              const SizedBox(height: 8),
+              _buildStatusPills(ac, isDark),
               const SizedBox(height: 14),
 
               // Phone number

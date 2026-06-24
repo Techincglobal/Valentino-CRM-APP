@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/caller_service.dart';
 import '../services/sales_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/skeleton_loader.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public interface — lets MainShell request a data refresh without exposing
@@ -2294,7 +2295,7 @@ class _LoadingState extends StatelessWidget {
   const _LoadingState();
   @override
   Widget build(BuildContext context) =>
-      const Center(child: CircularProgressIndicator(color: _indigo, strokeWidth: 2));
+      const Padding(padding: EdgeInsets.only(top: 20), child: SkeletonList());
 }
 
 class _EmptyState extends StatelessWidget {

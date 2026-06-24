@@ -7,7 +7,10 @@ import 'package:phone_state/phone_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../models/user_model.dart';
+import '../services/app_settings_service.dart';
 import '../services/caller_service.dart';
 import '../services/sales_service.dart';
 import '../services/storage_service.dart';
@@ -42,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(AppSettingsService.load());
     _initializePhoneListener();
     _loadDailyCallCount();
     _loadLogs();
@@ -156,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
 
   Future<void> _handleIncomingNumber(String phone) async {
+    if (!AppSettingsService.current.enableIncomingCallPopup) return;
     if (_workflowOpen) return;
     _workflowOpen = true;
     if (mounted) setState(() => _loading = true);
@@ -304,6 +309,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               username: widget.user.username,
               callsToday: _callsToday,
             ),
+            const SizedBox(height: 16),
+            const _DashboardCharts().animate().fade(duration: 400.ms).slideY(begin: 0.1, end: 0),
             const SizedBox(height: 16),
             _ManualLookupCard(
               controller: _phoneController,
@@ -474,6 +481,84 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DASHBOARD CHARTS
+// ════════════════════════════════════════════════════════════════════════════
+
+class _DashboardCharts extends StatelessWidget {
+  const _DashboardCharts();
+
+  @override
+  Widget build(BuildContext context) {
+    final ac = context.ac;
+    final isDark = context.isDark;
+
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: ac.border),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'WEEKLY VOLUME',
+            style: TextStyle(
+              color: AppColors.primary.withValues(alpha: 0.85),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: const [
+                      FlSpot(0, 3),
+                      FlSpot(1, 4),
+                      FlSpot(2, 6),
+                      FlSpot(3, 4),
+                      FlSpot(4, 8),
+                      FlSpot(5, 6),
+                      FlSpot(6, 10),
+                    ],
+                    isCurved: true,
+                    color: AppColors.primary,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1439,28 +1524,29 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
       ),
       const SizedBox(height: 20),
 
-      // Create Opportunity button
-      GestureDetector(
-        onTap: _creatingOpp ? null : _createOpportunity,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 15),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
-          ),
-          child: Center(
-            child: _creatingOpp
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.trending_up_rounded, color: Colors.white, size: 16),
-                    SizedBox(width: 8),
-                    Text('Create Opportunity', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                  ]),
+      // Create Opportunity button — shown only when setting is enabled
+      if (AppSettingsService.current.enableOpportunityPopup)
+        GestureDetector(
+          onTap: _creatingOpp ? null : _createOpportunity,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
+            ),
+            child: Center(
+              child: _creatingOpp
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.trending_up_rounded, color: Colors.white, size: 16),
+                      SizedBox(width: 8),
+                      Text('Create Opportunity', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                    ]),
+            ),
           ),
         ),
-      ),
       const SizedBox(height: 8),
 
       // Done (just close, lead already saved)
@@ -1569,8 +1655,8 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
         ),
       ],
 
-      // Convert to Opportunity — only for Leads
-      if (isLead) ...[
+      // Convert to Opportunity — only for Leads, and only when setting is enabled
+      if (isLead && AppSettingsService.current.enableOpportunityPopup) ...[
         const SizedBox(height: 20),
         GestureDetector(
           onTap: _creatingOpp ? null : _createOpportunity,
