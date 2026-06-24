@@ -82,8 +82,6 @@ class OverlayStateMachine(
                 val phone = current.phoneNumber ?: return
                 val identity = current.knownIdentity ?: CallerIdentity.Unknown
                 val duration = repository.getSessionDuration(phone)
-                // Stop recording if active
-                if (current.isRecordingActive) emitEffect(OverlaySideEffect.StopRecording)
                 // PostCall stays expanded — user must explicitly close
                 _state.value = OverlayState.PostCall(phone, identity, duration, isExpanded = true)
             }
@@ -186,7 +184,6 @@ class OverlayStateMachine(
             is OverlayEvent.DismissOverlay,
             is OverlayEvent.PostCallDismissed -> {
                 activeJob?.cancel()
-                if (current.isRecordingActive) emitEffect(OverlaySideEffect.StopRecording)
                 _complaintState.value = ComplaintPopupState.Hidden
                 _state.value = OverlayState.Idle
                 emitEffect(OverlaySideEffect.HideComplaintPopup)
@@ -262,24 +259,6 @@ class OverlayStateMachine(
                 _state.value = OverlayState.KnownCaller(phone, identity, current.callPhase ?: CallPhase.ACTIVE, true)
             }
 
-            // ── Recording ─────────────────────────────────────────────────────
-
-            is OverlayEvent.ToggleRecording -> {
-                when (current) {
-                    is OverlayState.KnownCaller -> {
-                        val next = current.copy(isRecording = !current.isRecording)
-                        _state.value = next
-                        emitEffect(if (next.isRecording) OverlaySideEffect.StartRecording else OverlaySideEffect.StopRecording)
-                    }
-                    is OverlayState.UnknownCaller -> {
-                        val next = current.copy(isRecording = !current.isRecording)
-                        _state.value = next
-                        emitEffect(if (next.isRecording) OverlaySideEffect.StartRecording else OverlaySideEffect.StopRecording)
-                    }
-                    else -> {}
-                }
-            }
-
             // ── Lead submission ───────────────────────────────────────────────
 
             is OverlayEvent.SubmitLead -> {
@@ -288,17 +267,14 @@ class OverlayStateMachine(
                 // Accept from UnknownCaller (during call) OR PostCall with Unknown identity (after call)
                 val phone: String
                 val phase: CallPhase
-                val wasRecording: Boolean
                 when {
                     current is OverlayState.UnknownCaller -> {
-                        phone        = current.phoneNumber
-                        phase        = current.callPhase
-                        wasRecording = current.isRecording
+                        phone = current.phoneNumber
+                        phase = current.callPhase
                     }
                     current is OverlayState.PostCall && current.identity is CallerIdentity.Unknown -> {
-                        phone        = current.phoneNumber
-                        phase        = CallPhase.ENDED
-                        wasRecording = false
+                        phone = current.phoneNumber
+                        phase = CallPhase.ENDED
                     }
                     else -> return
                 }
@@ -322,7 +298,6 @@ class OverlayStateMachine(
                                 callPhase   = phase,
                                 isExpanded  = true,
                                 activeSheet = ActiveSheet.NONE,
-                                isRecording = wasRecording,
                             )
                             emitEffect(OverlaySideEffect.ShowToast("Lead created: ${identity.name}"))
                             emitEffect(OverlaySideEffect.PipelineRefreshNeeded)
@@ -564,13 +539,6 @@ private val OverlayState.knownIdentity: CallerIdentity?
         is OverlayState.SubmittingAction -> identity
         is OverlayState.PostCall         -> identity
         else -> null
-    }
-
-private val OverlayState.isRecordingActive: Boolean
-    get() = when (this) {
-        is OverlayState.KnownCaller   -> isRecording
-        is OverlayState.UnknownCaller -> isRecording
-        else -> false
     }
 
 private fun OverlayState.withCallPhase(phase: CallPhase): OverlayState = when (this) {

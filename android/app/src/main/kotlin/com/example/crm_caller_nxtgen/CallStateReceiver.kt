@@ -17,8 +17,9 @@ import androidx.core.content.ContextCompat
  *  - IDLE        → only end overlay if it was an incoming call; clear flag
  *  - NEW_OUTGOING_CALL → immediately clear incoming flag + hide any overlay
  *
- * Android 12+ note: EXTRA_INCOMING_NUMBER requires READ_CALL_LOG at runtime.
- * If null, we fall back to the value Flutter stored in SharedPreferences.
+ * Android 10+ hides EXTRA_INCOMING_NUMBER without READ_CALL_LOG; we intentionally
+ * don't request that permission. If the number is null here, CallMonitorService
+ * (TelephonyCallback) already stored it in SharedPreferences as a fallback.
  */
 class CallStateReceiver : BroadcastReceiver() {
 

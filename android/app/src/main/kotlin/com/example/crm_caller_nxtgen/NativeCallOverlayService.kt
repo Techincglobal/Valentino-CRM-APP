@@ -1,6 +1,5 @@
 package com.example.crm_caller_nxtgen
 
-import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -35,7 +34,6 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlaySideEffect
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.needsFocus
 import com.example.crm_caller_nxtgen.overlay.domain.shouldShowWindow
-import com.example.crm_caller_nxtgen.overlay.recording.CallRecorder
 import com.example.crm_caller_nxtgen.overlay.state.OverlayStateMachine
 import com.example.crm_caller_nxtgen.overlay.ui.ComplaintPopupRoot
 import com.example.crm_caller_nxtgen.overlay.ui.OverlayRoot
@@ -87,7 +85,6 @@ class NativeCallOverlayService : Service() {
     private lateinit var stateMachine: OverlayStateMachine
     private lateinit var repository: FrappeRepository
     private lateinit var timerManager: SessionTimerManager
-    private lateinit var callRecorder: CallRecorder
 
     private var wakeLock: PowerManager.WakeLock? = null
     // Separate long-running wakelock held for the call duration (not just startup burst)
@@ -105,7 +102,6 @@ class NativeCallOverlayService : Service() {
             repository    = FrappeRepository(applicationContext)
             timerManager  = SessionTimerManager(serviceScope)
             stateMachine  = OverlayStateMachine(repository, serviceScope)
-            callRecorder  = CallRecorder(applicationContext)
 
             windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
             // Start ~100dp below the status bar, scaled to actual screen density.
@@ -175,7 +171,6 @@ class NativeCallOverlayService : Service() {
     override fun onDestroy() {
         if (wakeLock?.isHeld == true) wakeLock?.release()
         if (callWakeLock?.isHeld == true) callWakeLock?.release()
-        if (callRecorder.isRecording) callRecorder.stopRecording()
         removeComplaintPopup()
         removeOverlay()
         serviceScope.cancel()
@@ -426,38 +421,6 @@ class NativeCallOverlayService : Service() {
                         setWindowFocusable(stateMachine.state.value.needsFocus)
                     }
 
-                    is OverlaySideEffect.StartRecording -> {
-                        if (!hasRecordAudioPermission()) {
-                            // Roll back toggle
-                            stateMachine.handleEvent(OverlayEvent.ToggleRecording)
-                            Toast.makeText(applicationContext, "Microphone permission needed. Grant it in app settings.", Toast.LENGTH_LONG).show()
-                            startActivity(Intent(this@NativeCallOverlayService, MainActivity::class.java).apply {
-                                action = "crm.REQUEST_RECORD_AUDIO"
-                                flags  = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                            })
-                            return@collect
-                        }
-                        val phone = stateMachine.state.value.let {
-                            when (it) {
-                                is OverlayState.KnownCaller   -> it.phoneNumber
-                                is OverlayState.UnknownCaller -> it.phoneNumber
-                                else -> "unknown"
-                            }
-                        }
-                        val path = callRecorder.startRecording(phone)
-                        if (path == null) {
-                            stateMachine.handleEvent(OverlayEvent.ToggleRecording) // roll back
-                            Toast.makeText(applicationContext, "Recording failed to start", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-
-                    is OverlaySideEffect.StopRecording -> {
-                        val savedPath = callRecorder.stopRecording()
-                        if (savedPath != null) {
-                            Toast.makeText(applicationContext, "Recording saved", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-
                     is OverlaySideEffect.CancelAutoDismiss -> { /* no-op — auto-dismiss removed */ }
 
                     is OverlaySideEffect.OpenFlutter -> {
@@ -551,10 +514,6 @@ class NativeCallOverlayService : Service() {
         return nowMinutes in startMinutes until endMinutes
     }
 
-    private fun hasRecordAudioPermission(): Boolean =
-        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-
     private fun startForegroundCompat() {
         val notification = buildNotification("Monitoring calls")
         // Use ONLY specialUse. The microphone type was removed from the manifest because
@@ -610,7 +569,6 @@ class NativeCallOverlayService : Service() {
     }
 
     private fun cleanup() {
-        if (callRecorder.isRecording) callRecorder.stopRecording()
         if (callWakeLock?.isHeld == true) callWakeLock?.release()
         removeComplaintPopup()
         removeOverlay()

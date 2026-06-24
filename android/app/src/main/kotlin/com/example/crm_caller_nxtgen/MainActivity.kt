@@ -71,9 +71,6 @@ class MainActivity : FlutterActivity() {
     private fun requestRuntimePermissions() {
         val needed = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG)
-                    != PackageManager.PERMISSION_GRANTED)
-                needed.add(Manifest.permission.READ_CALL_LOG)
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
                     != PackageManager.PERMISSION_GRANTED)
                 needed.add(Manifest.permission.READ_PHONE_STATE)
@@ -162,8 +159,7 @@ class MainActivity : FlutterActivity() {
     }
 
     companion object {
-        private const val REQUEST_PERMISSIONS   = 42
-        private const val REQUEST_READ_CALL_LOG = 42  // kept for back-compat
+        private const val REQUEST_PERMISSIONS = 42
     }
 
     override fun onNewIntent(intent: Intent) {

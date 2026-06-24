@@ -112,7 +112,6 @@ sealed class OverlayState {
         val callPhase: CallPhase = CallPhase.RINGING,
         val isExpanded: Boolean = false,
         val activeSheet: ActiveSheet = ActiveSheet.NONE,
-        val isRecording: Boolean = false,
     ) : OverlayState()
 
     /** Lead form is being submitted. Input locked. */
@@ -128,7 +127,6 @@ sealed class OverlayState {
         val callPhase: CallPhase = CallPhase.RINGING,
         val isExpanded: Boolean = false,
         val activeSheet: ActiveSheet = ActiveSheet.NONE,
-        val isRecording: Boolean = false,
     ) : OverlayState()
 
     /** Opportunity or note form is submitting. */
@@ -257,9 +255,6 @@ sealed class OverlayEvent {
     ) : OverlayEvent()
     object ComplaintCreated : OverlayEvent()
 
-    // Recording toggle
-    object ToggleRecording : OverlayEvent()
-
     // Quotation
     object OpenQuoteForm : OverlayEvent()
     data class SubmitQuote(
@@ -318,10 +313,6 @@ sealed class OverlaySideEffect {
     object ShowComplaintPopup : OverlaySideEffect()
     /** Hide the complaint popup. */
     object HideComplaintPopup : OverlaySideEffect()
-    /** Start call recording. */
-    object StartRecording : OverlaySideEffect()
-    /** Stop call recording. */
-    object StopRecording : OverlaySideEffect()
     /** Legacy — kept as no-op so old references compile. */
     object CancelAutoDismiss : OverlaySideEffect()
     /** Notify Flutter to refresh the CRM pipeline tab (lead or opportunity created). */

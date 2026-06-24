@@ -4,11 +4,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-    <!-- Call state monitoring -->
+    <!-- Call state monitoring: detects incoming call number via TelephonyCallback.
+         READ_CALL_LOG is NOT requested — call history is stored in Frappe, not read from the device. -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
-    <uses-permission android:name="android.permission.READ_CALL_LOG"/>
 
-    <!-- Overlay bubble (requires explicit user grant via Settings) -->
+    <!-- Overlay: displays CRM caller-identity sheet over the incoming call screen.
+         User must explicitly grant this in System Settings → Special App Access. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
@@ -16,24 +17,14 @@
     <!-- Notification (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- Boot auto-start -->
+    <!-- Boot auto-start: restarts the call-monitor foreground service after reboot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Full-screen intent: shows overlay on locked screen during an incoming call -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
-    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
-    <!-- Call recording (microphone) -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- External storage for recordings (only needed below API 29) -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28"/>
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"/>
 
     <application
         android:label="CRM Caller"
@@ -114,22 +105,27 @@
             </intent-filter>
         </service>
 
-        <!-- Phone state BroadcastReceiver (fallback when CallMonitorService is down) -->
+        <!-- Phone state BroadcastReceiver (fallback when CallMonitorService is down).
+             android:permission ensures only the system (which holds READ_PHONE_STATE) can
+             trigger this receiver — prevents spoofed broadcasts from other apps. -->
         <receiver
             android:name="com.example.crm_caller_nxtgen.CallStateReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.READ_PHONE_STATE">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.PHONE_STATE" />
                 <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
             </intent-filter>
         </receiver>
 
-        <!-- BootReceiver: restarts CallMonitorService after device reboot -->
+        <!-- BootReceiver: restarts CallMonitorService after device reboot.
+             android:permission ensures only the system can send BOOT_COMPLETED to this receiver. -->
         <receiver
             android:name="com.example.crm_caller_nxtgen.BootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
