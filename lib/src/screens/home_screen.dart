@@ -275,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } else if (outcome == 'opportunity_created') {
       messenger.showSnackBar(SnackBar(
         content: const Text('Opportunity created — check the Pipeline tab'),
-        backgroundColor: const Color(0xFF6366F1),
+        backgroundColor: const Color(0xFF2490EF),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -768,8 +768,8 @@ class _ManualLookupCard extends StatelessWidget {
     required this.onLookup,
   });
 
-  static const _indigo     = Color(0xFF6366F1);
-  static const _indigoDark = Color(0xFF4F46E5);
+  static const _indigo     = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
+  static const _indigoDark = Color(0xFF1A7FD4);
 
   @override
   Widget build(BuildContext context) {
@@ -783,8 +783,8 @@ class _ManualLookupCard extends StatelessWidget {
     final glowBlob   = isDark ? _indigo.withValues(alpha: 0.22)      : _indigo.withValues(alpha: 0.07);
     final badgeBg    = isDark ? _indigo.withValues(alpha: 0.22)      : _indigo.withValues(alpha: 0.10);
     final badgeBorder= isDark ? _indigo.withValues(alpha: 0.35)      : _indigo.withValues(alpha: 0.22);
-    final badgeText  = isDark ? const Color(0xFF818CF8)               : _indigo;
-    final titleColor = isDark ? Colors.white                          : const Color(0xFF1E1B4B);
+    final badgeText  = isDark ? const Color(0xFF5BAAFF)               : _indigo;
+    final titleColor = isDark ? Colors.white                          : const Color(0xFF0F1E33);
     final subtitleColor = isDark ? Colors.white.withValues(alpha: 0.45) : ac.textSecondary;
     final inputBg    = isDark ? Colors.white.withValues(alpha: 0.07) : ac.bgInput;
     final inputBorder= isDark ? Colors.white.withValues(alpha: 0.12) : ac.border;
@@ -1314,7 +1314,7 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   late final String _latestNote;
 
   static const _amber  = Color(0xFFF59E0B);
-  static const _indigo = Color(0xFF6366F1);
+  static const _indigo = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
   static const _teal   = Color(0xFF14B8A6);
   static const _slate  = Color(0xFF94A3B8);
   static const _red    = Color(0xFFEF4444);
@@ -1511,7 +1511,7 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF818CF8), Color(0xFF4F46E5)],
+                colors: [Color(0xFF5BAAFF), Color(0xFF1A7FD4)],
               ),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -1549,7 +1549,7 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 15),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+              gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
             ),
@@ -1681,7 +1681,7 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 15),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+              gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
             ),
@@ -1815,7 +1815,7 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_indigo, Color(0xFF4F46E5)]),
+            gradient: const LinearGradient(colors: [_indigo, Color(0xFF1A7FD4)]),
             borderRadius: BorderRadius.circular(14),
             boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))],
           ),

@@ -11,12 +11,12 @@ import '../widgets/skeleton_loader.dart';
 // Brand tokens
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _blue   = Color(0xFF3B82F6);
+const _blue   = Color(0xFF2490EF);
 const _green  = Color(0xFF22C55E);
 const _slate  = Color(0xFF94A3B8);
-const _indigo = Color(0xFF6366F1);
+const _indigo = _blue; // collapsed into the single brand blue
 const _amber  = Color(0xFFF59E0B);
-const _rose   = Color(0xFFF43F5E);
+const _rose   = Color(0xFFEF4444); // aligned with shared danger red
 
 Color _statusColor(String status) {
   switch (status) {
@@ -60,7 +60,7 @@ class CallLogsScreen extends StatefulWidget {
 }
 
 class _CallLogsScreenState extends State<CallLogsScreen>
-    with AutomaticKeepAliveClientMixin
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver
     implements CallLogsScreenController {
   @override
   bool get wantKeepAlive => true;
@@ -68,15 +68,27 @@ class _CallLogsScreenState extends State<CallLogsScreen>
   @override
   void refreshLogs() => _load();
 
-  List<CallLog> _logs = [];
-  bool   _loading = false;
-  String _error   = '';
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _load();
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  List<CallLog> _logs = [];
+  bool   _loading = false;
+  String _error   = '';
 
   void _showLogCallForm() {
     showModalBottomSheet(
@@ -144,7 +156,7 @@ class _CallLogsScreenState extends State<CallLogsScreen>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF60A5FA), _blue, Color(0xFF1D4ED8)],
+                colors: [Color(0xFF5BAAFF), _blue, Color(0xFF1A7FD4)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -259,7 +271,7 @@ class _CallLogsScreenState extends State<CallLogsScreen>
         itemCount: _logs.length,
         itemBuilder: (_, i) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: _CallLogCard(log: _logs[i]),
+          child: _CallLogCard(log: _logs[i], onRefresh: _load),
         ),
       ),
     );
@@ -304,7 +316,7 @@ class _CallLogsScreenState extends State<CallLogsScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_blue, Color(0xFF1D4ED8)]),
+            gradient: const LinearGradient(colors: [_blue, Color(0xFF1A7FD4)]),
             borderRadius: BorderRadius.circular(14),
             boxShadow: [BoxShadow(color: _blue.withValues(alpha: 0.30), blurRadius: 12, offset: const Offset(0, 4))],
           ),
@@ -394,15 +406,17 @@ class _StatChip extends StatelessWidget {
 
 class _CallLogCard extends StatelessWidget {
   final CallLog log;
-  const _CallLogCard({required this.log});
+  final Future<void> Function() onRefresh;
+  const _CallLogCard({required this.log, required this.onRefresh});
 
-  void _openDetail(BuildContext context) {
-    showModalBottomSheet(
+  void _openDetail(BuildContext context) async {
+    final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _CallDetailSheet(log: log),
     );
+    if (updated == true) onRefresh();
   }
 
   @override
@@ -643,6 +657,20 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
     });
   }
 
+  void _openEditLog() async {
+    final updated = await showModalBottomSheet<CallLog>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => _EditCallLogSheet(log: widget.log),
+    );
+    if (updated != null && mounted) {
+      // Pop the detail sheet and signal the list to refresh
+      Navigator.pop(context, true);
+    }
+  }
+
   void _copyPhone() {
     if (widget.log.phoneNumber.isEmpty) return;
     Clipboard.setData(ClipboardData(text: widget.log.phoneNumber));
@@ -836,40 +864,57 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           child: Row(children: [
+            // Close
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0A0F1E) : ac.bgBase,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: ac.border),
+                ),
+                child: Text('Close',
+                    style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Edit Log
             Expanded(
               child: GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: _openEditLog,
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0A0F1E) : ac.bgBase,
+                    color: _blue.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: ac.border),
+                    border: Border.all(color: _blue.withValues(alpha: 0.35)),
                   ),
-                  child: Center(child: Text('Close',
-                      style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w700))),
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.edit_note_rounded, color: _blue, size: 16),
+                    SizedBox(width: 6),
+                    Text('Edit Log',
+                        style: TextStyle(color: _blue, fontSize: 14, fontWeight: FontWeight.w700)),
+                  ]),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
+            // Create Lead
             Expanded(
-              flex: 2,
               child: GestureDetector(
                 onTap: _openCreateLead,
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+                    gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: [BoxShadow(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                        blurRadius: 14, offset: const Offset(0, 5))],
                   ),
                   child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.person_add_rounded, color: Colors.white, size: 16),
-                    SizedBox(width: 8),
+                    Icon(Icons.person_add_rounded, color: Colors.white, size: 15),
+                    SizedBox(width: 6),
                     Text('Create Lead',
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
                   ]),
                 ),
               ),
@@ -1320,7 +1365,7 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
           Container(
             padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+              gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 20),
@@ -1382,12 +1427,12 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: _loading
-                      ? [const Color(0xFF6366F1).withValues(alpha: 0.5), const Color(0xFF4F46E5).withValues(alpha: 0.5)]
-                      : [const Color(0xFF6366F1), const Color(0xFF4F46E5)],
+                      ? [const Color(0xFF2490EF).withValues(alpha: 0.5), const Color(0xFF1A7FD4).withValues(alpha: 0.5)]
+                      : [const Color(0xFF2490EF), const Color(0xFF1A7FD4)],
                 ),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: _loading ? [] : [
-                  BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                  BoxShadow(color: const Color(0xFF2490EF).withValues(alpha: 0.35),
                       blurRadius: 14, offset: const Offset(0, 5)),
                 ],
               ),
@@ -1406,6 +1451,243 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
             ),
           ),
         ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _EditCallLogSheet  — edit notes, status, outcome on an existing log entry
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EditCallLogSheet extends StatefulWidget {
+  final CallLog log;
+  const _EditCallLogSheet({required this.log});
+
+  @override
+  State<_EditCallLogSheet> createState() => _EditCallLogSheetState();
+}
+
+class _EditCallLogSheetState extends State<_EditCallLogSheet> {
+  late final TextEditingController _notesCtrl;
+  late final TextEditingController _outcomeCtrl;
+  late String _status;
+  bool _saving = false;
+  String? _error;
+
+  static const _statusLabels = ['Answered', 'Missed', 'No Answer', 'Busy'];
+
+  @override
+  void initState() {
+    super.initState();
+    _notesCtrl   = TextEditingController(text: widget.log.notes);
+    _outcomeCtrl = TextEditingController(text: widget.log.callOutcome);
+    _status      = widget.log.status.isNotEmpty ? widget.log.status : 'Answered';
+  }
+
+  @override
+  void dispose() {
+    _notesCtrl.dispose();
+    _outcomeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() { _saving = true; _error = null; });
+    try {
+      await CallLogService.updateCallLog(
+        name:        widget.log.name,
+        notes:       _notesCtrl.text.trim(),
+        status:      _status,
+        callOutcome: _outcomeCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      final updated = widget.log.copyWith(
+        notes:       _notesCtrl.text.trim(),
+        status:      _status,
+        callOutcome: _outcomeCtrl.text.trim(),
+      );
+      Navigator.pop(context, updated);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error  = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    final inset  = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Center(child: Container(
+          margin: const EdgeInsets.only(top: 12, bottom: 6),
+          width: 36, height: 4,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        )),
+        Flexible(child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(22, 8, 22, 20 + inset),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Header
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: _blue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _blue.withValues(alpha: 0.30)),
+                ),
+                child: const Icon(Icons.edit_note_rounded, color: _blue, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Edit Call Log',
+                    style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(widget.log.callerLabel,
+                    style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+              ])),
+            ]),
+
+            const SizedBox(height: 22),
+
+            // Status
+            Text('Status',
+                style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8, runSpacing: 8,
+              children: _statusLabels.map((label) {
+                final color    = _statusColor(label);
+                final icon     = _statusIcon(label);
+                final selected = _status == label;
+                return GestureDetector(
+                  onTap: _saving ? null : () => setState(() => _status = label),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? color.withValues(alpha: 0.15)
+                          : (isDark ? const Color(0xFF1A2235) : ac.bgCard),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected ? color : ac.border,
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(icon, size: 13, color: selected ? color : ac.textSecondary),
+                      const SizedBox(width: 5),
+                      Text(label, style: TextStyle(
+                        color: selected ? color : ac.textSecondary,
+                        fontSize: 12,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      )),
+                    ]),
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Call Outcome
+            _SheetField(
+              ctrl: _outcomeCtrl, label: 'Call Outcome',
+              hint: 'e.g. Follow-up scheduled, Demo booked…',
+              icon: Icons.flag_outlined,
+              ac: ac, isDark: isDark,
+            ),
+            const SizedBox(height: 12),
+
+            // Notes
+            _SheetField(
+              ctrl: _notesCtrl, label: 'Notes',
+              hint: 'What was discussed?',
+              icon: Icons.notes_rounded,
+              maxLines: 4,
+              ac: ac, isDark: isDark,
+            ),
+
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _rose.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _rose.withValues(alpha: 0.30)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.error_outline_rounded, color: _rose, size: 15),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_error!,
+                      style: const TextStyle(color: _rose, fontSize: 12, fontWeight: FontWeight.w500))),
+                ]),
+              ),
+            ],
+
+            const SizedBox(height: 22),
+
+            Row(children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: _saving ? null : () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0A0F1E) : ac.bgCard,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: ac.border),
+                    ),
+                    child: Center(child: Text('Cancel',
+                        style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: _saving ? null : _save,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: _saving ? _blue.withValues(alpha: 0.5) : _blue,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                      child: _saving
+                          ? const SizedBox(width: 18, height: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                          : const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.check_rounded, color: Colors.white, size: 16),
+                              SizedBox(width: 6),
+                              Text('Save Changes',
+                                  style: TextStyle(color: Colors.white, fontSize: 14,
+                                      fontWeight: FontWeight.w700)),
+                            ]),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ]),
+        )),
       ]),
     );
   }

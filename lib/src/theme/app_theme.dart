@@ -7,11 +7,12 @@ import 'package:flutter/services.dart';
 // ============================================================================
 
 // ── Brand tokens (never change between themes) ───────────────────────────────
-const _kPrimary     = Color(0xFF6366F1); // Indigo
-const _kPrimaryDark = Color(0xFF4F46E5);
-const _kPrimaryLight = Color(0xFF818CF8);
-const _kAccent      = Color(0xFF8B5CF6); // Violet
-const _kAccentLight = Color(0xFFA78BFA);
+// Single accent hue app-wide (Frappe blue) — kept deliberately simple.
+const _kPrimary     = Color(0xFF2490EF);
+const _kPrimaryDark = Color(0xFF1A7FD4);
+const _kPrimaryLight = Color(0xFF5BAAFF);
+const _kAccent      = _kPrimary;
+const _kAccentLight = _kPrimaryLight;
 const _kSuccess     = Color(0xFF10B981);
 const _kDanger      = Color(0xFFEF4444);
 const _kWarning     = Color(0xFFF59E0B);
@@ -23,8 +24,8 @@ class AppColors {
   static const primary       = _kPrimary;
   static const primaryDark   = _kPrimaryDark;
   static const primaryLight  = _kPrimaryLight;
-  static const primaryGlow   = Color(0x336366F1);
-  static const primarySurface = Color(0x1A6366F1);
+  static const primaryGlow   = Color(0x332490EF);
+  static const primarySurface = Color(0x1A2490EF);
 
   // Accent
   static const accent      = _kAccent;

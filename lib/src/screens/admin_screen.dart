@@ -7,13 +7,13 @@ import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 
-const _indigo = Color(0xFF4F46E5);
-const _blue   = Color(0xFF3B82F6);
+const _indigo = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
+const _blue   = _indigo; // collapsed into the single brand blue
 const _green  = Color(0xFF10B981);
 const _amber  = Color(0xFFF59E0B);
 const _red    = Color(0xFFEF4444);
 const _slate  = Color(0xFF64748B);
-const _purple = Color(0xFF7C3AED);
+const _purple = Color(0xFF1A7FD4); // collapsed into the single brand blue
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -268,7 +268,7 @@ class _Header extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF312E81), Color(0xFF4F46E5)],
+          colors: [Color(0xFF14528C), Color(0xFF1A7FD4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

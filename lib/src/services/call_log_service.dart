@@ -111,6 +111,29 @@ class CallLog {
   bool get isInbound  => direction == 'Inbound';
   bool get isMissed   => status == 'Missed';
 
+  CallLog copyWith({
+    String? notes,
+    String? status,
+    String? callOutcome,
+    String? linkedDoctype,
+    String? linkedDocname,
+  }) => CallLog(
+    name:            name,
+    phoneNumber:     phoneNumber,
+    callerName:      callerName,
+    direction:       direction,
+    callType:        callType,
+    callDatetime:    callDatetime,
+    durationSeconds: durationSeconds,
+    status:          status          ?? this.status,
+    callOutcome:     callOutcome     ?? this.callOutcome,
+    linkedDoctype:   linkedDoctype   ?? this.linkedDoctype,
+    linkedDocname:   linkedDocname   ?? this.linkedDocname,
+    agent:           agent,
+    notes:           notes           ?? this.notes,
+    creation:        creation,
+  );
+
   String get durationLabel {
     if (durationSeconds <= 0) return '';
     final m = durationSeconds ~/ 60;
@@ -217,5 +240,26 @@ class CallLogService {
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
     final msg  = body['message'] as Map<String, dynamic>? ?? {};
     return msg['name']?.toString() ?? '';
+  }
+
+  static Future<void> updateCallLog({
+    required String name,
+    String? notes,
+    String? status,
+    String? callOutcome,
+    String? linkedDoctype,
+    String? linkedDocname,
+  }) async {
+    final payload = <String, dynamic>{'name': name};
+    if (notes       != null) payload['notes']          = notes;
+    if (status      != null) payload['status']         = status;
+    if (callOutcome != null) payload['call_outcome']   = callOutcome;
+    if (linkedDoctype != null) payload['linked_doctype'] = linkedDoctype;
+    if (linkedDocname != null) payload['linked_docname'] = linkedDocname;
+    final resp = await ApiService.post(
+        '/api/method/nxtgen_crm_mobile.api.update_call_log', payload);
+    if (resp.statusCode != 200) {
+      throw Exception(_parseFrappeError(resp.body, 'Could not update call log (${resp.statusCode})'));
+    }
   }
 }

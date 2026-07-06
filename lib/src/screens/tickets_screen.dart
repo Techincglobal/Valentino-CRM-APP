@@ -9,7 +9,7 @@ import '../widgets/skeleton_loader.dart';
 // Brand tokens
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _violet = Color(0xFF8B5CF6);
+const _violet = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
 const _teal   = Color(0xFF14B8A6);
 const _slate  = Color(0xFF94A3B8);
 const _green  = Color(0xFF10B981);
@@ -126,7 +126,7 @@ class _TicketsScreenState extends State<TicketsScreen>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFA78BFA), _violet, Color(0xFF4C1D95)],
+                colors: [Color(0xFF5BAAFF), _violet, Color(0xFF1A7FD4)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -249,7 +249,7 @@ class _TicketsScreenState extends State<TicketsScreen>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_violet, Color(0xFF6D28D9)]),
+              gradient: const LinearGradient(colors: [_violet, Color(0xFF1A7FD4)]),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [BoxShadow(color: _violet.withValues(alpha: 0.30), blurRadius: 12, offset: const Offset(0, 4))],
             ),
@@ -283,7 +283,7 @@ class _TicketsScreenState extends State<TicketsScreen>
       width: 56, height: 56,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [_violet, Color(0xFF6D28D9)],
+          colors: [_violet, Color(0xFF1A7FD4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -648,7 +648,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [_violet, Color(0xFF6D28D9)]),
+                gradient: const LinearGradient(colors: [_violet, Color(0xFF1A7FD4)]),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 18),
@@ -823,7 +823,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
                       gradient: _submitting ? null : const LinearGradient(
-                        colors: [_violet, Color(0xFF6D28D9)],
+                        colors: [_violet, Color(0xFF1A7FD4)],
                         begin: Alignment.topLeft, end: Alignment.bottomRight,
                       ),
                       color: _submitting ? _violet.withValues(alpha: 0.40) : null,
@@ -1363,7 +1363,6 @@ class _InputField extends StatelessWidget {
   final bool   isDark;
   final AdaptiveColors ac;
   final int    maxLines;
-  final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
 
@@ -1372,8 +1371,7 @@ class _InputField extends StatelessWidget {
     required this.hint,
     required this.isDark,
     required this.ac,
-    this.maxLines    = 1,
-    this.keyboardType = TextInputType.text,
+    this.maxLines = 1,
     this.validator,
     this.onChanged,
   });
@@ -1381,9 +1379,8 @@ class _InputField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TextFormField(
     controller:   controller,
-    maxLines:     maxLines,
-    keyboardType: keyboardType,
-    validator:    validator,
+    maxLines:  maxLines,
+    validator: validator,
     onChanged:    onChanged,
     style: TextStyle(color: ac.textPrimary, fontSize: 14),
     decoration: InputDecoration(

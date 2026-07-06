@@ -14,10 +14,10 @@ abstract class QuotesScreenController {
 // Brand tokens — always legible on the dark header
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _amber  = Color(0xFFF59E0B);
-const _teal   = Color(0xFF14B8A6);
+const _amber  = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
+const _teal   = _amber; // collapsed into the single brand blue
 const _slate  = Color(0xFF94A3B8);
-const _indigo = Color(0xFF6366F1);
+const _indigo = _amber; // collapsed into the single brand blue
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QuotesScreen
@@ -162,7 +162,7 @@ class _QuotesScreenState extends State<QuotesScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Header — always dark gradient (brand section)
+// Header — compact adaptive style, consistent with every other screen
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
@@ -178,169 +178,89 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top    = MediaQuery.of(context).padding.top;
+    final ac     = context.ac;
     final isDark = context.isDark;
+    final top    = MediaQuery.of(context).padding.top;
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [const Color(0xFF1A1200), const Color(0xFF0A0F1E), const Color(0xFF001A1A)]
-              : [const Color(0xFF78350F), const Color(0xFF92400E), const Color(0xFF451A03)],
-          stops:  const [0.0, 0.55, 1.0],
-        ),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(22, top + 22, 22, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color:  Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-                        ),
-                        child: const Text(
-                          'DOCUMENTS',
-                          style: TextStyle(
-                            color: Colors.white, fontSize: 9,
-                            fontWeight: FontWeight.w900, letterSpacing: 1.8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Quotes & Orders',
-                        style: TextStyle(
-                          color: Colors.white, fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.8, height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Quotations · Sales Orders',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.60),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _GlassIconBadge(icon: Icons.receipt_long_rounded, color: _amber),
+      padding: EdgeInsets.fromLTRB(20, top + 16, 20, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF5BAAFF), _amber, Color(0xFF1A7FD4)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: _amber.withValues(alpha: 0.45), blurRadius: 16, offset: const Offset(0, 6)),
+                BoxShadow(color: _amber.withValues(alpha: 0.20), blurRadius: 4, offset: const Offset(0, 2)),
               ],
             ),
+            child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 24),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-            child: Row(
-              children: [
-                _GlassStatCard(
-                  label: 'Quotes',
-                  value: '${summary.totalQuotes}',
-                  icon:  Icons.description_rounded,
-                  color: _amber,
-                ),
-                const SizedBox(width: 10),
-                _GlassStatCard(
-                  label: 'Drafts',
-                  value: '${summary.draftQuotes}',
-                  icon:  Icons.edit_note_rounded,
-                  color: _slate,
-                ),
-                const SizedBox(width: 10),
-                _GlassStatCard(
-                  label: 'Pipeline',
-                  value: _fmt(summary.totalValue),
-                  icon:  Icons.trending_up_rounded,
-                  color: _teal,
-                  wide:  true,
-                ),
-              ],
+          const SizedBox(width: 16),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Quotes & Orders',
+                style: TextStyle(color: ac.textPrimary, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.8)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _amber.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _amber.withValues(alpha: 0.3)),
+              ),
+              child: Text('DOCUMENTS',
+                  style: TextStyle(color: _amber, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
             ),
-          ),
-        ],
-      ),
+          ]),
+        ]),
+        const SizedBox(height: 24),
+        Row(children: [
+          _StatChip(label: 'Quotes',   value: '${summary.totalQuotes}', color: _amber, ac: ac, isDark: isDark),
+          const SizedBox(width: 8),
+          _StatChip(label: 'Drafts',   value: '${summary.draftQuotes}', color: _slate, ac: ac, isDark: isDark),
+          const SizedBox(width: 8),
+          _StatChip(label: 'Pipeline', value: _fmt(summary.totalValue), color: _amber, ac: ac, isDark: isDark),
+        ]),
+        const SizedBox(height: 16),
+      ]),
     );
   }
 }
 
-class _GlassStatCard extends StatelessWidget {
-  final String  label;
-  final String  value;
-  final IconData icon;
-  final Color   color;
-  final bool    wide;
-  const _GlassStatCard({
-    required this.label, required this.value,
-    required this.icon,  required this.color, this.wide = false,
+class _StatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color  color;
+  final AdaptiveColors ac;
+  final bool isDark;
+  const _StatChip({
+    required this.label, required this.value, required this.color,
+    required this.ac, required this.isDark,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: wide ? 2 : 1,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 15),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white, fontSize: 18,
-                fontWeight: FontWeight.w800, letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.65),
-                fontSize: 10, fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassIconBadge extends StatelessWidget {
-  final IconData icon;
-  final Color    color;
-  const _GlassIconBadge({required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+        color: isDark ? const Color(0xFF1A2235) : ac.bgCardAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
       ),
-      child: Icon(icon, color: Colors.white, size: 22),
-    );
-  }
+      child: Column(children: [
+        Text(value,
+            style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        const SizedBox(height: 4),
+        Text(label,
+            style: TextStyle(color: ac.textSecondary, fontSize: 11, fontWeight: FontWeight.w700)),
+      ]),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -380,7 +300,7 @@ class _GlassTabBar extends StatelessWidget {
               controller: controller,
               indicator: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                    colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
                 borderRadius: BorderRadius.circular(11),
                 boxShadow: [
                   BoxShadow(

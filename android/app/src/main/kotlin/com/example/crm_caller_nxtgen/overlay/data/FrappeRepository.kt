@@ -81,7 +81,7 @@ class FrappeRepository(private val context: Context) {
     // └─ network failure           → return stale cache if available, else null
     // ─────────────────────────────────────────────────────────────────────────
 
-    private val CACHE_TTL_MS = 6L * 60 * 60 * 1000  // 6 hours
+    private val CACHE_TTL_MS = 30L * 60 * 1000  // 30 minutes — short enough to stay fresh
 
     suspend fun lookupIdentityByPhone(phone: String): CallerIdentity? = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()

@@ -18,8 +18,8 @@ abstract class SalesScreenController {
 // Brand tokens
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _amber  = Color(0xFFF59E0B);
-const _indigo = Color(0xFF6366F1);
+const _amber  = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
+const _indigo = _amber; // collapsed into the single brand blue
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quote line-item model
@@ -310,7 +310,7 @@ class _SalesScreenState extends State<SalesScreen>
           if (_tab.index == 1) {
             return FloatingActionButton.extended(
               onPressed: _showCreateOpportunityForm,
-              backgroundColor: const Color(0xFF8B5CF6),
+              backgroundColor: _indigo,
               icon: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 18),
               label: const Text('New Opportunity',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
@@ -359,111 +359,81 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top    = MediaQuery.of(context).padding.top;
+    final ac     = context.ac;
     final isDark = context.isDark;
+    final top    = MediaQuery.of(context).padding.top;
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: isDark
-              ? [const Color(0xFF0D1240), const Color(0xFF0A0F1E), const Color(0xFF110D2E)]
-              : [const Color(0xFF3730A3), const Color(0xFF4F46E5), const Color(0xFF6366F1)],
-          stops: const [0.0, 0.55, 1.0],
-        ),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(22, top + 22, 22, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-                        ),
-                        child: const Text('PIPELINE',
-                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text('Pipeline',
-                          style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1.0, height: 1.1)),
-                      const SizedBox(height: 3),
-                      Text('Leads · Opportunities',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.60), fontSize: 13)),
-                    ],
-                  ),
-                ),
-                _GlassIconBadge(icon: Icons.bar_chart_rounded, color: _indigo),
+      padding: EdgeInsets.fromLTRB(20, top + 16, 20, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF5BAAFF), _indigo, Color(0xFF1A7FD4)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: _indigo.withValues(alpha: 0.45), blurRadius: 16, offset: const Offset(0, 6)),
+                BoxShadow(color: _indigo.withValues(alpha: 0.20), blurRadius: 4, offset: const Offset(0, 2)),
               ],
             ),
+            child: const Icon(Icons.bar_chart_rounded, color: Colors.white, size: 24),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-            child: Row(children: [
-              _GlassStatCard(label: 'Open',     value: '${summary.open}',         icon: Icons.radio_button_checked_rounded, color: const Color(0xFF818CF8)),
-              const SizedBox(width: 10),
-              _GlassStatCard(label: 'Won',      value: '${summary.won}',          icon: Icons.check_circle_rounded,         color: const Color(0xFF6EE7B7)),
-              const SizedBox(width: 10),
-              _GlassStatCard(label: 'Pipeline', value: _fmt(summary.totalValue),  icon: Icons.trending_up_rounded,          color: const Color(0xFFFCD34D), wide: true),
-            ]),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlassStatCard extends StatelessWidget {
-  final String label; final String value; final IconData icon; final Color color; final bool wide;
-  const _GlassStatCard({required this.label, required this.value, required this.icon, required this.color, this.wide = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: wide ? 2 : 1,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(height: 8),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 16),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Pipeline',
+                style: TextStyle(color: ac.textPrimary, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.8)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _indigo.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _indigo.withValues(alpha: 0.3)),
+              ),
+              child: Text('LEADS · OPPORTUNITIES',
+                  style: TextStyle(color: _indigo, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+            ),
+          ]),
         ]),
-      ),
+        const SizedBox(height: 24),
+        Row(children: [
+          _StatChip(label: 'Open',     value: '${summary.open}',        color: _indigo, ac: ac, isDark: isDark),
+          const SizedBox(width: 8),
+          _StatChip(label: 'Won',      value: '${summary.won}',         color: AppColors.success, ac: ac, isDark: isDark),
+          const SizedBox(width: 8),
+          _StatChip(label: 'Pipeline', value: _fmt(summary.totalValue), color: _indigo, ac: ac, isDark: isDark),
+        ]),
+        const SizedBox(height: 16),
+      ]),
     );
   }
 }
 
-class _GlassIconBadge extends StatelessWidget {
-  final IconData icon; final Color color;
-  const _GlassIconBadge({required this.icon, required this.color});
+class _StatChip extends StatelessWidget {
+  final String label; final String value; final Color color;
+  final AdaptiveColors ac; final bool isDark;
+  const _StatChip({required this.label, required this.value, required this.color, required this.ac, required this.isDark});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+        color: isDark ? const Color(0xFF1A2235) : ac.bgCardAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
       ),
-      child: Icon(icon, color: Colors.white, size: 22),
-    );
-  }
+      child: Column(children: [
+        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(color: ac.textSecondary, fontSize: 11, fontWeight: FontWeight.w700)),
+      ]),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -490,7 +460,7 @@ class _GlassTabBar extends StatelessWidget {
         child: TabBar(
           controller: controller,
           indicator: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+            gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
             borderRadius: BorderRadius.circular(11),
             boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 3))],
           ),
@@ -2467,7 +2437,7 @@ class _CreateOppSheetState extends State<_CreateOppSheet> {
   Widget build(BuildContext context) {
     final inset  = MediaQuery.of(context).viewInsets.bottom;
     final ac     = context.ac;
-    const purple = Color(0xFF8B5CF6);
+    const purple = Color(0xFF2490EF);
     return _GlassSheet(
       child: Padding(
         padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),

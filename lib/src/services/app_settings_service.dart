@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'api_service.dart';
+import 'storage_service.dart';
 
 class AppSettings {
   final bool enableIncomingCallPopup;
@@ -9,6 +10,10 @@ class AppSettings {
   final String defaultCallDirection;
   final int  maxCallLogsFetch;
   final bool showMissedCallBadge;
+  final bool enableOfficeHours;
+  final String officeHoursStart;
+  final String officeHoursEnd;
+  final String officeHoursDays;
 
   const AppSettings({
     this.enableIncomingCallPopup = true,
@@ -18,6 +23,10 @@ class AppSettings {
     this.defaultCallDirection    = 'Inbound',
     this.maxCallLogsFetch        = 200,
     this.showMissedCallBadge     = true,
+    this.enableOfficeHours       = false,
+    this.officeHoursStart        = '09:00:00',
+    this.officeHoursEnd          = '17:00:00',
+    this.officeHoursDays         = '1,2,3,4,5',
   });
 
   static const AppSettings defaults = AppSettings();
@@ -30,6 +39,10 @@ class AppSettings {
     defaultCallDirection:    j['default_call_direction']?.toString() ?? 'Inbound',
     maxCallLogsFetch:        _i(j['max_call_logs_fetch'], def: 200),
     showMissedCallBadge:     _b(j['show_missed_call_badge'],     def: true),
+    enableOfficeHours:       _b(j['enable_office_hours'],        def: false),
+    officeHoursStart:        j['office_hours_start']?.toString() ?? '09:00:00',
+    officeHoursEnd:          j['office_hours_end']?.toString()   ?? '17:00:00',
+    officeHoursDays:         j['office_hours_days']?.toString()  ?? '1,2,3,4,5',
   );
 
   static bool _b(dynamic v, {bool def = false}) {
@@ -58,6 +71,32 @@ class AppSettingsService {
         final msg  = body['message'];
         if (msg is Map<String, dynamic>) {
           _cache = AppSettings.fromJson(msg);
+          // Whether the native overlay shows at all is now controlled from
+          // the Frappe app (Mobile App Settings), not a local toggle — mirror
+          // it into the pref the native overlay service reads.
+          await StorageService.saveOverlayEnabled(_cache.enableIncomingCallPopup);
+          await StorageService.saveOfficeHoursEnabled(_cache.enableOfficeHours);
+          
+          // Note: Frappe Time fields include seconds (09:00:00), but Flutter's 
+          // time strings are expected to be HH:mm (or HH:mm:ss is fine too, 
+          // NativeCallOverlayService parses "HH:mm"). We can just save it, 
+          // the native side handles the prefix.
+          await StorageService.saveOfficeHoursStart(_cache.officeHoursStart);
+          await StorageService.saveOfficeHoursEnd(_cache.officeHoursEnd);
+          
+          // Frappe days vs Android days mapping might need care if Frappe sends "1,2,3,4,5",
+          // The native code in Android reads `val daysStr = prefs.getString("flutter.crm_office_hours_days", "1,2,3,4,5")`
+          // and parses it by splitting on comma.
+          // Wait, `StorageService.saveOfficeHoursDays` takes `List<int> days`.
+          // We can parse the comma separated string to List<int> here.
+          final daysList = _cache.officeHoursDays
+              .split(',')
+              .map((e) => int.tryParse(e.trim()) ?? -1)
+              .where((e) => e != -1)
+              .toList();
+          if (daysList.isNotEmpty) {
+            await StorageService.saveOfficeHoursDays(daysList);
+          }
         }
       }
     } catch (_) {}
