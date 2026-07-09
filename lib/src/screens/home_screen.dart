@@ -7,7 +7,7 @@ import 'package:phone_state/phone_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:fl_chart/fl_chart.dart';
+
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/user_model.dart';
 import '../services/app_settings_service.dart';
@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool _loading = false;
   int _callsToday = 0;
-  List<double> _weeklyData = List.filled(7, 0);
   List<String> _bgLogs = [];
   String _lastHandledPhone = '';
   DateTime? _lastHandledAt;
@@ -73,18 +72,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await prefs.setInt('crm_call_count', 0);
       if (mounted) setState(() => _callsToday = 0);
     }
-    await _loadWeeklyData(prefs);
-  }
-
-  Future<void> _loadWeeklyData([SharedPreferences? existingPrefs]) async {
-    final prefs = existingPrefs ?? await SharedPreferences.getInstance();
-    final now = DateTime.now();
-    final data = List.generate(7, (i) {
-      final day = now.subtract(Duration(days: 6 - i));
-      final key = 'crm_calls_${day.toIso8601String().split('T')[0]}';
-      return (prefs.getInt(key) ?? 0).toDouble();
-    });
-    if (mounted) setState(() => _weeklyData = data);
   }
 
   Future<void> _incrementCallCount() async {
@@ -102,9 +89,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (mounted) {
       setState(() {
         _callsToday = newCount;
-        final updated = List<double>.from(_weeklyData);
-        updated[6] = newCount.toDouble();
-        _weeklyData = updated;
       });
     }
   }
@@ -331,8 +315,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               callsToday: _callsToday,
             ),
             const SizedBox(height: 16),
-            _DashboardCharts(weeklyData: _weeklyData).animate().fade(duration: 400.ms).slideY(begin: 0.1, end: 0),
-            const SizedBox(height: 16),
             _ManualLookupCard(
               controller: _phoneController,
               loading: _loading,
@@ -506,79 +488,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// DASHBOARD CHARTS
-// ════════════════════════════════════════════════════════════════════════════
-
-class _DashboardCharts extends StatelessWidget {
-  final List<double> weeklyData;
-  const _DashboardCharts({required this.weeklyData});
-
-  @override
-  Widget build(BuildContext context) {
-    final ac = context.ac;
-    final isDark = context.isDark;
-
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111827) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: ac.border),
-        boxShadow: isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'WEEKLY VOLUME',
-            style: TextStyle(
-              color: AppColors.primary.withValues(alpha: 0.85),
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: List.generate(
-                      weeklyData.length,
-                      (i) => FlSpot(i.toDouble(), weeklyData[i]),
-                    ),
-                    isCurved: true,
-                    color: AppColors.primary,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // DASHBOARD HEADER

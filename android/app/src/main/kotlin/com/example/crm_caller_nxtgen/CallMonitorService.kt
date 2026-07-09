@@ -184,9 +184,9 @@ class CallMonitorService : Service() {
             }
 
             TelephonyManager.CALL_STATE_OFFHOOK -> {
-                if (!prefs.getBoolean("crm_is_incoming_call", false)) return
                 val phone = rawPhone?.takeIf { it.isNotBlank() }
                     ?: readStoredValue(this, "crm_caller_phone")
+                    ?: readStoredValue(this, "crm_last_out_phone")
                 ContextCompat.startForegroundService(
                     this,
                     Intent(this, NativeCallOverlayService::class.java).apply {
@@ -199,13 +199,16 @@ class CallMonitorService : Service() {
             TelephonyManager.CALL_STATE_IDLE -> {
                 val wasIncoming = prefs.getBoolean("crm_is_incoming_call", false)
                 prefs.edit().remove("crm_is_incoming_call").apply()
-                if (!wasIncoming) return
 
+                val direction = if (wasIncoming) "Inbound" else "Outbound"
                 val phone = rawPhone?.takeIf { it.isNotBlank() }
                     ?: readStoredValue(this, "crm_caller_phone")
-                startService(
+                    ?: readStoredValue(this, "crm_last_out_phone")
+                ContextCompat.startForegroundService(
+                    this,
                     Intent(this, NativeCallOverlayService::class.java).apply {
                         action = NativeCallOverlayService.ACTION_CALL_ENDED
+                        putExtra("direction", direction)
                         if (!phone.isNullOrBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
                     },
                 )

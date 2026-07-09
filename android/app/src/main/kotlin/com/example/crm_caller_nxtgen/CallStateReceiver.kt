@@ -11,11 +11,12 @@ import androidx.core.content.ContextCompat
 /**
  * Listens for phone state changes and drives the overlay service.
  *
- * INCOMING-ONLY rule:
- *  - RINGING     → set incoming flag = true  → start overlay
- *  - OFFHOOK     → only notify overlay if incoming flag is still true
- *  - IDLE        → only end overlay if it was an incoming call; clear flag
- *  - NEW_OUTGOING_CALL → immediately clear incoming flag + hide any overlay
+ * Both directions are tracked so every call — inbound and outbound — gets
+ * logged:
+ *  - NEW_OUTGOING_CALL → mark session as outbound, show overlay for the number
+ *  - RINGING           → mark session as inbound,  show overlay for the caller
+ *  - OFFHOOK           → notify overlay the call is active (either direction)
+ *  - IDLE              → always end the overlay/log the call (either direction)
  *
  * Android 10+ hides EXTRA_INCOMING_NUMBER without READ_CALL_LOG; we intentionally
  * don't request that permission. If the number is null here, CallMonitorService
@@ -34,16 +35,26 @@ class CallStateReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
 
-        // ── Block outgoing calls immediately ──────────────────────────────────
+        // ── Outgoing call — show overlay so this call gets logged too ─────────
         if (intent.action == Intent.ACTION_NEW_OUTGOING_CALL) {
-            // User placed an outgoing call — make absolutely sure no overlay appears
-            clearIncomingFlag(context)
-            // If overlay is somehow running from a previous call, hide it
-            context.startService(
-                Intent(context, NativeCallOverlayService::class.java).apply {
-                    action = NativeCallOverlayService.ACTION_HIDE
-                }
-            )
+            val outPhone = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER)
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putBoolean(KEY_IS_INCOMING, false)
+                .putString("crm_last_out_phone", outPhone ?: "")
+                .apply()
+
+            if (!outPhone.isNullOrBlank() &&
+                (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context))
+            ) {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, NativeCallOverlayService::class.java).apply {
+                        action = NativeCallOverlayService.ACTION_SHOW
+                        putExtra(NativeCallOverlayService.EXTRA_PHONE, outPhone)
+                        putExtra("direction", "Outbound")
+                    },
+                )
+            }
             return
         }
 
@@ -85,12 +96,12 @@ class CallStateReceiver : BroadcastReceiver() {
 
             // ── Call answered ─────────────────────────────────────────────────
             TelephonyManager.EXTRA_STATE_OFFHOOK -> {
-                val isIncoming = prefs.getBoolean(KEY_IS_INCOMING, false)
-                if (!isIncoming) return  // outgoing call — do nothing
-
+                val activePhone = phone
+                    ?: readStoredValue(context, "crm_last_out_phone")
+                    ?: ""
                 val overlayIntent = Intent(context, NativeCallOverlayService::class.java).apply {
                     action = NativeCallOverlayService.ACTION_CALL_ACTIVE
-                    if (!phone.isNullOrBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
+                    if (activePhone.isNotBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, activePhone)
                 }
                 ContextCompat.startForegroundService(context, overlayIntent)
             }
@@ -98,19 +109,24 @@ class CallStateReceiver : BroadcastReceiver() {
             // ── Call ended / hung up ──────────────────────────────────────────
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 val wasIncoming = prefs.getBoolean(KEY_IS_INCOMING, false)
+                val direction   = if (wasIncoming) "Inbound" else "Outbound"
+                val safePhone   = phone
+                    ?: readStoredValue(context, "crm_last_out_phone")
+                    ?: ""
 
                 // Always clear the incoming flag on IDLE
                 prefs.edit()
                     .remove(KEY_IS_INCOMING)
                     .remove(KEY_LAST_STATE)
+                    .remove("crm_last_out_phone")
                     .apply()
 
-                if (!wasIncoming) return  // was outgoing — no overlay to end
-
-                context.startService(
+                ContextCompat.startForegroundService(
+                    context,
                     Intent(context, NativeCallOverlayService::class.java).apply {
                         action = NativeCallOverlayService.ACTION_CALL_ENDED
-                        if (!phone.isNullOrBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
+                        putExtra("direction", direction)
+                        if (safePhone.isNotBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, safePhone)
                     }
                 )
             }
@@ -120,13 +136,6 @@ class CallStateReceiver : BroadcastReceiver() {
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
-
-    private fun clearIncomingFlag(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_IS_INCOMING, false)
-            .apply()
-    }
 
     private fun isDuplicate(context: Context, state: String, phone: String?): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

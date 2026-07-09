@@ -8,6 +8,8 @@ import com.example.crm_caller_nxtgen.core.db.LeadEntity
 import com.example.crm_caller_nxtgen.core.db.NoteEntity
 import com.example.crm_caller_nxtgen.core.db.OpportunityEntity
 import com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity
+import com.example.crm_caller_nxtgen.overlay.domain.ItemSearchResult
+import com.example.crm_caller_nxtgen.overlay.domain.QuoteLineItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -308,13 +310,14 @@ class FrappeRepository(private val context: Context) {
 
     suspend fun createQuotation(
         identity: CallerIdentity,
-        subject: String,
-        amount: Double,
+        items: List<QuoteLineItem>,
         note: String,
+        currency: String = "",
+        validTill: String = "",
     ): String = withContext(Dispatchers.IO) {
-        val (leadDocname, partyType) = when (identity) {
-            is CallerIdentity.Lead     -> Pair(identity.docname,     "Lead")
-            is CallerIdentity.Customer -> Pair(identity.leadDocname, "Customer")
+        val (leadDocname, partyType, displayName) = when (identity) {
+            is CallerIdentity.Lead     -> Triple(identity.docname,     "Lead",     identity.name)
+            is CallerIdentity.Customer -> Triple(identity.leadDocname, "Customer", identity.name)
             else -> throw IllegalStateException("Cannot create quotation for unknown caller")
         }
 
@@ -323,13 +326,25 @@ class FrappeRepository(private val context: Context) {
                 val result = api.createQuotation(
                     leadDocname = leadDocname,
                     partyType   = partyType,
-                    subject     = subject,
-                    amount      = amount,
+                    subject     = "Quotation for $displayName",
+                    items       = items,
                     note        = note,
+                    currency    = currency,
+                    validTill   = validTill,
                 )
                 result.docname
             } else ""
         } catch (_: Exception) { "" }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SEARCH ITEMS — passthrough to the API, no local caching needed
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun searchItems(query: String): List<ItemSearchResult> = withContext(Dispatchers.IO) {
+        try {
+            api.searchItems(query)
+        } catch (_: Exception) { emptyList() }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

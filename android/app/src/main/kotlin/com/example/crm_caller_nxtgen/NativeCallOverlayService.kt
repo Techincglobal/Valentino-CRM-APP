@@ -28,6 +28,7 @@ import com.example.crm_caller_nxtgen.overlay.data.FrappeRepository
 import com.example.crm_caller_nxtgen.overlay.data.SessionTimerManager
 import com.example.crm_caller_nxtgen.overlay.data.SyncWorker
 import com.example.crm_caller_nxtgen.overlay.domain.CallPhase
+import com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity
 import com.example.crm_caller_nxtgen.overlay.domain.ComplaintPopupState
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 import com.example.crm_caller_nxtgen.overlay.domain.OverlaySideEffect
@@ -59,6 +60,8 @@ class NativeCallOverlayService : Service() {
         const val EXTRA_TYPE         = "type"
         const val EXTRA_DOCNAME      = "docname"
         const val EXTRA_FOUND        = "found"
+        const val EXTRA_EMAIL        = "email"
+        const val EXTRA_STATUS       = "status"
 
         private const val CHANNEL_ID      = "crm_caller_overlay"
         private const val NOTIFICATION_ID = 2007
@@ -139,7 +142,44 @@ class NativeCallOverlayService : Service() {
                     // Hold CPU alive for the entire call (up to 1 h)
                     if (callWakeLock?.isHeld != true) callWakeLock?.acquire(3_600_000L)
                     timerManager.reset()
-                    stateMachine.handleEvent(OverlayEvent.CallRinging(phone))
+
+                    // Opened manually from within the app (e.g. tapping a Lead in the
+                    // pipeline) with an identity we already know — use it directly
+                    // instead of re-resolving by phone number, which can wrongly
+                    // fall back to "Unknown" on a normalisation mismatch.
+                    val found   = intent.getBooleanExtra(EXTRA_FOUND, false)
+                    val type    = intent.getStringExtra(EXTRA_TYPE) ?: ""
+                    val docname = intent.getStringExtra(EXTRA_DOCNAME) ?: ""
+                    val knownIdentity = if (found && docname.isNotBlank()) {
+                        val name   = intent.getStringExtra(EXTRA_NAME) ?: ""
+                        val email  = intent.getStringExtra(EXTRA_EMAIL) ?: ""
+                        val status = intent.getStringExtra(EXTRA_STATUS) ?: "Lead"
+                        when (type) {
+                            "Customer" -> CallerIdentity.Customer(
+                                docname     = docname,
+                                leadDocname = docname,
+                                name        = name,
+                                company     = "",
+                                email       = email,
+                                phone       = phone,
+                            )
+                            else -> CallerIdentity.Lead(
+                                docname = docname,
+                                localId = "",
+                                name    = name,
+                                company = "",
+                                email   = email,
+                                phone   = phone,
+                                status  = status,
+                            )
+                        }
+                    } else null
+
+                    if (knownIdentity != null) {
+                        stateMachine.handleEvent(OverlayEvent.ShowKnownIdentity(phone, knownIdentity))
+                    } else {
+                        stateMachine.handleEvent(OverlayEvent.CallRinging(phone))
+                    }
                     ensureWindowShown()
                 }
             }
@@ -153,10 +193,11 @@ class NativeCallOverlayService : Service() {
             }
 
             ACTION_CALL_ENDED -> {
-                val phone = intent.getStringExtra(EXTRA_PHONE) ?: ""
+                val phone     = intent.getStringExtra(EXTRA_PHONE) ?: ""
+                val direction = intent.getStringExtra("direction") ?: "Inbound"
                 timerManager.stop()
                 repository.markCallEnded(phone)
-                stateMachine.handleEvent(OverlayEvent.CallEnded)
+                stateMachine.handleEvent(OverlayEvent.CallEnded(direction = direction, phone = phone))
                 updateNotification("Call ended — overlay open")
                 SyncWorker.enqueue(applicationContext)
                 // Release the long call wakelock — user still sees PostCall overlay

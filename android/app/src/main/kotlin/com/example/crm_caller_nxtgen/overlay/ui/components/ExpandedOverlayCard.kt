@@ -41,6 +41,7 @@ import com.example.crm_caller_nxtgen.overlay.data.SessionTimerManager
 import com.example.crm_caller_nxtgen.overlay.domain.ActiveSheet
 import com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity
 import com.example.crm_caller_nxtgen.overlay.domain.CallPhase
+import com.example.crm_caller_nxtgen.overlay.domain.ItemSearchResult
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayCompany
@@ -52,6 +53,7 @@ private val Red500 = Color(0xFFEF4444)
 fun ExpandedOverlayCard(
     state: OverlayState,
     durationSecs: Long,
+    itemSearchResults: List<ItemSearchResult>,
     onCollapse: () -> Unit,
     onClose: () -> Unit,
     onEvent: (OverlayEvent) -> Unit,
@@ -87,10 +89,11 @@ fun ExpandedOverlayCard(
         else -> return
     }
 
+    // Matches the type-color legend used app-wide (see AppColors in app_theme.dart)
     val accentColor = when (identity) {
-        is CallerIdentity.Unknown  -> Color(0xFFF59E0B)
-        is CallerIdentity.Customer -> Color(0xFF10B981)
-        is CallerIdentity.Lead     -> Color(0xFF6366F1)
+        is CallerIdentity.Unknown  -> Color(0xFFF59E0B) // warning amber
+        is CallerIdentity.Customer -> Color(0xFF2490EF) // brand blue
+        is CallerIdentity.Lead     -> Color(0xFF8B5CF6) // lead violet
     }
 
     val isDark = isSystemInDarkTheme()
@@ -167,10 +170,12 @@ fun ExpandedOverlayCard(
                     is CallerIdentity.Lead,
                     is CallerIdentity.Customer -> {
                         KnownContactDashboard(
-                            identity    = identity,
-                            callPhase   = callPhase,
-                            activeSheet = activeSheet,
-                            onEvent     = onEvent,
+                            identity          = identity,
+                            callPhase         = callPhase,
+                            activeSheet       = activeSheet,
+                            accentColor       = accentColor,
+                            itemSearchResults = itemSearchResults,
+                            onEvent           = onEvent,
                         )
                     }
                 }

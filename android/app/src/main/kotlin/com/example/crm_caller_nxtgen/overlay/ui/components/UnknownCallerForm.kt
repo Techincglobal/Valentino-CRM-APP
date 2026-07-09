@@ -60,11 +60,11 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 // ─────────────────────────────────────────────────────────────────────────────
 // Brand accent colours (not theme-sensitive)
 // ─────────────────────────────────────────────────────────────────────────────
-private val AccentIndigo = Color(0xFF6366F1)
+private val AccentIndigo = Color(0xFF2490EF) // brand blue (kept name for minimal diff)
 private val AccentAmber  = Color(0xFFF59E0B)
 private val AccentRed    = Color(0xFFEF4444)
 private val AccentGreen  = Color(0xFF22C55E)
-private val AccentBlue   = Color(0xFF3B82F6)
+private val AccentBlue   = AccentIndigo
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -246,7 +246,7 @@ fun UnknownCallerForm(
                 .clip(RoundedCornerShape(14.dp))
                 .background(
                     Brush.horizontalGradient(
-                        listOf(AccentIndigo, Color(0xFF8B5CF6))
+                        listOf(AccentIndigo, Color(0xFF1A7FD4))
                     )
                 )
                 .then(

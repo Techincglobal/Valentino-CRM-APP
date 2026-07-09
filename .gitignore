@@ -45,5 +45,9 @@ app.*.map.json
 /android/app/release
 /android/build
 
+# Release signing — never commit keystores or credentials
+/android/key.properties
+/android/*.jks
+/android/*.keystore
 
 /nxtgen_crm_mobile

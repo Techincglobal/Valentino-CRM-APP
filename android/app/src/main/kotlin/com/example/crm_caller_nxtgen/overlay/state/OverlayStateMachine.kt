@@ -34,8 +34,14 @@ class OverlayStateMachine(
     private val _sideEffects = Channel<OverlaySideEffect>(Channel.BUFFERED)
     val sideEffects = _sideEffects.receiveAsFlow()
 
+    private val _itemSearchResults = MutableStateFlow<List<ItemSearchResult>>(emptyList())
+    val itemSearchResults: StateFlow<List<ItemSearchResult>> = _itemSearchResults.asStateFlow()
+
     // Guard: only one lookup/submit job runs at a time
     private var activeJob: Job? = null
+
+    // Separate from activeJob so typing an item search never cancels a submit
+    private var searchJob: Job? = null
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public API
@@ -47,6 +53,33 @@ class OverlayStateMachine(
         when (event) {
 
             // ── Phone OS ──────────────────────────────────────────────────────
+
+            is OverlayEvent.ShowKnownIdentity -> {
+                // Opened manually (or from an already-resolved caller lookup) with
+                // an identity we already trust — show it immediately instead of
+                // risking a phone-number lookup falsely returning "Unknown".
+                activeJob?.cancel()
+                _state.value = OverlayState.KnownCaller(
+                    phoneNumber = event.phoneNumber,
+                    identity    = event.identity,
+                    callPhase   = CallPhase.RINGING,
+                    isExpanded  = true,
+                )
+                // Enrich in the background — the caller info we were handed may be
+                // minimal (just name/email/status); the full lookup fills in
+                // company, latest note and latest quote once it resolves.
+                activeJob = scope.launch {
+                    val enriched = runCatching { repository.lookupIdentityByPhone(event.phoneNumber) }
+                        .getOrNull()
+                    if (enriched != null) {
+                        val stillShowingSameCall = (_state.value as? OverlayState.KnownCaller)
+                            ?.phoneNumber == event.phoneNumber
+                        if (stillShowingSameCall) {
+                            transition(OverlayEvent.IdentityResolved(enriched))
+                        }
+                    }
+                }
+            }
 
             is OverlayEvent.CallRinging -> {
                 // Ignore duplicate event for the same phone number to prevent race
@@ -79,11 +112,22 @@ class OverlayStateMachine(
 
             is OverlayEvent.CallEnded -> {
                 activeJob?.cancel()
-                val phone = current.phoneNumber ?: return
+                // Fall back to the phone passed by the call-ended signal itself —
+                // needed when no overlay was ever shown (e.g. outbound calls, or
+                // the state already reset to Idle) so the call still gets logged.
+                val phone = current.phoneNumber
+                    ?: event.phone.takeIf { it.isNotBlank() }
+                    ?: return
                 val identity = current.knownIdentity ?: CallerIdentity.Unknown
                 val duration = repository.getSessionDuration(phone)
-                // PostCall stays expanded — user must explicitly close
-                _state.value = OverlayState.PostCall(phone, identity, duration, isExpanded = true)
+                // PostCall stays expanded and opens straight into the "add a note"
+                // form — the second popup the user sees right after a call ends.
+                _state.value = OverlayState.PostCall(
+                    phone, identity, duration,
+                    isExpanded  = true,
+                    activeSheet = ActiveSheet.LOG_CALL,
+                    direction   = event.direction,
+                )
             }
 
             // ── Backend results ───────────────────────────────────────────────
@@ -92,12 +136,12 @@ class OverlayStateMachine(
                 // Guard: if call ended before lookup finished, don't revert PostCall/Idle
                 if (current is OverlayState.PostCall || current is OverlayState.Idle) return
                 val phone = current.phoneNumber ?: return
-                // Always start minimised — user taps the pill to expand
+                // Pop up expanded immediately — no tiny pill the user has to tap.
                 _state.value = OverlayState.KnownCaller(
                     phoneNumber = phone,
                     identity    = event.identity,
                     callPhase   = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded  = false,
+                    isExpanded  = true,
                 )
             }
 
@@ -105,11 +149,11 @@ class OverlayStateMachine(
                 // Guard: if call ended before lookup finished, don't revert PostCall/Idle
                 if (current is OverlayState.PostCall || current is OverlayState.Idle) return
                 val phone = current.phoneNumber ?: return
-                // Always start minimised — user taps the pill to expand
+                // Pop up expanded immediately — no tiny pill the user has to tap.
                 _state.value = OverlayState.UnknownCaller(
                     phoneNumber = phone,
                     callPhase   = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded  = false,
+                    isExpanded  = true,
                 )
             }
 
@@ -366,6 +410,7 @@ class OverlayStateMachine(
             // ── Quote submission ──────────────────────────────────────────────
 
             is OverlayEvent.OpenQuoteForm -> {
+                _itemSearchResults.value = emptyList()
                 when (current) {
                     is OverlayState.KnownCaller ->
                         _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.QUOTE)
@@ -381,10 +426,23 @@ class OverlayStateMachine(
                 }
             }
 
+            is OverlayEvent.SearchItems -> {
+                searchJob?.cancel()
+                if (event.query.isBlank()) {
+                    _itemSearchResults.value = emptyList()
+                    return
+                }
+                searchJob = scope.launch {
+                    val results = runCatching { repository.searchItems(event.query) }.getOrNull()
+                    _itemSearchResults.value = results ?: emptyList()
+                }
+            }
+
             is OverlayEvent.SubmitQuote -> {
                 if (current !is OverlayState.KnownCaller) return
                 val identity = current.identity
                 if (identity is CallerIdentity.Unknown) return
+                if (event.items.isEmpty()) return
 
                 _state.value = OverlayState.SubmittingAction(
                     phoneNumber = current.phoneNumber,
@@ -394,7 +452,7 @@ class OverlayStateMachine(
                 )
                 activeJob = scope.launch {
                     val result = runCatching {
-                        repository.createQuotation(identity, event.subject, event.amount, event.note)
+                        repository.createQuotation(identity, event.items, event.note, event.currency, event.validTill)
                     }
                     result.fold(
                         onSuccess = { docname ->
@@ -465,9 +523,10 @@ class OverlayStateMachine(
             }
 
             is OverlayEvent.SubmitCallLog -> {
-                val phone    = current.phoneNumber ?: return
-                val identity = current.knownIdentity ?: CallerIdentity.Unknown
-                val duration = repository.getSessionDuration(phone)
+                val phone     = current.phoneNumber ?: return
+                val identity  = current.knownIdentity ?: CallerIdentity.Unknown
+                val duration  = repository.getSessionDuration(phone)
+                val direction = (current as? OverlayState.PostCall)?.direction ?: "Inbound"
 
                 // Close the sheet immediately so UI feels responsive
                 when (current) {
@@ -479,7 +538,7 @@ class OverlayStateMachine(
 
                 scope.launch {
                     val result = runCatching {
-                        repository.createCallLog(identity, phone, duration, event.notes, event.callType)
+                        repository.createCallLog(identity, phone, duration, event.notes, event.callType, direction)
                     }
                     if (result.isSuccess) {
                         emitEffect(OverlaySideEffect.ShowToast("Call logged ✓"))

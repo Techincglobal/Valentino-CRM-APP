@@ -223,6 +223,14 @@ class MainActivity : FlutterActivity() {
                             NativeCallOverlayService.EXTRA_FOUND,
                             data["found"] as? Boolean ?: false,
                         )
+                        putExtra(
+                            NativeCallOverlayService.EXTRA_EMAIL,
+                            data["email"] as? String ?: "",
+                        )
+                        putExtra(
+                            NativeCallOverlayService.EXTRA_STATUS,
+                            data["status"] as? String ?: "",
+                        )
                     }
                     ContextCompat.startForegroundService(this, intent)
                     result.success(true)

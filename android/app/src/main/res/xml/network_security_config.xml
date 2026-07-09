@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Allow cleartext HTTP and user-installed CA certs (corporate self-signed).
-         Android <domain> elements match literal hostnames, not CIDR ranges, so LAN/VPN
-         IP ranges cannot be enumerated here. As an enterprise CRM deployed on controlled
-         networks, the IT team is responsible for restricting which server URLs agents use. -->
+    <!-- Cleartext HTTP is allowed for internal/LAN Frappe deployments that don't
+         terminate TLS. Only system-installed (OS-trusted) CAs are trusted — NOT
+         user-installed certs. Trusting user certs lets any locally-installed root
+         (including ones an attacker tricks a user into installing) intercept all
+         app traffic, which is one of the most heavily weighted signals Google Play
+         Protect uses to flag malicious/MITM-style apps. If a deployment needs a
+         corporate self-signed cert, bundle that specific CA under res/raw and
+         reference it here explicitly instead of trusting arbitrary user certs. -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system"/>
-            <certificates src="user"/>
         </trust-anchors>
     </base-config>
 </network-security-config>

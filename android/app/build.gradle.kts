@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -32,14 +34,28 @@ android {
         versionName = flutter.versionName
     }
 
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+    }
+
     signingConfigs {
         create("release") {
-            // Set these via environment variables or a local.properties file — never commit keys.
+            // Set these via key.properties, environment variables or a local.properties file — never commit keys.
             // keytool -genkey -v -keystore release.jks -alias crm_caller -keyalg RSA -keysize 2048 -validity 10000
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: (rootProject.projectDir.absolutePath + "/release.jks")
-            val keystorePass = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            val envKeyAlias = System.getenv("KEY_ALIAS") ?: "crm_caller"
-            val envKeyPass = System.getenv("KEY_PASSWORD") ?: ""
+            val keystorePath = keystoreProperties.getProperty("storeFile")
+                ?: System.getenv("KEYSTORE_PATH")
+                ?: (rootProject.projectDir.absolutePath + "/release.jks")
+            val keystorePass = keystoreProperties.getProperty("storePassword")
+                ?: System.getenv("KEYSTORE_PASSWORD")
+                ?: ""
+            val envKeyAlias = keystoreProperties.getProperty("keyAlias")
+                ?: System.getenv("KEY_ALIAS")
+                ?: "crm_caller"
+            val envKeyPass = keystoreProperties.getProperty("keyPassword")
+                ?: System.getenv("KEY_PASSWORD")
+                ?: ""
             storeFile = file(keystorePath)
             storePassword = keystorePass
             keyAlias = envKeyAlias
@@ -55,7 +71,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (System.getenv("KEYSTORE_PATH") != null) {
+            signingConfig = if (keystorePropertiesFile.exists() || System.getenv("KEYSTORE_PATH") != null) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
@@ -71,7 +87,7 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     
-    val room_version = "2.6.1"
+    val room_version = "2.8.4"
     implementation("androidx.room:room-runtime:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
     implementation("androidx.room:room-ktx:$room_version")

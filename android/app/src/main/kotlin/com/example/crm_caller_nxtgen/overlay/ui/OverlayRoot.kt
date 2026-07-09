@@ -39,7 +39,7 @@ import androidx.compose.material3.Text
 // Colour schemes — dark and light, chosen at runtime via isSystemInDarkTheme()
 // ─────────────────────────────────────────────────────────────────────────────
 val OverlayThemeDark = darkColorScheme(
-    primary          = Color(0xFF6366F1),
+    primary          = Color(0xFF5BAAFF),
     secondary        = Color(0xFF60A5FA),
     tertiary         = Color(0xFF34D399),
     error            = Color(0xFFEF4444),
@@ -51,7 +51,7 @@ val OverlayThemeDark = darkColorScheme(
 )
 
 val OverlayThemeLight = lightColorScheme(
-    primary          = Color(0xFF4F46E5),
+    primary          = Color(0xFF2490EF),
     secondary        = Color(0xFF3B82F6),
     tertiary         = Color(0xFF10B981),
     error            = Color(0xFFEF4444),
@@ -70,8 +70,9 @@ fun OverlayRoot(
     onDrag: (dx: Float, dy: Float) -> Unit,
     onDragEnd: () -> Unit,
 ) {
-    val state        by stateMachine.state.collectAsState()
-    val durationSecs by timerManager.durationSeconds.collectAsState()
+    val state             by stateMachine.state.collectAsState()
+    val durationSecs      by timerManager.durationSeconds.collectAsState()
+    val itemSearchResults by stateMachine.itemSearchResults.collectAsState()
 
     val isDark = isSystemInDarkTheme()
     MaterialTheme(colorScheme = if (isDark) OverlayThemeDark else OverlayThemeLight) {
@@ -94,6 +95,7 @@ fun OverlayRoot(
                         ExpandedOverlayCard(
                             state        = currentState,
                             durationSecs = durationSecs,
+                            itemSearchResults = itemSearchResults,
                             onCollapse   = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onEvent      = { stateMachine.handleEvent(it) },
@@ -102,7 +104,7 @@ fun OverlayRoot(
                         MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
+                                                        onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onDrag       = onDrag,
                             onDragEnd    = onDragEnd,
@@ -119,6 +121,7 @@ fun OverlayRoot(
                         ExpandedOverlayCard(
                             state        = currentState,
                             durationSecs = durationSecs,
+                            itemSearchResults = itemSearchResults,
                             onCollapse   = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onEvent      = { stateMachine.handleEvent(it) },
@@ -127,7 +130,7 @@ fun OverlayRoot(
                         MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
+                                                        onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onDrag       = onDrag,
                             onDragEnd    = onDragEnd,
@@ -153,6 +156,7 @@ fun OverlayRoot(
                         ExpandedOverlayCard(
                             state        = currentState,
                             durationSecs = durationSecs,
+                            itemSearchResults = itemSearchResults,
                             onCollapse   = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onEvent      = { stateMachine.handleEvent(it) },
@@ -161,7 +165,7 @@ fun OverlayRoot(
                         MinimizedTopPill(
                             state        = currentState,
                             durationSecs = durationSecs,
-                            onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
+                                                        onExpand     = { stateMachine.handleEvent(OverlayEvent.ToggleExpand) },
                             onClose      = onClose,
                             onDrag       = onDrag,
                             onDragEnd    = onDragEnd,
@@ -191,7 +195,7 @@ private fun LoadingBubble() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CircularProgressIndicator(
-                color       = Color(0xFF6366F1),
+                color       = Color(0xFF2490EF),
                 modifier    = Modifier.size(18.dp),
                 strokeWidth = 2.5.dp,
             )
@@ -219,7 +223,7 @@ private fun SubmittingBubble(label: String) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CircularProgressIndicator(
-                color       = Color(0xFF6366F1),
+                color       = Color(0xFF2490EF),
                 modifier    = Modifier.size(18.dp),
                 strokeWidth = 2.5.dp,
             )

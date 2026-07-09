@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/caller_service.dart';
+import '../services/native_call_service.dart';
 import '../services/sales_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/skeleton_loader.dart';
@@ -663,12 +664,71 @@ class _LeadCard extends StatelessWidget {
                   ]),
                 ),
               ])),
+              if (lead.mobile.isNotEmpty) ...[
+                _LeadIconAction(
+                  icon: Icons.info_outline_rounded,
+                  color: color,
+                  tooltip: 'Open CRM popup',
+                  onTap: () => NativeCallService.showOverlayFor(
+                    phone:   lead.mobile,
+                    name:    lead.displayName,
+                    type:    'Lead',
+                    docname: lead.name,
+                    found:   true,
+                    email:   lead.email,
+                    status:  lead.status,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _LeadIconAction(
+                  icon: Icons.call_rounded,
+                  color: AppColors.success,
+                  tooltip: 'Call ${lead.displayName}',
+                  onTap: () => NativeCallService.makeOutgoingCall(lead.mobile),
+                ),
+              ],
             ]),
             const SizedBox(height: 12),
             _GlassCTAButton(icon: Icons.trending_up_rounded, label: 'Convert to Opportunity', color: _indigo, onTap: () => onConvert(lead)),
           ]),
         ),
       ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Small circular icon action button used on Lead cards (call / open popup)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LeadIconAction extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _LeadIconAction({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 34, height: 34,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withValues(alpha: 0.30)),
+          ),
+          child: Icon(icon, color: color, size: 16),
+        ),
+      ),
     );
   }
 }

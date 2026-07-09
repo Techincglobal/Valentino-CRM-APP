@@ -3,6 +3,27 @@ package com.example.crm_caller_nxtgen.overlay.domain
 import java.util.UUID
 
 // ─────────────────────────────────────────────────────────────────────────────
+// QUOTATION LINE ITEMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A catalogue item returned by the item search API. */
+data class ItemSearchResult(
+    val itemCode: String,
+    val itemName: String,
+    val rate: Double,
+)
+
+/** One line on a quotation being built in the overlay. */
+data class QuoteLineItem(
+    val itemCode: String,
+    val itemName: String,
+    val qty: Double,
+    val rate: Double,
+) {
+    val amount: Double get() = qty * rate
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CALLER IDENTITY
 // Who is on the other end of the call.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,6 +166,7 @@ sealed class OverlayState {
         val durationSeconds: Long,
         val isExpanded: Boolean = true,
         val activeSheet: ActiveSheet = ActiveSheet.NONE,
+        val direction: String = "Inbound",
     ) : OverlayState()
 }
 
@@ -206,8 +228,14 @@ sealed class OverlayEvent {
 
     // Phone OS
     data class CallRinging(val phoneNumber: String) : OverlayEvent()
+    // Overlay opened manually from within the app (e.g. tapping a Lead in the
+    // pipeline) with an already-known identity — skips the phone-number
+    // lookup entirely instead of re-resolving and risking a false "Unknown".
+    data class ShowKnownIdentity(val phoneNumber: String, val identity: CallerIdentity) : OverlayEvent()
     object CallAnswered : OverlayEvent()
-    object CallEnded : OverlayEvent()
+    // phone/direction let the state machine log the call even when no overlay
+    // was ever shown (e.g. outbound calls, or state already reset to Idle).
+    data class CallEnded(val direction: String = "Inbound", val phone: String = "") : OverlayEvent()
 
     // Backend results
     data class IdentityResolved(val identity: CallerIdentity) : OverlayEvent()
@@ -257,10 +285,12 @@ sealed class OverlayEvent {
 
     // Quotation
     object OpenQuoteForm : OverlayEvent()
+    data class SearchItems(val query: String) : OverlayEvent()
     data class SubmitQuote(
-        val subject: String,
-        val amount: Double,
+        val items: List<QuoteLineItem>,
         val note: String = "",
+        val currency: String = "",
+        val validTill: String = "",
     ) : OverlayEvent()
     data class QuoteCreated(val docname: String) : OverlayEvent()
 

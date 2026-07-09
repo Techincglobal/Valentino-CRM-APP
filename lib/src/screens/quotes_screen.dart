@@ -2145,10 +2145,27 @@ class _NewQuoteSheet extends StatefulWidget {
   State<_NewQuoteSheet> createState() => _NewQuoteSheetState();
 }
 
+class _QuoteLineDraft {
+  final itemCodeCtrl = TextEditingController();
+  final qtyCtrl      = TextEditingController(text: '1');
+  final rateCtrl     = TextEditingController();
+  String itemName    = '';
+  List<FrappeItem> suggestions = [];
+  bool searching     = false;
+
+  double get qty    => double.tryParse(qtyCtrl.text.trim()) ?? 0;
+  double get rate   => double.tryParse(rateCtrl.text.trim()) ?? 0;
+  double get amount => qty * rate;
+
+  void dispose() {
+    itemCodeCtrl.dispose();
+    qtyCtrl.dispose();
+    rateCtrl.dispose();
+  }
+}
+
 class _NewQuoteSheetState extends State<_NewQuoteSheet> {
   final _searchCtrl  = TextEditingController();
-  final _subjectCtrl = TextEditingController();
-  final _amountCtrl  = TextEditingController();
   final _noteCtrl    = TextEditingController();
 
   List<CrmLead> _suggestions = [];
@@ -2156,11 +2173,21 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
   bool          _searching   = false;
   String        _partyType   = 'Lead';
   String        _currency    = 'LKR';
+  String        _validTill   = '';
   bool          _busy        = false;
   String?       _error;
   String?       _leadError;
-  String?       _subjectError;
-  String?       _amountError;
+
+  String  _company          = '';
+  String  _sellingPriceList = '';
+  bool    _fetchingDefaults = false;
+
+  final List<_QuoteLineDraft> _items = [_QuoteLineDraft()];
+
+  List<_QuoteLineDraft> get _validItems =>
+      _items.where((d) => d.itemCodeCtrl.text.trim().isNotEmpty && d.qty > 0).toList();
+  double get _totalQty   => _validItems.fold(0.0, (s, d) => s + d.qty);
+  double get _grandTotal => _validItems.fold(0.0, (s, d) => s + d.amount);
 
   @override
   void initState() {
@@ -2168,13 +2195,71 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
     _searchLeads('');
   }
 
+  /// Pulls the real company/currency/price-list defaults for the selected
+  /// lead from Frappe, instead of guessing with a hardcoded currency.
+  Future<void> _fetchQuotationDefaults() async {
+    final lead = _selected;
+    if (lead == null) return;
+    setState(() => _fetchingDefaults = true);
+    try {
+      final defaults = await SalesServiceOps.getQuotationDefaults(
+        leadDocname: lead.name,
+        partyType:   _partyType,
+      );
+      if (!mounted) return;
+      setState(() {
+        _company          = defaults.company;
+        _sellingPriceList = defaults.sellingPriceList;
+        if (defaults.currency.isNotEmpty) _currency = defaults.currency;
+        _fetchingDefaults = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _fetchingDefaults = false);
+    }
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
-    _subjectCtrl.dispose();
-    _amountCtrl.dispose();
     _noteCtrl.dispose();
+    for (final item in _items) {
+      item.dispose();
+    }
     super.dispose();
+  }
+
+  void _addItemRow() => setState(() => _items.add(_QuoteLineDraft()));
+
+  void _removeItemRow(int index) => setState(() {
+        _items[index].dispose();
+        _items.removeAt(index);
+      });
+
+  /// Empty query still hits the backend — it returns a browse-all list
+  /// (matching the "%%" wildcard server-side), same UX as the Lead search
+  /// showing an initial list before the user types anything.
+  Future<void> _searchItemsFor(_QuoteLineDraft draft, String query) async {
+    setState(() => draft.searching = true);
+    final results = await SalesServiceOps.searchItems(query.trim());
+    if (!mounted) return;
+    setState(() {
+      draft.suggestions = results;
+      draft.searching   = false;
+    });
+  }
+
+  Future<void> _pickValidTill() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) {
+      setState(() => _validTill =
+          '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+    }
   }
 
   Future<void> _searchLeads(String q) async {
@@ -2198,19 +2283,15 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
   }
 
   Future<void> _submit() async {
-    setState(() { _leadError = null; _subjectError = null; _amountError = null; _error = null; });
+    setState(() { _leadError = null; _error = null; });
 
     if (_selected == null) {
       setState(() => _leadError = 'Select a lead first');
       return;
     }
-    if (_subjectCtrl.text.trim().isEmpty) {
-      setState(() => _subjectError = 'Subject is required');
-      return;
-    }
-    final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0;
-    if (amount < 0) {
-      setState(() => _amountError = 'Enter a valid amount');
+    final validItems = _validItems;
+    if (validItems.isEmpty) {
+      setState(() => _error = 'Add at least one item');
       return;
     }
 
@@ -2219,10 +2300,18 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
       await SalesService.createQuotation(
         leadDocname: _selected!.name,
         partyType:   _partyType,
-        subject:     _subjectCtrl.text.trim(),
-        amount:      amount,
+        subject:     'Quotation for ${_selected!.displayName}',
+        amount:      _grandTotal,
         note:        _noteCtrl.text.trim(),
         currency:    _currency,
+        validTill:   _validTill,
+        sellingPriceList: _sellingPriceList,
+        items: validItems.map((d) => {
+          'item_code': d.itemCodeCtrl.text.trim(),
+          'item_name': d.itemName.isNotEmpty ? d.itemName : d.itemCodeCtrl.text.trim(),
+          'qty':       d.qty,
+          'rate':      d.rate,
+        }).toList(),
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -2297,7 +2386,9 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
               const SizedBox(height: 12),
             ],
 
-            // Party type toggle
+            // ── Party & Lead ─────────────────────────────────────────────────
+            Text('PARTY', style: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+            const SizedBox(height: 10),
             Text('Party Type', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
             const SizedBox(height: 8),
             Row(children: ['Lead', 'Customer'].map((t) {
@@ -2305,7 +2396,10 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
               return Expanded(child: Padding(
                 padding: EdgeInsets.only(right: t == 'Lead' ? 6 : 0, left: t == 'Customer' ? 6 : 0),
                 child: GestureDetector(
-                  onTap: () => setState(() => _partyType = t),
+                  onTap: () {
+                    setState(() => _partyType = t);
+                    if (_selected != null) _fetchQuotationDefaults();
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
@@ -2325,15 +2419,24 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
             const SizedBox(height: 8),
             if (_selected != null)
               GestureDetector(
-                onTap: () => setState(() { _selected = null; _searchCtrl.clear(); _searchLeads(''); }),
+                onTap: () => setState(() { _selected = null; _company = ''; _sellingPriceList = ''; _searchCtrl.clear(); _searchLeads(''); }),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(color: _amber.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(12), border: Border.all(color: _amber.withValues(alpha: 0.40))),
                   child: Row(children: [
                     const Icon(Icons.person_rounded, color: _amber, size: 16),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(_selected!.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600))),
-                    Icon(Icons.close_rounded, color: ac.textSecondary, size: 16),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_selected!.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600)),
+                      if (_fetchingDefaults)
+                        Text('Fetching company defaults…', style: TextStyle(color: ac.textSecondary, fontSize: 11))
+                      else if (_company.isNotEmpty)
+                        Text(_company, style: TextStyle(color: ac.textSecondary, fontSize: 11)),
+                    ])),
+                    if (_fetchingDefaults)
+                      SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: _amber))
+                    else
+                      Icon(Icons.close_rounded, color: ac.textSecondary, size: 16),
                   ]),
                 ),
               )
@@ -2373,7 +2476,10 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
                       final l = _suggestions[i];
                       return InkWell(
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () => setState(() { _selected = l; _suggestions = []; }),
+                        onTap: () {
+                          setState(() { _selected = l; _suggestions = []; });
+                          _fetchQuotationDefaults();
+                        },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2387,79 +2493,106 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
                   ),
                 ),
             ],
+            const SizedBox(height: 20),
+
+            // ── Pricing ──────────────────────────────────────────────────────
+            Text('PRICING', style: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+            const SizedBox(height: 10),
+            Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+            const SizedBox(height: 8),
+            Row(children: ['USD', 'LKR', 'EUR', 'GBP', 'INR'].map((code) {
+              final sel = code == _currency;
+              return Expanded(child: Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: GestureDetector(
+                  onTap: _busy ? null : () => setState(() => _currency = code),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: sel ? _amber.withValues(alpha: 0.15) : ac.bgInput,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: sel ? _amber.withValues(alpha: 0.50) : ac.border),
+                    ),
+                    child: Center(child: Text(code, style: TextStyle(color: sel ? _amber : ac.textSecondary, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, fontSize: 12))),
+                  ),
+                ),
+              ));
+            }).toList()),
             const SizedBox(height: 14),
 
-            // Subject
-            Text('Subject *', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _subjectCtrl,
-              enabled: !_busy,
-              onChanged: (_) => setState(() => _subjectError = null),
-              style: TextStyle(color: ac.textPrimary, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'e.g. Proposal for Q3 supply',
-                hintStyle: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 13),
-                errorText: _subjectError,
-                filled: true, fillColor: ac.bgInput,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _amber, width: 1.5)),
+            // Valid Till
+            GestureDetector(
+              onTap: _busy ? null : _pickValidTill,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(color: ac.bgInput, borderRadius: BorderRadius.circular(12), border: Border.all(color: ac.border)),
+                child: Row(children: [
+                  Icon(Icons.calendar_today_rounded, size: 15, color: _amber),
+                  const SizedBox(width: 10),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Valid Till', style: TextStyle(color: ac.textSecondary, fontSize: 9, fontWeight: FontWeight.w700)),
+                    Text(_validTill.isEmpty ? 'Tap to set an expiry date' : _validTill,
+                        style: TextStyle(color: _validTill.isEmpty ? ac.textSecondary : ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+                  ]),
+                ]),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 20),
 
-            // Currency + Amount row
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Currency dropdown
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Currency', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-                const SizedBox(height: 8),
+            // ── Items — table style: No. | Item Code | Qty | Rate | Amount ────
+            Text('ITEMS', style: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: ac.border)),
+              child: Column(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  decoration: BoxDecoration(color: ac.bgInput, borderRadius: BorderRadius.circular(12), border: Border.all(color: ac.border)),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _currency,
-                      dropdownColor: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-                      style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-                      items: const [
-                        DropdownMenuItem(value: 'LKR', child: Text('LKR')),
-                        DropdownMenuItem(value: 'USD', child: Text('USD')),
-                        DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                        DropdownMenuItem(value: 'GBP', child: Text('GBP')),
-                        DropdownMenuItem(value: 'INR', child: Text('INR')),
-                        DropdownMenuItem(value: 'AED', child: Text('AED')),
-                      ],
-                      onChanged: _busy ? null : (v) { if (v != null) setState(() => _currency = v); },
-                    ),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(color: ac.bgInput, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+                  child: Row(children: [
+                    SizedBox(width: 20, child: Text('No.', style: TextStyle(color: ac.textSecondary, fontSize: 9, fontWeight: FontWeight.w700))),
+                    Expanded(child: Text('Item Code', style: TextStyle(color: ac.textSecondary, fontSize: 9, fontWeight: FontWeight.w700))),
+                    SizedBox(width: 44, child: Text('Qty', style: TextStyle(color: ac.textSecondary, fontSize: 9, fontWeight: FontWeight.w700))),
+                    SizedBox(width: 64, child: Text('Rate ($_currency)', style: TextStyle(color: ac.textSecondary, fontSize: 9, fontWeight: FontWeight.w700))),
+                    SizedBox(width: 68, child: Text('Amount ($_currency)', style: TextStyle(color: ac.textSecondary, fontSize: 9, fontWeight: FontWeight.w700))),
+                  ]),
                 ),
+                for (var i = 0; i < _items.length; i++) ...[
+                  if (i > 0) Divider(height: 1, color: ac.border),
+                  _QuoteItemRow(
+                    rowNumber: i + 1,
+                    draft: _items[i],
+                    ac: ac,
+                    isDark: isDark,
+                    onChanged: () => setState(() {}),
+                    onQueryChanged: (q) => _searchItemsFor(_items[i], q),
+                    onPick: (item) => setState(() {
+                      _items[i].itemCodeCtrl.text = item.itemCode;
+                      _items[i].itemName = item.itemName;
+                      if (item.standardRate > 0) _items[i].rateCtrl.text = item.standardRate.toStringAsFixed(2);
+                      _items[i].suggestions = [];
+                    }),
+                    onRemove: _items.length > 1 ? () => _removeItemRow(i) : null,
+                  ),
+                ],
               ]),
-              const SizedBox(width: 12),
-              // Amount
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Total Amount', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _amountCtrl,
-                  enabled: !_busy,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() => _amountError = null),
-                  style: TextStyle(color: ac.textPrimary, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: '0.00',
-                    hintStyle: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 13),
-                    errorText: _amountError,
-                    filled: true, fillColor: ac.bgInput,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: ac.border)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _amber, width: 1.5)),
-                  ),
-                ),
-              ])),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _busy ? null : _addItemRow,
+              icon: const Icon(Icons.add_rounded, color: _amber, size: 16),
+              label: const Text('Add Item', style: TextStyle(color: _amber, fontWeight: FontWeight.w600, fontSize: 12)),
+            ),
+            const SizedBox(height: 8),
+
+            // Totals
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Total Quantity', style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+              Text('$_totalQty', style: TextStyle(color: ac.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 4),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Grand Total', style: TextStyle(color: ac.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+              Text('$_currency ${_grandTotal.toStringAsFixed(2)}', style: const TextStyle(color: _amber, fontSize: 16, fontWeight: FontWeight.w800)),
             ]),
             const SizedBox(height: 14),
 
@@ -2511,6 +2644,151 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
             ]),
           ]),
         )),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One row inside the New Quote items table (No. | Item Code | Qty | Rate | Amount)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _QuoteItemRow extends StatelessWidget {
+  final int rowNumber;
+  final _QuoteLineDraft draft;
+  final AdaptiveColors ac;
+  final bool isDark;
+  final VoidCallback onChanged;
+  final void Function(String) onQueryChanged;
+  final void Function(FrappeItem) onPick;
+  final VoidCallback? onRemove;
+
+  const _QuoteItemRow({
+    required this.rowNumber,
+    required this.draft,
+    required this.ac,
+    required this.isDark,
+    required this.onChanged,
+    required this.onQueryChanged,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          SizedBox(width: 20, child: Text('$rowNumber', style: TextStyle(color: ac.textSecondary, fontSize: 12))),
+          SizedBox(
+            width: 44,
+            child: TextField(
+              controller: draft.qtyCtrl,
+              onChanged: (_) => onChanged(),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: ac.textPrimary, fontSize: 12),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true, fillColor: ac.bgInput,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 64,
+            child: TextField(
+              controller: draft.rateCtrl,
+              onChanged: (_) => onChanged(),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: ac.textPrimary, fontSize: 12),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true, fillColor: ac.bgInput,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 68,
+            child: Text(
+              draft.amount.toStringAsFixed(2),
+              style: const TextStyle(color: _amber, fontSize: 12, fontWeight: FontWeight.w700),
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (onRemove != null)
+            SizedBox(
+              width: 22,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 14,
+                icon: Icon(Icons.close_rounded, color: ac.textSecondary),
+                onPressed: onRemove,
+              ),
+            ),
+        ]),
+        const SizedBox(height: 6),
+        Focus(
+          // Fetch a browse-all list the moment the field is focused —
+          // matches the Lead search, which shows results before typing.
+          onFocusChange: (hasFocus) {
+            if (hasFocus && draft.itemCodeCtrl.text.trim().isEmpty) {
+              onQueryChanged('');
+            }
+          },
+          child: TextField(
+            controller: draft.itemCodeCtrl,
+            onChanged: onQueryChanged,
+            style: TextStyle(color: ac.textPrimary, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: draft.itemName.isNotEmpty ? draft.itemName : 'Search item…',
+              hintStyle: TextStyle(color: ac.textSecondary.withValues(alpha: 0.60), fontSize: 12),
+              isDense: true,
+              filled: true, fillColor: ac.bgInput,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: ac.border)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: ac.border)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _amber, width: 1.5)),
+            ),
+          ),
+        ),
+        if (draft.searching)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: _amber))),
+          )
+        else if (draft.suggestions.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            constraints: const BoxConstraints(maxHeight: 140),
+            decoration: BoxDecoration(color: ac.bgInput, borderRadius: BorderRadius.circular(10), border: Border.all(color: ac.border)),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: draft.suggestions.length,
+              itemBuilder: (_, i) {
+                final item = draft.suggestions[i];
+                return InkWell(
+                  onTap: () => onPick(item),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(item.itemCode, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                      Text(
+                        item.standardRate > 0 ? '${item.itemName} · ${item.standardRate.toStringAsFixed(2)}' : item.itemName,
+                        style: TextStyle(color: ac.textSecondary, fontSize: 11),
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                      ),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
       ]),
     );
   }

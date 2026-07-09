@@ -66,8 +66,8 @@ fun CircularBubble(
     val accentColor by animateColorAsState(
         targetValue = when (identity) {
             is CallerIdentity.Unknown  -> Color(0xFFF59E0B) // Amber
-            is CallerIdentity.Customer -> Color(0xFF10B981) // Emerald
-            is CallerIdentity.Lead     -> Color(0xFF6366F1) // Indigo
+            is CallerIdentity.Customer -> Color(0xFF2490EF) // brand blue
+            is CallerIdentity.Lead     -> Color(0xFF8B5CF6) // lead violet
         },
         animationSpec = tween(300),
         label = "bubbleAccent",

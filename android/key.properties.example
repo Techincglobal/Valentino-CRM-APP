@@ -1,0 +1,26 @@
+## Copy this file to android/key.properties (already gitignored) and fill in
+## the values from the release keystore you generate. Never commit the real
+## key.properties or the .jks file — see the instructions below.
+##
+## Generate the keystore (run this yourself so the password never touches
+## chat history, logs, or shell history in plaintext):
+##
+##   cd android
+##   keytool -genkey -v -keystore release.jks -alias crm_caller \
+##     -keyalg RSA -keysize 2048 -validity 10000
+##
+## keytool will prompt you interactively for the store password, key
+## password, and identity fields — type them in, don't pass them as flags.
+##
+## Back up release.jks and these passwords somewhere durable (password
+## manager / secure vault). If you lose them, you can NEVER publish an
+## update to this app under the same signing identity again — Play Store
+## (and most MDM/enterprise stores) require the same signing cert for every
+## update to a given applicationId.
+
+## NOTE: storeFile is resolved relative to android/app/, not android/ — since
+## you generated release.jks inside android/, the path needs the ../ prefix.
+storeFile=../release.jks
+storePassword=CHANGE_ME
+keyAlias=crm_caller
+keyPassword=CHANGE_ME

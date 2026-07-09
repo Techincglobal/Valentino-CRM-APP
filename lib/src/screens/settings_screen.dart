@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
@@ -35,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   String _serverUrl = '';
   bool   _loading   = true;
+  List<double> _weeklyData = List.filled(7, 0);
 
   @override
   void initState() {
@@ -45,10 +48,22 @@ class _SettingsScreenState extends State<SettingsScreen>
   Future<void> _loadSettings() async {
     final url = await StorageService.getBaseUrl();
     if (!mounted) return;
+    await _loadWeeklyData();
     setState(() {
       _serverUrl = url ?? '';
       _loading   = false;
     });
+  }
+
+  Future<void> _loadWeeklyData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final data = List.generate(7, (i) {
+      final day = now.subtract(Duration(days: 6 - i));
+      final key = 'crm_calls_${day.toIso8601String().split('T')[0]}';
+      return (prefs.getInt(key) ?? 0).toDouble();
+    });
+    if (mounted) setState(() => _weeklyData = data);
   }
 
 
@@ -95,6 +110,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                         child: Center(child: CircularProgressIndicator(color: _indigo, strokeWidth: 2)),
                       )
                     else ...[
+                      // ── Analytics ───────────────────────────────────────
+                      _DashboardCharts(weeklyData: _weeklyData),
+                      const SizedBox(height: 24),
                       // ── Server section ──────────────────────────────────
                       _SectionLabel('CRM SERVER'),
                       const SizedBox(height: 8),
@@ -547,6 +565,80 @@ class _GlassDialog extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DASHBOARD CHARTS
+// ════════════════════════════════════════════════════════════════════════════
+
+class _DashboardCharts extends StatelessWidget {
+  final List<double> weeklyData;
+  const _DashboardCharts({required this.weeklyData});
+
+  @override
+  Widget build(BuildContext context) {
+    final ac = context.ac;
+    final isDark = context.isDark;
+
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: ac.border),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'WEEKLY VOLUME',
+            style: TextStyle(
+              color: AppColors.primary.withValues(alpha: 0.85),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: List.generate(
+                      weeklyData.length,
+                      (i) => FlSpot(i.toDouble(), weeklyData[i]),
+                    ),
+                    isCurved: true,
+                    color: AppColors.primary,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

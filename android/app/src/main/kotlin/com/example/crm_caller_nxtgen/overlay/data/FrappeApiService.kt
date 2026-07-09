@@ -3,12 +3,15 @@ package com.example.crm_caller_nxtgen.overlay.data
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.example.crm_caller_nxtgen.overlay.domain.ItemSearchResult
+import com.example.crm_caller_nxtgen.overlay.domain.QuoteLineItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -400,18 +403,33 @@ class FrappeApiService(private val context: Context) {
         leadDocname: String,
         partyType: String,    // "Lead" or "Customer"
         subject: String,
-        amount: Double,
+        items: List<QuoteLineItem>,
         note: String,
+        currency: String = "",
+        validTill: String = "",
     ): FrappeQuotationResult = withContext(Dispatchers.IO) {
         val config = getConfig()
         if (!config.isValid) throw IllegalStateException("Frappe not configured")
+
+        val itemsJson = JSONArray().apply {
+            items.forEach { item ->
+                put(JSONObject().apply {
+                    put("item_code", item.itemCode)
+                    put("item_name", item.itemName)
+                    put("qty",       item.qty)
+                    put("rate",      item.rate)
+                })
+            }
+        }
 
         val body = JSONObject().apply {
             put("lead_docname", leadDocname)
             put("party_type",   partyType)
             put("subject",      subject)
-            put("amount",       amount)
+            put("items",        itemsJson)
             put("note",         note)
+            if (currency.isNotBlank())  put("currency",   currency)
+            if (validTill.isNotBlank()) put("valid_till",  validTill)
         }
 
         val request = Request.Builder()
@@ -430,6 +448,41 @@ class FrappeApiService(private val context: Context) {
         val data = JSONObject(response.body?.string() ?: "{}")
         val msg  = data.optJSONObject("message") ?: data
         FrappeQuotationResult(docname = msg.optString("name", ""))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SEARCH ITEMS — GET /api/method/nxtgen_crm_mobile.api.search_items
+    // Powers the item-code autocomplete in the quotation form.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun searchItems(query: String): List<ItemSearchResult> = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.isValid) return@withContext emptyList()
+
+        val url = "${config.serverUrl}/api/method/nxtgen_crm_mobile.api.search_items" +
+            "?query=${query.encodeUrl()}&limit=20"
+
+        val request = Request.Builder()
+            .url(url)
+            .header("Cookie", config.cookieHeader)
+            .header("Content-Type", "application/json")
+            .get()
+            .build()
+
+        return@withContext try {
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val bodyStr = response.body?.string() ?: return@withContext emptyList()
+            val arr = JSONObject(bodyStr).optJSONArray("message") ?: return@withContext emptyList()
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                ItemSearchResult(
+                    itemCode = obj.optString("name"),
+                    itemName = obj.optString("item_name").ifBlank { obj.optString("name") },
+                    rate     = obj.optDouble("standard_rate", 0.0),
+                )
+            }
+        } catch (_: Exception) { emptyList() }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

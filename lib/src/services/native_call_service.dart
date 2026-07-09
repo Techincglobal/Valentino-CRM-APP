@@ -19,4 +19,37 @@ class NativeCallService {
     final uri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
+
+  /// Manually shows the CRM overlay popup for a specific contact — used to
+  /// open the same identity card from within the app (e.g. from a Lead in
+  /// the pipeline) without an actual phone call happening.
+  static Future<void> showOverlayFor({
+    required String phone,
+    required String name,
+    String type = 'Lead',
+    String docname = '',
+    bool found = true,
+    String email = '',
+    String status = '',
+  }) async {
+    if (phone.isEmpty) return;
+    try {
+      await _channel.invokeMethod('showNativeOverlay', {
+        'phone': phone,
+        'name': name,
+        'type': type,
+        'docname': docname,
+        'found': found,
+        'email': email,
+        'status': status,
+      });
+    } catch (_) {}
+  }
+
+  /// Closes the CRM overlay popup if it is currently showing.
+  static Future<void> hideOverlay() async {
+    try {
+      await _channel.invokeMethod('hideNativeOverlay');
+    } catch (_) {}
+  }
 }
