@@ -59,12 +59,16 @@ class _MainShellState extends State<MainShell> {
   void _onTap(int i) {
     if (i == _index) return;
     setState(() => _index = i);
-    if (i == 1) {
+    if (i == 0) {
+      (_homeKey.currentState as HomeScreenController?)?.refreshCallStats();
+    } else if (i == 1) {
       (_callLogsKey.currentState as CallLogsScreenController?)?.refreshLogs();
     } else if (i == 2) {
       (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
     } else if (i == 4) {
       (_quotesKey.currentState as QuotesScreenController?)?.refreshQuotes();
+    } else if (i == 5) {
+      (_settingsKey.currentState as SettingsScreenController?)?.refreshWeeklyData();
     }
   }
 

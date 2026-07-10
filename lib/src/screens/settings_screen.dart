@@ -22,6 +22,10 @@ const _violet  = _indigo; // collapsed into the single brand blue
 // SettingsScreen
 // ─────────────────────────────────────────────────────────────────────────────
 
+abstract class SettingsScreenController {
+  void refreshWeeklyData();
+}
+
 class SettingsScreen extends StatefulWidget {
   final UserModel user;
   const SettingsScreen({super.key, required this.user});
@@ -31,7 +35,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin
+    implements SettingsScreenController {
   @override
   bool get wantKeepAlive => true;
 
@@ -64,6 +69,11 @@ class _SettingsScreenState extends State<SettingsScreen>
       return (prefs.getInt(key) ?? 0).toDouble();
     });
     if (mounted) setState(() => _weeklyData = data);
+  }
+
+  @override
+  void refreshWeeklyData() {
+    _loadWeeklyData();
   }
 
 
