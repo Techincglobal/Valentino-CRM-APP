@@ -110,6 +110,10 @@ class OverlayStateMachine(
                 _state.value = current.withCallPhase(CallPhase.ACTIVE)
             }
 
+            is OverlayEvent.AnswerCall -> {
+                emitEffect(OverlaySideEffect.AnswerCall)
+            }
+
             is OverlayEvent.CallEnded -> {
                 activeJob?.cancel()
                 // Fall back to the phone passed by the call-ended signal itself —
@@ -128,6 +132,20 @@ class OverlayStateMachine(
                     activeSheet = ActiveSheet.LOG_CALL,
                     direction   = event.direction,
                 )
+
+                // Log the call immediately, with no notes — every call gets a
+                // backend record whether or not the user ever touches the note
+                // form that just opened. Submitting notes later PATCHes this
+                // same record instead of creating a second one.
+                activeJob = scope.launch {
+                    val ref = runCatching {
+                        repository.createCallLog(identity, phone, duration, "", "Regular", event.direction)
+                    }.getOrNull()
+                    val stillSamePostCall = (_state.value as? OverlayState.PostCall)?.phoneNumber == phone
+                    if (ref != null && stillSamePostCall) {
+                        _state.value = (_state.value as OverlayState.PostCall).copy(callLogRef = ref)
+                    }
+                }
             }
 
             // ── Backend results ───────────────────────────────────────────────
@@ -513,20 +531,14 @@ class OverlayStateMachine(
 
             // ── Call logging ──────────────────────────────────────────────────
 
-            is OverlayEvent.OpenLogCallForm -> {
-                when (current) {
-                    is OverlayState.KnownCaller   -> _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.LOG_CALL)
-                    is OverlayState.PostCall      -> _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.LOG_CALL)
-                    is OverlayState.UnknownCaller -> _state.value = current.copy(isExpanded = true, activeSheet = ActiveSheet.LOG_CALL)
-                    else -> {}
-                }
-            }
-
             is OverlayEvent.SubmitCallLog -> {
-                val phone     = current.phoneNumber ?: return
-                val identity  = current.knownIdentity ?: CallerIdentity.Unknown
-                val duration  = repository.getSessionDuration(phone)
-                val direction = (current as? OverlayState.PostCall)?.direction ?: "Inbound"
+                val phone      = current.phoneNumber ?: return
+                val identity   = current.knownIdentity ?: CallerIdentity.Unknown
+                val duration   = repository.getSessionDuration(phone)
+                val direction  = (current as? OverlayState.PostCall)?.direction ?: "Inbound"
+                // If CallEnded already auto-logged this call, patch that record
+                // with the notes instead of creating a duplicate log.
+                val existingRef = (current as? OverlayState.PostCall)?.callLogRef
 
                 // Close the sheet immediately so UI feels responsive
                 when (current) {
@@ -538,7 +550,11 @@ class OverlayStateMachine(
 
                 scope.launch {
                     val result = runCatching {
-                        repository.createCallLog(identity, phone, duration, event.notes, event.callType, direction)
+                        if (existingRef != null) {
+                            repository.updateCallLogNotes(existingRef, event.notes)
+                        } else {
+                            repository.createCallLog(identity, phone, duration, event.notes, event.callType, direction)
+                        }
                     }
                     if (result.isSuccess) {
                         emitEffect(OverlaySideEffect.ShowToast("Call logged ✓"))

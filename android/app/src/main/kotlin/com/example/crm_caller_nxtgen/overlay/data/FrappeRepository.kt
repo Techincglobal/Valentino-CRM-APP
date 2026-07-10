@@ -7,6 +7,7 @@ import com.example.crm_caller_nxtgen.core.db.ComplaintEntity
 import com.example.crm_caller_nxtgen.core.db.LeadEntity
 import com.example.crm_caller_nxtgen.core.db.NoteEntity
 import com.example.crm_caller_nxtgen.core.db.OpportunityEntity
+import com.example.crm_caller_nxtgen.overlay.domain.CallLogRef
 import com.example.crm_caller_nxtgen.overlay.domain.CallerIdentity
 import com.example.crm_caller_nxtgen.overlay.domain.ItemSearchResult
 import com.example.crm_caller_nxtgen.overlay.domain.QuoteLineItem
@@ -408,7 +409,7 @@ class FrappeRepository(private val context: Context) {
         notes: String,
         callType: String,
         direction: String = "Inbound",
-    ): Unit = withContext(Dispatchers.IO) {
+    ): CallLogRef = withContext(Dispatchers.IO) {
         val phone = when (identity) {
             is CallerIdentity.Lead     -> identity.phone
             is CallerIdentity.Customer -> identity.phone
@@ -440,8 +441,12 @@ class FrappeRepository(private val context: Context) {
         db.callLogDao().insert(entity)
 
         // Best-effort network sync — if offline or config missing, SyncWorker retries later
-        if (!api.getConfig().isValid) return@withContext
+        if (!api.getConfig().isValid) return@withContext CallLogRef(localId = entity.id)
         try {
+            // Stale CSRF tokens are the most common silent-failure cause for a
+            // background-service POST — refresh eagerly rather than relying on
+            // the 403-retry path, since this call fires right as a call ends.
+            api.refreshCsrfToken()
             val remote = api.createCallLog(
                 phone           = phone,
                 callerName      = callerName,
@@ -455,7 +460,29 @@ class FrappeRepository(private val context: Context) {
                 frappeDocname = remote.docname,
                 isSynced      = true,
             ))
-        } catch (_: Exception) { /* SyncWorker retries unsynced call logs */ }
+            CallLogRef(localId = entity.id, frappeDocname = remote.docname)
+        } catch (_: Exception) {
+            // SyncWorker retries unsynced call logs — still return the local
+            // ref so a later note can at least update the local row.
+            CallLogRef(localId = entity.id)
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UPDATE CALL LOG NOTES — patches the log created by createCallLog above
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun updateCallLogNotes(ref: CallLogRef, notes: String) = withContext(Dispatchers.IO) {
+        val local = db.callLogDao().getById(ref.localId)
+        if (local != null) db.callLogDao().update(local.copy(notes = notes, isSynced = local.isSynced && ref.frappeDocname.isNotBlank()))
+
+        if (ref.frappeDocname.isNotBlank() && api.getConfig().isValid) {
+            try {
+                api.refreshCsrfToken()
+                api.updateCallLog(ref.frappeDocname, notes)
+                local?.let { db.callLogDao().update(it.copy(notes = notes, isSynced = true)) }
+            } catch (_: Exception) { /* stays unsynced locally; user can retry via edit screen */ }
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package com.example.crm_caller_nxtgen.overlay.ui.components
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
@@ -47,7 +49,8 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
 import com.example.crm_caller_nxtgen.overlay.domain.displayCompany
 import com.example.crm_caller_nxtgen.overlay.domain.displayName
 
-private val Red500 = Color(0xFFEF4444)
+private val Red500   = Color(0xFFEF4444)
+private val Green500 = Color(0xFF10B981)
 
 @Composable
 fun ExpandedOverlayCard(
@@ -93,7 +96,7 @@ fun ExpandedOverlayCard(
     val accentColor = when (identity) {
         is CallerIdentity.Unknown  -> Color(0xFFF59E0B) // warning amber
         is CallerIdentity.Customer -> Color(0xFF2490EF) // brand blue
-        is CallerIdentity.Lead     -> Color(0xFF8B5CF6) // lead violet
+        is CallerIdentity.Lead     -> Color(0xFF2490EF) // brand blue
     }
 
     val isDark = isSystemInDarkTheme()
@@ -142,6 +145,7 @@ fun ExpandedOverlayCard(
                     isDark       = isDark,
                     onCollapse   = onCollapse,
                     onClose      = onClose,
+                    onAnswer     = { onEvent(OverlayEvent.AnswerCall) },
                 )
             }
 
@@ -202,7 +206,9 @@ private fun CardHeader(
     isDark: Boolean,
     onCollapse: () -> Unit,
     onClose: () -> Unit,
+    onAnswer: () -> Unit,
 ) {
+  Column {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -320,6 +326,26 @@ private fun CardHeader(
             TimerChip(callPhase, durationSecs, accentColor)
         }
     }
+
+    // Prominent full-width Answer button — only while the phone is ringing.
+    if (callPhase == CallPhase.RINGING) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 14.dp)
+                .height(46.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Green500)
+                .clickable { onAnswer() },
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment     = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Answer", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+  }
 }
 
 private fun buildInitials(name: String): String {

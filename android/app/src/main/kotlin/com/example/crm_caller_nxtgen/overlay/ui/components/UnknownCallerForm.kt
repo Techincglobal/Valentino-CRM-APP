@@ -296,14 +296,6 @@ fun UnknownCallerForm(
                 Spacer(Modifier.width(4.dp))
                 Text("Log a Ticket", color = AccentRed.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Medium)
             }
-            TextButton(
-                onClick  = { onEvent(OverlayEvent.OpenLogCallForm) },
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(Icons.Default.Phone, null, tint = AccentBlue.copy(alpha = 0.75f), modifier = Modifier.size(13.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Log Call", color = AccentBlue.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Medium)
-            }
         }
 
         // ── Log Call inline form ──────────────────────────────────────────────

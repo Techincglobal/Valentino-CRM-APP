@@ -8,6 +8,10 @@
          READ_CALL_LOG is NOT requested — call history is stored in Frappe, not read from the device. -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
+    <!-- Lets the "Answer" button on the overlay pick up a ringing call directly,
+         without the user needing to switch to the system dialer UI. -->
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS"/>
+
     <!-- Overlay: displays CRM caller-identity sheet over the incoming call screen.
          User must explicitly grant this in System Settings → Special App Access. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
@@ -90,18 +94,17 @@
                 android:value="CRM Call Monitor: Runs persistently to detect incoming calls and display CRM overlay for sales agents even when the app is in the background." />
         </service>
 
-        <!--
-            WhatsAppCallMonitor: NotificationListenerService that detects WhatsApp /
-            WhatsApp Business incoming call notifications and shows the CRM overlay.
-            Requires the user to grant Notification Access in system settings.
-        -->
+        <!-- CrmCallScreeningService: the Google-sanctioned way to get the real incoming
+             number on Android 10+ without READ_CALL_LOG (which Play Protect flags as a
+             stalkerware indicator). Only active once the user grants this app the system
+             "Caller ID & spam blocking" role — same mechanism Truecaller/Hiya use. This
+             service never blocks/rejects calls, it only reads the number. -->
         <service
-            android:name="com.example.crm_caller_nxtgen.WhatsAppCallMonitor"
-            android:exported="true"
-            android:label="CRM WhatsApp Call Monitor"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            android:name="com.example.crm_caller_nxtgen.CrmCallScreeningService"
+            android:permission="android.permission.BIND_SCREENING_SERVICE"
+            android:exported="true">
             <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService"/>
+                <action android:name="android.telecom.CallScreeningService"/>
             </intent-filter>
         </service>
 
@@ -139,6 +142,16 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Package-visibility allowlist (Android 11+): without this, canLaunchUrl()
+             for tel: URIs silently returns false and the Call button does nothing. -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
         </intent>
     </queries>
 

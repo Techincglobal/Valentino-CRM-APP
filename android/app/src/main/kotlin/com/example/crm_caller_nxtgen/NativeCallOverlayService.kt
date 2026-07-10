@@ -492,9 +492,29 @@ class NativeCallOverlayService : Service() {
                             vib?.vibrate(50)
                         }
                     }
+
+                    is OverlaySideEffect.AnswerCall -> answerRingingCall()
                 }
             }
         }
+    }
+
+    /** Picks up the currently ringing call via TelecomManager — lets the user
+     *  answer from the overlay's "Answer" button without touching the system
+     *  dialer UI. No-ops safely if the permission isn't granted. */
+    private fun answerRingingCall() {
+        try {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ANSWER_PHONE_CALLS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                Toast.makeText(applicationContext, "Grant Phone permission to answer from here", Toast.LENGTH_SHORT).show()
+                return
+            }
+            val telecomManager = getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager
+            telecomManager?.acceptRingingCall()
+        } catch (_: SecurityException) {
+            Toast.makeText(applicationContext, "Couldn't answer — grant Phone permission", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) { }
     }
 
     private fun observeStateForWindowFlags() {

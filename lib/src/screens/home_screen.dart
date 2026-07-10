@@ -335,6 +335,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 16),
             const _OverlayPermissionCard(),
             const SizedBox(height: 16),
+            const _CallScreeningPermissionCard(),
+            const SizedBox(height: 16),
             const _RecentNotesWidget(),
             if (_bgLogs.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -1064,6 +1066,125 @@ class _OverlayPermissionCardState extends State<_OverlayPermissionCard>
             child: AppButton(
               label: 'Grant Permission',
               icon: Icons.security_rounded,
+              onTap: _request,
+              color: AppColors.warning,
+              colorEnd: const Color(0xFFD97706),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CALL SCREENING ROLE CARD
+//
+// Android 10+ strips the real incoming number from the phone-state broadcast
+// unless the app holds READ_CALL_LOG (a permission Play Protect flags as a
+// stalkerware indicator) or this system role — the sanctioned mechanism apps
+// like Truecaller/Hiya use to get caller ID. Without it, incoming calls show
+// "Hidden" and can't be matched to a Lead/Opportunity.
+// ════════════════════════════════════════════════════════════════════════════
+
+class _CallScreeningPermissionCard extends StatefulWidget {
+  const _CallScreeningPermissionCard();
+
+  @override
+  State<_CallScreeningPermissionCard> createState() => _CallScreeningPermissionCardState();
+}
+
+class _CallScreeningPermissionCardState extends State<_CallScreeningPermissionCard>
+    with WidgetsBindingObserver {
+  bool _granted = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check();
+  }
+
+  Future<void> _check() async {
+    if (!Platform.isAndroid) {
+      if (mounted) setState(() => _granted = true);
+      return;
+    }
+    try {
+      final granted =
+          await _nativeOverlayChannel.invokeMethod<bool>('isCallScreeningRoleHeld') ??
+          false;
+      if (mounted) setState(() => _granted = granted);
+    } catch (_) {
+      if (mounted) setState(() => _granted = false);
+    }
+  }
+
+  Future<void> _request() async {
+    try {
+      await _nativeOverlayChannel.invokeMethod('requestCallScreeningRole');
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_granted) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.contact_phone_rounded,
+                    color: AppColors.warning, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Caller ID Permission Required',
+                style: TextStyle(
+                  color: context.ac.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Set this app as your Caller ID & spam blocking app so incoming numbers can be matched to a Lead or Opportunity instead of showing "Hidden".',
+            style: TextStyle(
+                color: context.ac.textSecondary, fontSize: 13, height: 1.5),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              label: 'Grant Permission',
+              icon: Icons.contact_phone_rounded,
               onTap: _request,
               color: AppColors.warning,
               colorEnd: const Color(0xFFD97706),

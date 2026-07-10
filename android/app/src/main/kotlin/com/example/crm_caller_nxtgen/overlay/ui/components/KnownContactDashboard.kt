@@ -81,7 +81,6 @@ import com.example.crm_caller_nxtgen.overlay.domain.displayName
 // as neutral so the surface feels calm rather than a rainbow of buttons.
 private val Emerald500 = Color(0xFF10B981)
 private val Red500     = Color(0xFFEF4444)
-private val Slate400   = Color(0xFF94A3B8)
 
 @Composable
 fun KnownContactDashboard(
@@ -241,13 +240,6 @@ fun KnownContactDashboard(
                 accentColor = Red500,
                 modifier    = Modifier.weight(1f),
                 onClick     = { onEvent(OverlayEvent.OpenComplaintPopup) },
-            )
-            SecondaryActionButton(
-                label       = "Log Call",
-                icon        = Icons.Default.Phone,
-                accentColor = Slate400,
-                modifier    = Modifier.weight(1f),
-                onClick     = { onEvent(OverlayEvent.OpenLogCallForm) },
             )
         }
     }

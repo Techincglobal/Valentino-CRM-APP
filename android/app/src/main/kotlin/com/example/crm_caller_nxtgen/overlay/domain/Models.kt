@@ -23,6 +23,17 @@ data class QuoteLineItem(
     val amount: Double get() = qty * rate
 }
 
+/**
+ * Points at a Mobile Call Log record that was auto-created the instant a call
+ * ended — [localId] is the Room primary key (always present), [frappeDocname]
+ * is set once/if the immediate network sync succeeded (empty otherwise, in
+ * which case SyncWorker will eventually push the local row).
+ */
+data class CallLogRef(
+    val localId: String,
+    val frappeDocname: String = "",
+)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CALLER IDENTITY
 // Who is on the other end of the call.
@@ -167,6 +178,9 @@ sealed class OverlayState {
         val isExpanded: Boolean = true,
         val activeSheet: ActiveSheet = ActiveSheet.NONE,
         val direction: String = "Inbound",
+        // Set once the call has been auto-logged (see OverlayStateMachine.CallEnded).
+        // The "add a note" form patches this record rather than creating a new one.
+        val callLogRef: CallLogRef? = null,
     ) : OverlayState()
 }
 
@@ -233,6 +247,8 @@ sealed class OverlayEvent {
     // lookup entirely instead of re-resolving and risking a false "Unknown".
     data class ShowKnownIdentity(val phoneNumber: String, val identity: CallerIdentity) : OverlayEvent()
     object CallAnswered : OverlayEvent()
+    /** User tapped "Answer" on the overlay while the phone is ringing. */
+    object AnswerCall : OverlayEvent()
     // phone/direction let the state machine log the call even when no overlay
     // was ever shown (e.g. outbound calls, or state already reset to Idle).
     data class CallEnded(val direction: String = "Inbound", val phone: String = "") : OverlayEvent()
@@ -295,7 +311,6 @@ sealed class OverlayEvent {
     data class QuoteCreated(val docname: String) : OverlayEvent()
 
     // Call logging
-    object OpenLogCallForm : OverlayEvent()
     data class SubmitCallLog(
         val notes: String,
         val callType: String = "Regular",
@@ -349,4 +364,6 @@ sealed class OverlaySideEffect {
     object PipelineRefreshNeeded : OverlaySideEffect()
     /** Notify Flutter to refresh the Call Logs tab. */
     object CallLogSaved : OverlaySideEffect()
+    /** Answer the ringing call via TelecomManager. */
+    object AnswerCall : OverlaySideEffect()
 }

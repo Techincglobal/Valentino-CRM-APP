@@ -52,4 +52,23 @@ class NativeCallService {
       await _channel.invokeMethod('hideNativeOverlay');
     } catch (_) {}
   }
+
+  /// Whether this app currently holds the system "Caller ID & spam blocking"
+  /// role — required on Android 10+ to learn the real incoming number without
+  /// READ_CALL_LOG (which Play Protect flags as a stalkerware indicator).
+  static Future<bool> isCallScreeningRoleHeld() async {
+    try {
+      return await _channel.invokeMethod<bool>('isCallScreeningRoleHeld') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the system prompt letting the user grant this app the call
+  /// screening role.
+  static Future<void> requestCallScreeningRole() async {
+    try {
+      await _channel.invokeMethod('requestCallScreeningRole');
+    } catch (_) {}
+  }
 }

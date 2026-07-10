@@ -1,6 +1,7 @@
 package com.example.crm_caller_nxtgen
 
 import android.Manifest
+import android.app.role.RoleManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -160,6 +161,28 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val REQUEST_PERMISSIONS = 42
+        private const val REQUEST_CALL_SCREENING_ROLE = 43
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Call screening role (real caller-ID number without READ_CALL_LOG)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun isCallScreeningRoleHeld(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        val roleManager = getSystemService(Context.ROLE_SERVICE) as? RoleManager ?: return false
+        return roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+    }
+
+    private fun requestCallScreeningRole() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val roleManager = getSystemService(Context.ROLE_SERVICE) as? RoleManager ?: return
+        if (!roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) return
+        if (roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) return
+        startActivityForResult(
+            roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING),
+            REQUEST_CALL_SCREENING_ROLE,
+        )
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -196,6 +219,15 @@ class MainActivity : FlutterActivity() {
                             ),
                         )
                     }
+                    result.success(true)
+                }
+
+                "isCallScreeningRoleHeld" -> {
+                    result.success(isCallScreeningRoleHeld())
+                }
+
+                "requestCallScreeningRole" -> {
+                    requestCallScreeningRole()
                     result.success(true)
                 }
 

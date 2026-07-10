@@ -151,7 +151,7 @@ class _SalesScreenState extends State<SalesScreen>
     super.dispose();
   }
 
-  Future<void> _loadFromApi() async {
+  Future<void> _loadFromApi({Opportunity? mustKeep}) async {
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
@@ -159,8 +159,15 @@ class _SalesScreenState extends State<SalesScreen>
         SalesService.getLeads(),
       ]);
       if (!mounted) return;
-      final opps  = results[0] as List<Opportunity>;
+      var opps  = results[0] as List<Opportunity>;
       final leads = results[1] as List<CrmLead>;
+      // Guard against a just-created record not showing up yet in the
+      // authoritative refetch (replication/permission-index lag) — without
+      // this, the optimistic insert flashes on screen then disappears the
+      // moment this refresh lands.
+      if (mustKeep != null && !opps.any((o) => o.name == mustKeep.name)) {
+        opps = [mustKeep, ...opps];
+      }
       setState(() {
         _opps    = opps;
         _leads   = leads;
@@ -196,7 +203,7 @@ class _SalesScreenState extends State<SalesScreen>
         });
         _tab.animateTo(1);
         Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) _loadFromApi();
+          if (mounted) _loadFromApi(mustKeep: opp);
         });
       }),
     );
@@ -225,9 +232,10 @@ class _SalesScreenState extends State<SalesScreen>
           });
           _tab.animateTo(1);
           // Delay the refresh so Frappe has time to commit the new record
-          // before we fetch the list — avoids the race that wipes the optimistic insert.
+          // before we fetch the list — mustKeep guards against it still being
+          // absent from that refetch (replication/permission-index lag).
           Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) _loadFromApi();
+            if (mounted) _loadFromApi(mustKeep: opp);
           });
         },
       ),
@@ -566,6 +574,16 @@ class _LeadCard extends StatelessWidget {
     );
   }
 
+  void _showInfo(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => _LeadInfoSheet(lead: lead, color: _color),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (lead.status == 'Converted') return _buildCompact(context);
@@ -615,6 +633,22 @@ class _LeadCard extends StatelessWidget {
             Text('Converted', style: TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.w700)),
           ]),
         ),
+        if (lead.mobile.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          _LeadIconAction(
+            icon: Icons.info_outline_rounded,
+            color: const Color(0xFF059669),
+            tooltip: 'View CRM info',
+            onTap: () => _showInfo(context),
+          ),
+          const SizedBox(width: 6),
+          _LeadIconAction(
+            icon: Icons.call_rounded,
+            color: const Color(0xFF059669),
+            tooltip: 'Call ${lead.displayName}',
+            onTap: () => NativeCallService.makeOutgoingCall(lead.mobile),
+          ),
+        ],
       ]),
     );
   }
@@ -668,16 +702,8 @@ class _LeadCard extends StatelessWidget {
                 _LeadIconAction(
                   icon: Icons.info_outline_rounded,
                   color: color,
-                  tooltip: 'Open CRM popup',
-                  onTap: () => NativeCallService.showOverlayFor(
-                    phone:   lead.mobile,
-                    name:    lead.displayName,
-                    type:    'Lead',
-                    docname: lead.name,
-                    found:   true,
-                    email:   lead.email,
-                    status:  lead.status,
-                  ),
+                  tooltip: 'View CRM info',
+                  onTap: () => _showInfo(context),
                 ),
                 const SizedBox(width: 8),
                 _LeadIconAction(
@@ -729,6 +755,99 @@ class _LeadIconAction extends StatelessWidget {
           child: Icon(icon, color: color, size: 16),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lead info showcase — read-only CRM details, opened in-app instead of the
+// native call overlay (that overlay is reserved for live/real calls).
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LeadInfoSheet extends StatelessWidget {
+  final CrmLead lead;
+  final Color   color;
+  const _LeadInfoSheet({required this.lead, required this.color});
+
+  String get _lastUpdated {
+    if (lead.modified.isEmpty) return '—';
+    return lead.modified.length >= 16 ? lead.modified.substring(0, 16) : lead.modified;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassSheet(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SheetHandle(),
+            _SheetHeader(
+              icon: Icons.person_rounded,
+              color: color,
+              title: lead.displayName,
+              subtitle: lead.status.isEmpty ? 'Lead' : lead.status,
+            ),
+            const SizedBox(height: 20),
+            _InfoRow(icon: Icons.call_rounded, label: 'Mobile', value: lead.mobile.isEmpty ? '—' : lead.mobile),
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.email_rounded, label: 'Email', value: lead.email.isEmpty ? '—' : lead.email),
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.update_rounded, label: 'Last Updated', value: _lastUpdated),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: _GlassOutlineBtn(label: 'Close', onTap: () => Navigator.pop(context))),
+              if (lead.mobile.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: _GlassFillBtn(
+                  label: 'Call ${lead.displayName}',
+                  icon:  Icons.call_rounded,
+                  color: AppColors.success,
+                  onTap: () {
+                    Navigator.pop(context);
+                    NativeCallService.makeOutgoingCall(lead.mobile);
+                  },
+                )),
+              ],
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final String   value;
+  const _InfoRow({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final ac     = context.ac;
+    final isDark = context.isDark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+      ),
+      child: Row(children: [
+        Icon(icon, color: ac.textSecondary, size: 16),
+        const SizedBox(width: 10),
+        Text(label, style: TextStyle(color: ac.textSecondary, fontSize: 12.5, fontWeight: FontWeight.w600)),
+        const Spacer(),
+        Flexible(
+          child: Text(value,
+              textAlign: TextAlign.right,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+      ]),
     );
   }
 }

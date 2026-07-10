@@ -77,7 +77,7 @@ fun MiniOverlayPill(
         targetValue = when (identity) {
             is CallerIdentity.Unknown  -> Color(0xFFFBBF24) // Amber — caution
             is CallerIdentity.Customer -> Color(0xFF2490EF) // brand blue — VIP
-            is CallerIdentity.Lead     -> Color(0xFF8B5CF6) // lead violet — known lead
+            is CallerIdentity.Lead     -> Color(0xFF2490EF) // brand blue — known lead
         },
         animationSpec = tween(300),
         label = "accentColor",

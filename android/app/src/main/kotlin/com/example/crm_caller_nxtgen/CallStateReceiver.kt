@@ -114,12 +114,23 @@ class CallStateReceiver : BroadcastReceiver() {
                     ?: readStoredValue(context, "crm_last_out_phone")
                     ?: ""
 
-                // Always clear the incoming flag on IDLE
+                // Always clear the incoming flag on IDLE. Critically, also clear
+                // crm_caller_phone/crm_caller_name/etc — these are written by the
+                // Flutter-side phone_state listener as the only way native code can
+                // learn the incoming number on Android 12+ (TelephonyCallback no
+                // longer exposes it, and this app deliberately doesn't request
+                // READ_CALL_LOG). If left stale, a lagging Flutter listener on the
+                // NEXT call causes native to fall back to the PREVIOUS caller's
+                // number/identity — e.g. showing a friend's popup when your dad calls.
                 prefs.edit()
                     .remove(KEY_IS_INCOMING)
                     .remove(KEY_LAST_STATE)
                     .remove("crm_last_out_phone")
                     .apply()
+                clearStoredValue(context, "crm_caller_phone")
+                clearStoredValue(context, "crm_caller_name")
+                clearStoredValue(context, "crm_caller_type")
+                clearStoredValue(context, "crm_caller_docname")
 
                 ContextCompat.startForegroundService(
                     context,
@@ -180,5 +191,13 @@ internal fun writeStoredBool(context: Context, key: String, value: Boolean) {
     prefs.edit()
         .putBoolean(key, value)
         .putBoolean("flutter.$key", value)
+        .apply()
+}
+
+internal fun clearStoredValue(context: Context, key: String) {
+    val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+    prefs.edit()
+        .remove(key)
+        .remove("flutter.$key")
         .apply()
 }

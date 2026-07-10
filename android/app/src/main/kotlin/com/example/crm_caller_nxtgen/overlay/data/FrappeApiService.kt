@@ -530,6 +530,39 @@ class FrappeApiService(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // UPDATE CALL LOG  →  nxtgen_crm_mobile.api.update_call_log
+    // Patches an already-created Mobile Call Log with notes entered after the
+    // fact — the log itself is created the instant the call ends so every call
+    // is captured even if the user never opens the "add a note" popup.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun updateCallLog(
+        name: String,
+        notes: String,
+    ): Unit = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+
+        val body = JSONObject().apply {
+            put("name",  name)
+            put("notes", notes)
+        }
+
+        val request = Request.Builder()
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.update_call_log")
+            .header("Cookie", config.cookieHeader)
+            .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
+            .post(body.toString().toRequestBody(JSON))
+            .build()
+
+        val response = executePost(request)
+        if (!response.isSuccessful) {
+            throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // ADD NOTE  →  nxtgen_crm_mobile.api.add_call_note
     // ─────────────────────────────────────────────────────────────────────────
 

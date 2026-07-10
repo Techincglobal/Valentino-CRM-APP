@@ -212,6 +212,15 @@ class CallMonitorService : Service() {
                         if (!phone.isNullOrBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
                     },
                 )
+
+                // Clear the cached caller identity now that this call is over — otherwise
+                // a lagging Flutter phone_state listener on the NEXT call causes native to
+                // fall back to THIS call's number/identity (e.g. showing the previous
+                // caller's popup for a brand-new, different incoming number).
+                clearStoredValue(this, "crm_caller_phone")
+                clearStoredValue(this, "crm_caller_name")
+                clearStoredValue(this, "crm_caller_type")
+                clearStoredValue(this, "crm_caller_docname")
             }
         }
     }
