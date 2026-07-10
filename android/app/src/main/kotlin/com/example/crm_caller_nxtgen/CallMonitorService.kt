@@ -215,13 +215,24 @@ class CallMonitorService : Service() {
             TelephonyManager.CALL_STATE_IDLE -> {
                 if (!callSessionActive) return  // synthetic initial callback — no real call happened
                 callSessionActive = false
+                // Deliberately NOT cleared here — CallStateReceiver's IDLE handler reads this
+                // same key independently (both fire for one real hangup), and whichever ran
+                // first clearing it would make the other always read the false default,
+                // permanently mislabeling every other call's direction. It's safe to leave
+                // as-is: the NEXT call always overwrites it fresh via RINGING (true) or
+                // ACTION_NEW_OUTGOING_CALL (false) before reaching IDLE again.
                 val wasIncoming = prefs.getBoolean("crm_is_incoming_call", false)
-                prefs.edit().remove("crm_is_incoming_call").apply()
 
                 val direction = if (wasIncoming) "Inbound" else "Outbound"
                 val phone = rawPhone?.takeIf { it.isNotBlank() }
                     ?: readStoredValue(this, "crm_caller_phone")
                     ?: readStoredValue(this, "crm_last_out_phone")
+                    // Last resort for outgoing calls: ACTION_NEW_OUTGOING_CALL no longer
+                    // reaches third-party receivers on recent Android, so crm_last_out_phone
+                    // is never set. READ_CALL_LOG (already held) also grants read access to
+                    // the CallLog provider — query it directly instead.
+                    ?: (if (!wasIncoming) queryLastOutgoingNumber(this) else null)
+                android.util.Log.d("CrmMonitor", "CallMonitorService IDLE resolved: phone=$phone direction=$direction wasIncoming=$wasIncoming rawPhone=$rawPhone")
                 ContextCompat.startForegroundService(
                     this,
                     Intent(this, NativeCallOverlayService::class.java).apply {

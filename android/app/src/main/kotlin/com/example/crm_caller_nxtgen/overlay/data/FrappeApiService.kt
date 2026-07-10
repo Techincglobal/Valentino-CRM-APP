@@ -185,7 +185,7 @@ class FrappeApiService(private val context: Context) {
 
     suspend fun lookupLeadByPhone(phone: String): FrappeLeadResult? = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) return@withContext null
+        if (!config.hasSession) return@withContext null
 
         val url = "${config.serverUrl}/api/method/nxtgen_crm_mobile.api.get_caller_details" +
             "?caller_number=${normalisePhone(phone).encodeUrl()}"
@@ -264,7 +264,7 @@ class FrappeApiService(private val context: Context) {
         note: String,
     ): FrappeLeadResult = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
 
         val body = JSONObject().apply {
             put("first_name", name)
@@ -331,7 +331,7 @@ class FrappeApiService(private val context: Context) {
         note: String,
     ): FrappeOpportunityResult = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
 
         val body = JSONObject().apply {
             put("lead_docname",       leadDocname)
@@ -371,7 +371,7 @@ class FrappeApiService(private val context: Context) {
         phone: String,
     ): FrappeComplaintResult = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
 
         val body = JSONObject().apply {
             put("category",    category)
@@ -416,7 +416,7 @@ class FrappeApiService(private val context: Context) {
         validTill: String = "",
     ): FrappeQuotationResult = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
 
         val itemsJson = JSONArray().apply {
             items.forEach { item ->
@@ -464,7 +464,7 @@ class FrappeApiService(private val context: Context) {
 
     suspend fun searchItems(query: String): List<ItemSearchResult> = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) return@withContext emptyList()
+        if (!config.hasSession) return@withContext emptyList()
 
         val url = "${config.serverUrl}/api/method/nxtgen_crm_mobile.api.search_items" +
             "?query=${query.encodeUrl()}&limit=20"
@@ -506,16 +506,16 @@ class FrappeApiService(private val context: Context) {
         direction: String,
     ): FrappeCallLogResult = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
 
         val body = JSONObject().apply {
-            put("phone",        normalisePhone(phone))
+            put("phone_number", normalisePhone(phone))
             put("caller_name",  callerName)
             put("duration",     durationSeconds)
             put("notes",        notes)
             put("call_type",    callType)
             put("direction",    direction)
-            if (!leadDocname.isNullOrBlank()) put("lead_docname", leadDocname)
+            if (!leadDocname.isNullOrBlank()) put("linked_docname", leadDocname)
         }
 
         val request = Request.Builder()
@@ -526,12 +526,16 @@ class FrappeApiService(private val context: Context) {
             .post(body.toString().toRequestBody(JSON))
             .build()
 
+        Log.d(TAG, "CREATE CALL LOG REQUEST url=${request.url} body=$body")
         val response = executePost(request)
+        val rawBody = response.body?.string() ?: ""
         if (!response.isSuccessful) {
-            throw RuntimeException("Frappe error ${response.code}: ${response.body?.string()}")
+            Log.e(TAG, "CREATE CALL LOG ERROR ${response.code}: $rawBody")
+            throw RuntimeException("Frappe error ${response.code}: $rawBody")
         }
+        Log.d(TAG, "CREATE CALL LOG RESPONSE ${response.code}: $rawBody")
 
-        val msg = JSONObject(response.body?.string() ?: "{}").optJSONObject("message")
+        val msg = JSONObject(rawBody.ifBlank { "{}" }).optJSONObject("message")
             ?: throw RuntimeException("Invalid response")
         FrappeCallLogResult(docname = msg.optString("name"))
     }
@@ -548,7 +552,7 @@ class FrappeApiService(private val context: Context) {
         notes: String,
     ): Unit = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) throw IllegalStateException("Frappe not configured")
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
 
         val body = JSONObject().apply {
             put("name",  name)
@@ -575,7 +579,7 @@ class FrappeApiService(private val context: Context) {
 
     suspend fun addNote(doctype: String, docname: String, noteContent: String) = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) return@withContext
+        if (!config.hasSession) return@withContext
 
         val body = JSONObject().apply {
             put("doctype",      doctype)

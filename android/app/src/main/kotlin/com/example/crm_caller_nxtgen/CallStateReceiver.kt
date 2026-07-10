@@ -118,18 +118,24 @@ class CallStateReceiver : BroadcastReceiver() {
                 val direction   = if (wasIncoming) "Inbound" else "Outbound"
                 val safePhone   = phone
                     ?: readStoredValue(context, "crm_last_out_phone")
+                    // Last resort for outgoing calls: ACTION_NEW_OUTGOING_CALL no longer
+                    // reaches third-party receivers on recent Android, so crm_last_out_phone
+                    // is never set. READ_CALL_LOG (already held) also grants read access to
+                    // the CallLog provider — query it directly instead.
+                    ?: (if (!wasIncoming) queryLastOutgoingNumber(context) else null)
                     ?: ""
+                android.util.Log.d("CrmMonitor", "CallStateReceiver IDLE resolved: phone=$safePhone direction=$direction wasIncoming=$wasIncoming rawPhoneExtra=$phone")
 
-                // Always clear the incoming flag on IDLE. Critically, also clear
-                // crm_caller_phone/crm_caller_name/etc — these are written by the
-                // Flutter-side phone_state listener as the only way native code can
-                // learn the incoming number on Android 12+ (TelephonyCallback no
-                // longer exposes it, and this app deliberately doesn't request
-                // READ_CALL_LOG). If left stale, a lagging Flutter listener on the
-                // NEXT call causes native to fall back to the PREVIOUS caller's
-                // number/identity — e.g. showing a friend's popup when your dad calls.
+                // KEY_IS_INCOMING deliberately NOT cleared here — CallMonitorService's IDLE
+                // handler reads this same key independently (both fire for one real hangup),
+                // and whichever ran first clearing it would make the other always read the
+                // false default, permanently mislabeling every other call's direction. It's
+                // safe to leave as-is: the NEXT call always overwrites it fresh via RINGING
+                // (true) or ACTION_NEW_OUTGOING_CALL (false) before reaching IDLE again.
+                //
+                // Still clear crm_caller_phone/crm_caller_name/etc — these ARE safe/necessary
+                // to clear per-call (see clearStoredValue calls below), unrelated to the race.
                 prefs.edit()
-                    .remove(KEY_IS_INCOMING)
                     .remove(KEY_LAST_STATE)
                     .remove("crm_last_out_phone")
                     .apply()
@@ -172,6 +178,42 @@ class CallStateReceiver : BroadcastReceiver() {
             .apply()
 
         return isDup
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Outgoing number lookup via CallLog content provider
+//
+// Intent.ACTION_NEW_OUTGOING_CALL — the only other way to learn an outgoing
+// number — has been confirmed (via live device testing) to no longer reach
+// third-party BroadcastReceivers on recent Android versions; it simply never
+// fires. Since the app now holds READ_CALL_LOG (for inbound EXTRA_INCOMING_NUMBER),
+// the same permission also grants read access to this content provider, so we
+// use it as the reliable way to resolve an outgoing call's number instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+internal fun queryLastOutgoingNumber(context: Context): String? {
+    return try {
+        val result = context.contentResolver.query(
+            android.provider.CallLog.Calls.CONTENT_URI,
+            arrayOf(android.provider.CallLog.Calls.NUMBER, android.provider.CallLog.Calls.TYPE, android.provider.CallLog.Calls.DATE),
+            "${android.provider.CallLog.Calls.TYPE} = ?",
+            arrayOf(android.provider.CallLog.Calls.OUTGOING_TYPE.toString()),
+            // No LIMIT here — this provider's sortOrder validator rejects it outright
+            // ("Invalid token LIMIT") on recent Android. moveToFirst() on the DESC-sorted
+            // cursor below already gets the single most recent row without it.
+            "${android.provider.CallLog.Calls.DATE} DESC",
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getString(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.NUMBER))
+                    ?.takeIf { it.isNotBlank() }
+            } else null
+        }
+        android.util.Log.d("CrmMonitor", "queryLastOutgoingNumber result=$result")
+        result
+    } catch (e: Exception) {
+        android.util.Log.e("CrmMonitor", "queryLastOutgoingNumber threw", e)
+        null
     }
 }
 

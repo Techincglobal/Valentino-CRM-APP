@@ -130,13 +130,21 @@ class OverlayStateMachine(
                 // wiping whatever the user had already typed/opened — and launch a second
                 // createCallLog, creating a duplicate backend record for one call.
                 val phoneForDedup = current.phoneNumber ?: event.phone.takeIf { it.isNotBlank() }
-                if (current is OverlayState.PostCall && current.phoneNumber == phoneForDedup) return
+                android.util.Log.d("CrmMonitor", "CallEnded: current=${current::class.simpleName} currentPhone=${current.phoneNumber} eventPhone=${event.phone} phoneForDedup=$phoneForDedup")
+                if (current is OverlayState.PostCall && current.phoneNumber == phoneForDedup) {
+                    android.util.Log.d("CrmMonitor", "CallEnded: IGNORED (dedup — already PostCall for this phone)")
+                    return
+                }
 
                 activeJob?.cancel()
                 // Fall back to the phone passed by the call-ended signal itself —
                 // needed when no overlay was ever shown (e.g. outbound calls, or
                 // the state already reset to Idle) so the call still gets logged.
-                val phone = phoneForDedup ?: return
+                val phone = phoneForDedup ?: run {
+                    android.util.Log.w("CrmMonitor", "CallEnded: NO PHONE AVAILABLE — dropping, no log will be created")
+                    return
+                }
+                android.util.Log.d("CrmMonitor", "CallEnded: proceeding to log call for phone=$phone direction=${event.direction}")
                 val identity = current.knownIdentity ?: CallerIdentity.Unknown
                 val duration = repository.getSessionDuration(phone)
                 // PostCall stays expanded and opens straight into the "add a note"
@@ -155,6 +163,8 @@ class OverlayStateMachine(
                 activeJob = scope.launch {
                     val ref = runCatching {
                         repository.createCallLog(identity, phone, duration, "", "Regular", event.direction)
+                    }.onFailure {
+                        android.util.Log.e("CrmMonitor", "createCallLog failed for $phone", it)
                     }.getOrNull()
                     val stillSamePostCall = (_state.value as? OverlayState.PostCall)?.phoneNumber == phone
                     if (ref != null && stillSamePostCall) {

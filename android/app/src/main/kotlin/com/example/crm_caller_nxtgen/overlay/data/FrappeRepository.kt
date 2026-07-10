@@ -311,7 +311,8 @@ class FrappeRepository(private val context: Context) {
                     doctype = "Lead"
                 }
             }
-            if (!docname.isNullOrBlank() && api.getConfig().isValid) {
+            if (!docname.isNullOrBlank() && api.getConfig().hasSession) {
+                api.refreshCsrfToken()
                 api.addNote(doctype, docname, content)
                 db.noteDao().updateNote(entity.copy(isSynced = true))
             }
@@ -337,7 +338,8 @@ class FrappeRepository(private val context: Context) {
         }
 
         return@withContext try {
-            if (api.getConfig().isValid && leadDocname.isNotBlank()) {
+            if (api.getConfig().hasSession && leadDocname.isNotBlank()) {
+                api.refreshCsrfToken()
                 val result = api.createQuotation(
                     leadDocname = leadDocname,
                     partyType   = partyType,
@@ -397,7 +399,8 @@ class FrappeRepository(private val context: Context) {
         )
         db.complaintDao().insertComplaint(entity)
 
-        if (!api.getConfig().isValid) throw IllegalStateException("Not connected to server")
+        if (!api.getConfig().hasSession) throw IllegalStateException("Not connected to server")
+        api.refreshCsrfToken()
         val remote = api.createComplaint(
             leadDocname  = leadDocname.ifBlank { null },
             category     = category,
@@ -454,8 +457,11 @@ class FrappeRepository(private val context: Context) {
         )
         db.callLogDao().insert(entity)
 
-        // Best-effort network sync — if offline or config missing, SyncWorker retries later
-        if (!api.getConfig().isValid) return@withContext CallLogRef(localId = entity.id)
+        // Best-effort network sync — if offline or config missing, SyncWorker retries later.
+        // Checks hasSession (server+sid only), NOT isValid (which also requires a non-blank
+        // csrf token) — isValid would wrongly bail out here before ever calling
+        // refreshCsrfToken() below, so a blank/stale token could never self-heal.
+        if (!api.getConfig().hasSession) return@withContext CallLogRef(localId = entity.id)
         try {
             // Stale CSRF tokens are the most common silent-failure cause for a
             // background-service POST — refresh eagerly rather than relying on
@@ -475,9 +481,10 @@ class FrappeRepository(private val context: Context) {
                 isSynced      = true,
             ))
             CallLogRef(localId = entity.id, frappeDocname = remote.docname)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // SyncWorker retries unsynced call logs — still return the local
             // ref so a later note can at least update the local row.
+            android.util.Log.e("CrmMonitor", "createCallLog network sync failed, staying local-only", e)
             CallLogRef(localId = entity.id)
         }
     }
@@ -490,7 +497,7 @@ class FrappeRepository(private val context: Context) {
         val local = db.callLogDao().getById(ref.localId)
         if (local != null) db.callLogDao().update(local.copy(notes = notes, isSynced = local.isSynced && ref.frappeDocname.isNotBlank()))
 
-        if (ref.frappeDocname.isNotBlank() && api.getConfig().isValid) {
+        if (ref.frappeDocname.isNotBlank() && api.getConfig().hasSession) {
             try {
                 api.refreshCsrfToken()
                 api.updateCallLog(ref.frappeDocname, notes)

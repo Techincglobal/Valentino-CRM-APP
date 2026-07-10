@@ -341,7 +341,7 @@ class _CallLogsScreenState extends State<CallLogsScreen>
       Text('No calls logged yet',
           style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
       const SizedBox(height: 6),
-      Text('Tap "Log Call" in the overlay during a call',
+      Text('Calls are logged automatically as they happen',
           style: TextStyle(color: ac.textSecondary, fontSize: 13)),
     ]),
   );

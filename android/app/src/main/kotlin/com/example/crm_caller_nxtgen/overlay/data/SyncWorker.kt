@@ -122,7 +122,8 @@ class SyncWorker(
                     direction       = log.direction,
                 )
                 db.callLogDao().update(log.copy(frappeDocname = remote.docname, isSynced = true))
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.e("CrmMonitor", "SyncWorker: call log sync failed for ${log.phoneNumber}", e)
                 anyFailure = true
             }
         }
