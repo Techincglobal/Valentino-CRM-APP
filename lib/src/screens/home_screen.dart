@@ -12,6 +12,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../models/user_model.dart';
 import '../services/app_settings_service.dart';
 import '../services/caller_service.dart';
+import '../services/call_log_service.dart';
 import '../services/sales_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
@@ -20,6 +21,15 @@ import '../features/notes/notes_repository.dart';
 
 const MethodChannel _nativeOverlayChannel =
     MethodChannel('crm_caller_nxtgen/native_overlay');
+
+// Controller interface — lets MainShell call refreshCallStats() when native
+// code reports a call log was just saved, so "Calls Today" reflects reality
+// (including outgoing calls, which this screen's own phone_state listener
+// never touches) instead of a local counter that only tracked inbound calls
+// this same widget instance happened to observe.
+abstract class HomeScreenController {
+  void refreshCallStats();
+}
 
 class HomeScreen extends StatefulWidget {
   final UserModel user;
@@ -30,7 +40,9 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver
+    implements HomeScreenController {
   final TextEditingController _phoneController = TextEditingController();
   StreamSubscription<PhoneState>? _phoneSubscription;
 
@@ -47,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     unawaited(AppSettingsService.load());
     _initializePhoneListener();
-    _loadDailyCallCount();
+    refreshCallStats();
     _loadLogs();
     unawaited(_consumeLaunchPhone());
   }
@@ -61,35 +73,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadDailyCallCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final savedDate = prefs.getString('crm_call_date') ?? '';
-    if (savedDate == today) {
-      if (mounted) setState(() => _callsToday = prefs.getInt('crm_call_count') ?? 0);
-    } else {
-      await prefs.setString('crm_call_date', today);
-      await prefs.setInt('crm_call_count', 0);
-      if (mounted) setState(() => _callsToday = 0);
-    }
-  }
-
-  Future<void> _incrementCallCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final savedDate = prefs.getString('crm_call_date') ?? '';
-    int newCount = 1;
-    if (savedDate == today) {
-      newCount = (prefs.getInt('crm_call_count') ?? 0) + 1;
-    } else {
-      await prefs.setString('crm_call_date', today);
-    }
-    await prefs.setInt('crm_call_count', newCount);
-    await prefs.setInt('crm_calls_$today', newCount);
-    if (mounted) {
-      setState(() {
-        _callsToday = newCount;
-      });
+  // Derives "Calls Today" from the real backend call log records instead of a
+  // local counter — that counter only ever incremented from this screen's own
+  // inbound phone_state listener, so it silently never counted outgoing calls
+  // (logged natively) and could drift from what's actually in Frappe.
+  @override
+  Future<void> refreshCallStats() async {
+    try {
+      final logs = await CallLogService.getCallLogs();
+      final today = DateTime.now();
+      final count = logs.where((log) {
+        final ts = DateTime.tryParse(log.creation);
+        return ts != null &&
+            ts.year == today.year &&
+            ts.month == today.month &&
+            ts.day == today.day;
+      }).length;
+      if (mounted) setState(() => _callsToday = count);
+    } catch (_) {
+      // Keep whatever was last shown — offline or a transient error shouldn't
+      // reset the count to zero.
     }
   }
 
@@ -100,6 +103,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } else {
       _startUiPhoneListener();
       unawaited(_consumeLaunchPhone());
+      unawaited(refreshCallStats());
     }
   }
 
@@ -169,7 +173,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_workflowOpen) return;
     _workflowOpen = true;
     if (mounted) setState(() => _loading = true);
-    unawaited(_incrementCallCount());
     try {
       Map<String, dynamic> response;
       try {

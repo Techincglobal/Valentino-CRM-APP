@@ -29,6 +29,8 @@ class _MainShellState extends State<MainShell> {
   final _salesKey    = GlobalKey();
   final _quotesKey   = GlobalKey();
   final _callLogsKey = GlobalKey();
+  final _homeKey     = GlobalKey();
+  final _settingsKey = GlobalKey();
 
   static const _overlayChannel = MethodChannel('crm_caller_nxtgen/native_overlay');
 
@@ -49,6 +51,8 @@ class _MainShellState extends State<MainShell> {
       (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
     } else if (call.method == 'onCallLogSaved') {
       (_callLogsKey.currentState as CallLogsScreenController?)?.refreshLogs();
+      (_homeKey.currentState as HomeScreenController?)?.refreshCallStats();
+      (_settingsKey.currentState as SettingsScreenController?)?.refreshWeeklyData();
     }
   }
 
@@ -66,6 +70,7 @@ class _MainShellState extends State<MainShell> {
 
   late final _pages = [
     HomeScreen(
+      key: _homeKey,
       user: widget.user,
       onOpportunityCreated: () {
         (_salesKey.currentState as SalesScreenController?)?.refreshPipeline();
@@ -75,7 +80,7 @@ class _MainShellState extends State<MainShell> {
     SalesScreen(key: _salesKey, onGoToQuotes: () => _onTap(4)),
     TicketsScreen(user: widget.user),
     QuotesScreen(key: _quotesKey),
-    SettingsScreen(user: widget.user),
+    SettingsScreen(key: _settingsKey, user: widget.user),
   ];
 
   // Nav bar pill height + spacing — used to push inner-Scaffold FABs above the pill.

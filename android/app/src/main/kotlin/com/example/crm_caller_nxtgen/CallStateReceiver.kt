@@ -116,14 +116,23 @@ class CallStateReceiver : BroadcastReceiver() {
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 val wasIncoming = prefs.getBoolean(KEY_IS_INCOMING, false)
                 val direction   = if (wasIncoming) "Inbound" else "Outbound"
-                val safePhone   = phone
-                    ?: readStoredValue(context, "crm_last_out_phone")
-                    // Last resort for outgoing calls: ACTION_NEW_OUTGOING_CALL no longer
-                    // reaches third-party receivers on recent Android, so crm_last_out_phone
-                    // is never set. READ_CALL_LOG (already held) also grants read access to
-                    // the CallLog provider — query it directly instead.
-                    ?: (if (!wasIncoming) queryLastOutgoingNumber(context) else null)
-                    ?: ""
+                // `phone` (EXTRA_INCOMING_NUMBER / crm_caller_phone fallback, computed above)
+                // is an INBOUND-only signal — crm_caller_phone is written specifically by the
+                // inbound caller-ID path and can hold a stale leftover value from a PREVIOUS
+                // inbound call. For an outbound call it must never be consulted before the
+                // CallLog-based lookup, or a stale inbound number can silently win and get
+                // logged as this call's number instead of the number actually dialed.
+                val safePhone = if (wasIncoming) {
+                    phone ?: readStoredValue(context, "crm_last_out_phone") ?: ""
+                } else {
+                    readStoredValue(context, "crm_last_out_phone")
+                        // ACTION_NEW_OUTGOING_CALL no longer reaches third-party receivers on
+                        // recent Android, so crm_last_out_phone is never set either — query the
+                        // CallLog provider directly (READ_CALL_LOG is already held).
+                        ?: queryLastOutgoingNumber(context)
+                        ?: phone
+                        ?: ""
+                }
                 android.util.Log.d("CrmMonitor", "CallStateReceiver IDLE resolved: phone=$safePhone direction=$direction wasIncoming=$wasIncoming rawPhoneExtra=$phone")
 
                 // KEY_IS_INCOMING deliberately NOT cleared here — CallMonitorService's IDLE

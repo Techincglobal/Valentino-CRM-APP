@@ -199,6 +199,20 @@ class CallMonitorService : Service() {
             }
 
             TelephonyManager.CALL_STATE_OFFHOOK -> {
+                // If OFFHOOK is the FIRST signal this session (no preceding RINGING),
+                // this call skipped ringing entirely — only possible for an outgoing
+                // call. Since ACTION_NEW_OUTGOING_CALL no longer fires on recent Android
+                // to tell us that directly, and the incoming-flag is deliberately no
+                // longer cleared on IDLE (to avoid the cross-receiver race), it would
+                // otherwise still read "true" from whatever the LAST real call set it
+                // to — mislabeling this new outgoing call as inbound too. Correct it here.
+                if (!callSessionActive) {
+                    prefs.edit().putBoolean("crm_is_incoming_call", false).apply()
+                    // Also drop any stale inbound-caller-ID cache now — it belongs to
+                    // whatever call last used it and must not leak into this new
+                    // outgoing call's own number resolution at IDLE.
+                    clearStoredValue(this, "crm_caller_phone")
+                }
                 callSessionActive = true
                 val phone = rawPhone?.takeIf { it.isNotBlank() }
                     ?: readStoredValue(this, "crm_caller_phone")
@@ -224,14 +238,22 @@ class CallMonitorService : Service() {
                 val wasIncoming = prefs.getBoolean("crm_is_incoming_call", false)
 
                 val direction = if (wasIncoming) "Inbound" else "Outbound"
-                val phone = rawPhone?.takeIf { it.isNotBlank() }
-                    ?: readStoredValue(this, "crm_caller_phone")
-                    ?: readStoredValue(this, "crm_last_out_phone")
-                    // Last resort for outgoing calls: ACTION_NEW_OUTGOING_CALL no longer
-                    // reaches third-party receivers on recent Android, so crm_last_out_phone
-                    // is never set. READ_CALL_LOG (already held) also grants read access to
-                    // the CallLog provider — query it directly instead.
-                    ?: (if (!wasIncoming) queryLastOutgoingNumber(this) else null)
+                // crm_caller_phone is an INBOUND-only cache (written by the caller-ID path)
+                // and can hold a stale value from a PREVIOUS inbound call. For an outbound
+                // call it must never be consulted before the CallLog-based lookup, or a
+                // stale inbound number can silently win over the number actually dialed.
+                val phone = if (wasIncoming) {
+                    rawPhone?.takeIf { it.isNotBlank() }
+                        ?: readStoredValue(this, "crm_caller_phone")
+                        ?: readStoredValue(this, "crm_last_out_phone")
+                } else {
+                    readStoredValue(this, "crm_last_out_phone")
+                        // ACTION_NEW_OUTGOING_CALL no longer reaches third-party receivers on
+                        // recent Android, so crm_last_out_phone is never set either — query the
+                        // CallLog provider directly (READ_CALL_LOG is already held).
+                        ?: queryLastOutgoingNumber(this)
+                        ?: rawPhone?.takeIf { it.isNotBlank() }
+                }
                 android.util.Log.d("CrmMonitor", "CallMonitorService IDLE resolved: phone=$phone direction=$direction wasIncoming=$wasIncoming rawPhone=$rawPhone")
                 ContextCompat.startForegroundService(
                     this,

@@ -40,6 +40,13 @@ class OverlayStateMachine(
     // Guard: only one lookup/submit job runs at a time
     private var activeJob: Job? = null
 
+    // When we last actually processed a CallEnded (entered PostCall for it). Used to
+    // tell "duplicate broadcast for the SAME hangup" (arrives within milliseconds)
+    // apart from "a genuinely new call to the same number, popup never dismissed"
+    // (arrives much later) — phone-number equality alone can't distinguish these.
+    private var postCallEnteredAt: Long = 0L
+    private val DEDUP_WINDOW_MS = 4000L
+
     // Separate from activeJob so typing an item search never cancels a submit
     private var searchJob: Job? = null
 
@@ -129,10 +136,21 @@ class OverlayStateMachine(
                 // this guard, the second firing would reconstruct PostCall from scratch —
                 // wiping whatever the user had already typed/opened — and launch a second
                 // createCallLog, creating a duplicate backend record for one call.
-                val phoneForDedup = current.phoneNumber ?: event.phone.takeIf { it.isNotBlank() }
-                android.util.Log.d("CrmMonitor", "CallEnded: current=${current::class.simpleName} currentPhone=${current.phoneNumber} eventPhone=${event.phone} phoneForDedup=$phoneForDedup")
-                if (current is OverlayState.PostCall && current.phoneNumber == phoneForDedup) {
-                    android.util.Log.d("CrmMonitor", "CallEnded: IGNORED (dedup — already PostCall for this phone)")
+                // If current is already PostCall, it may be a leftover, un-dismissed popup
+                // from a PREVIOUS call — not necessarily this same one. Prefer the fresh
+                // event's own resolved phone in that case (it might be a brand new call,
+                // possibly to/from a different number) rather than trusting the stale
+                // current state, which would otherwise always win and wrongly swallow the
+                // new call as a "duplicate" of the old one.
+                val phoneForDedup = if (current is OverlayState.PostCall) {
+                    event.phone.takeIf { it.isNotBlank() } ?: current.phoneNumber
+                } else {
+                    current.phoneNumber ?: event.phone.takeIf { it.isNotBlank() }
+                }
+                val withinDedupWindow = System.currentTimeMillis() - postCallEnteredAt < DEDUP_WINDOW_MS
+                android.util.Log.d("CrmMonitor", "CallEnded: current=${current::class.simpleName} currentPhone=${current.phoneNumber} eventPhone=${event.phone} phoneForDedup=$phoneForDedup withinDedupWindow=$withinDedupWindow")
+                if (current is OverlayState.PostCall && current.phoneNumber == phoneForDedup && withinDedupWindow) {
+                    android.util.Log.d("CrmMonitor", "CallEnded: IGNORED (dedup — already PostCall for this phone, within ${DEDUP_WINDOW_MS}ms)")
                     return
                 }
 
@@ -145,12 +163,13 @@ class OverlayStateMachine(
                     return
                 }
                 android.util.Log.d("CrmMonitor", "CallEnded: proceeding to log call for phone=$phone direction=${event.direction}")
-                val identity = current.knownIdentity ?: CallerIdentity.Unknown
+                val initialIdentity = current.knownIdentity ?: CallerIdentity.Unknown
                 val duration = repository.getSessionDuration(phone)
+                postCallEnteredAt = System.currentTimeMillis()
                 // PostCall stays expanded and opens straight into the "add a note"
                 // form — the second popup the user sees right after a call ends.
                 _state.value = OverlayState.PostCall(
-                    phone, identity, duration,
+                    phone, initialIdentity, duration,
                     isExpanded  = true,
                     activeSheet = ActiveSheet.LOG_CALL,
                     direction   = event.direction,
@@ -161,6 +180,19 @@ class OverlayStateMachine(
                 // form that just opened. Submitting notes later PATCHes this
                 // same record instead of creating a second one.
                 activeJob = scope.launch {
+                    // Outbound calls never go through the RINGING-triggered lookup (that
+                    // only fires for inbound calls) — knownIdentity is always null/Unknown
+                    // for them, so without this they'd permanently log as "Unknown" even
+                    // when calling a known Lead/Customer. Do a fresh lookup here instead.
+                    val identity = if (initialIdentity is CallerIdentity.Unknown) {
+                        runCatching { repository.lookupIdentityByPhone(phone) }.getOrNull() ?: initialIdentity
+                    } else {
+                        initialIdentity
+                    }
+                    if (identity !is CallerIdentity.Unknown) {
+                        val stillSame = (_state.value as? OverlayState.PostCall)?.phoneNumber == phone
+                        if (stillSame) _state.value = (_state.value as OverlayState.PostCall).copy(identity = identity)
+                    }
                     val ref = runCatching {
                         repository.createCallLog(identity, phone, duration, "", "Regular", event.direction)
                     }.onFailure {

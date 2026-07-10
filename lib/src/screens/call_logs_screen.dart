@@ -523,39 +523,40 @@ class _CallLogCard extends StatelessWidget {
           ),
 
           // ── Row 2: type chip + status + reference tag ────────────────────
-          Row(children: [
-            _Chip(
-              icon:  isWA ? Icons.chat_rounded : Icons.phone_rounded,
-              label: isWA ? 'WhatsApp' : 'Regular',
-              color: accent,
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _Chip(
+                    icon:  isWA ? Icons.chat_rounded : Icons.phone_rounded,
+                    label: isWA ? 'WhatsApp' : 'Regular',
+                    color: accent,
+                  ),
+                  if (log.status.isNotEmpty)
+                    _Chip(
+                      icon:  _statusIcon(log.status),
+                      label: log.status,
+                      color: _statusColor(log.status),
+                    ),
+                  if (log.linkedDoctype.isNotEmpty)
+                    _Chip(
+                      icon:  Icons.link_rounded,
+                      label: log.linkedDoctype,
+                      color: _indigo,
+                    ),
+                  if (log.linkedDocname.isNotEmpty)
+                    _Chip(
+                      icon:  Icons.tag_rounded,
+                      label: log.linkedDocname,
+                      color: _slate,
+                    ),
+                ],
+              ),
             ),
-            if (log.status.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              _Chip(
-                icon:  _statusIcon(log.status),
-                label: log.status,
-                color: _statusColor(log.status),
-              ),
-            ],
-            if (log.linkedDoctype.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              _Chip(
-                icon:  Icons.link_rounded,
-                label: log.linkedDoctype,
-                color: _indigo,
-              ),
-            ],
-            if (log.linkedDocname.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              Flexible(
-                child: _Chip(
-                  icon:  Icons.tag_rounded,
-                  label: log.linkedDocname,
-                  color: _slate,
-                ),
-              ),
-            ],
-            const Spacer(),
+            const SizedBox(width: 8),
             // "View details" hint
             Row(mainAxisSize: MainAxisSize.min, children: [
               Text('Details',
