@@ -29,6 +29,13 @@ data class FrappeConfig(
     val csrfToken: String,     // X-Frappe-CSRF-Token — required for POST/PUT/DELETE
 ) {
     val isValid: Boolean get() = serverUrl.isNotBlank() && sid.isNotBlank() && csrfToken.isNotBlank()
+    // Only requires a logged-in session, NOT the csrf token — used to gate
+    // refreshCsrfToken() itself. If this required csrfToken too, a session
+    // that never had a csrf token (e.g. Frappe didn't hand one back on the
+    // login POST) could NEVER bootstrap one: refresh would refuse to even
+    // try, and every create/update call would permanently fail with
+    // "Frappe not configured" despite the server/session being fine.
+    val hasSession: Boolean get() = serverUrl.isNotBlank() && sid.isNotBlank()
     val cookieHeader: String get() = "sid=$sid"
 }
 
@@ -94,7 +101,7 @@ class FrappeApiService(private val context: Context) {
 
     suspend fun refreshCsrfToken(): Boolean = withContext(Dispatchers.IO) {
         val config = getConfig()
-        if (!config.isValid) return@withContext false
+        if (!config.hasSession) return@withContext false
         return@withContext try {
             val request = Request.Builder()
                 .url("${config.serverUrl}/api/method/frappe.auth.get_logged_user")

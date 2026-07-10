@@ -50,6 +50,10 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         pendingOpenPhone = intent?.getStringExtra("open_phone")
         requestRuntimePermissions()
+        // Ask for the Caller ID role up front rather than waiting for the user to
+        // notice the Settings card — without it, every inbound call shows "Hidden"
+        // since Android hides the real number from apps that don't hold this role.
+        requestCallScreeningRole()
         CallMonitorService.start(this)
         LocalBroadcastManager.getInstance(this).registerReceiver(
             pipelineRefreshReceiver,
