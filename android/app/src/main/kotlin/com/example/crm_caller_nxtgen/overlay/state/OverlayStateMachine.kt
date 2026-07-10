@@ -84,13 +84,22 @@ class OverlayStateMachine(
             is OverlayEvent.CallRinging -> {
                 // Ignore duplicate event for the same phone number to prevent race
                 // between the native BroadcastReceiver and the Flutter phone listener.
-                val alreadyHandling = when (current) {
-                    is OverlayState.LoadingIdentity -> current.phoneNumber == event.phoneNumber
-                    is OverlayState.UnknownCaller   -> current.phoneNumber == event.phoneNumber
-                    is OverlayState.KnownCaller     -> current.phoneNumber == event.phoneNumber
-                    else -> false
+                val currentPhone = when (current) {
+                    is OverlayState.LoadingIdentity -> current.phoneNumber
+                    is OverlayState.UnknownCaller   -> current.phoneNumber
+                    is OverlayState.KnownCaller     -> current.phoneNumber
+                    else -> null
                 }
-                if (alreadyHandling) return
+                if (currentPhone == event.phoneNumber) return
+
+                // CrmCallScreeningService (real number, authoritative) and
+                // CallMonitorService/CallStateReceiver (fallback, can only see "Hidden"
+                // without READ_CALL_LOG) fire independently with no ordering guarantee.
+                // If we're already showing/resolving a REAL number for this call, never
+                // let a later "Hidden"/blank fallback event downgrade it.
+                val haveRealNumber  = currentPhone != null && currentPhone != "Hidden" && currentPhone.isNotBlank()
+                val incomingIsWorse = event.phoneNumber == "Hidden" || event.phoneNumber.isBlank()
+                if (haveRealNumber && incomingIsWorse) return
 
                 activeJob?.cancel()
                 _state.value = OverlayState.LoadingIdentity(event.phoneNumber, CallPhase.RINGING)

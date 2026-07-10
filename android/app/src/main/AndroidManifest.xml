@@ -4,9 +4,18 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-    <!-- Call state monitoring: detects incoming call number via TelephonyCallback.
-         READ_CALL_LOG is NOT requested — call history is stored in Frappe, not read from the device. -->
+    <!-- Call state monitoring: detects incoming call number via TelephonyCallback. -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+
+    <!-- Required to receive the real incoming number (EXTRA_INCOMING_NUMBER) on
+         Android 10+; without it every inbound call shows "Hidden". Re-added after
+         the CallScreeningService/ROLE_CALL_SCREENING replacement (the Play-Protect-
+         safe alternative) was confirmed, via extensive live device testing, to never
+         actually get invoked by Telecom on production Android 17 — a live system
+         binding issue, not an app misconfiguration. This permission does match Play
+         Protect's stalkerware-detection profile, so revisit removing it again if/when
+         the CallScreeningService path is figured out. -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG"/>
 
     <!-- Lets the "Answer" button on the overlay pick up a ringing call directly,
          without the user needing to switch to the system dialer UI. -->
@@ -35,6 +44,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"
+        android:allowBackup="false"
         tools:replace="android:appComponentFactory"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory">
 

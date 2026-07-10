@@ -79,6 +79,10 @@ class MainActivity : FlutterActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
                     != PackageManager.PERMISSION_GRANTED)
                 needed.add(Manifest.permission.READ_PHONE_STATE)
+            // Needed for the real incoming number (EXTRA_INCOMING_NUMBER) on Android 10+.
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG)
+                    != PackageManager.PERMISSION_GRANTED)
+                needed.add(Manifest.permission.READ_CALL_LOG)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  // API 33
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)

@@ -157,17 +157,29 @@ class CallMonitorService : Service() {
     // Call state handler
     // ─────────────────────────────────────────────────────────────────────────
 
+    // registerTelephonyCallback()/PhoneStateListener.listen() immediately deliver
+    // ONE synthetic callback with whatever the CURRENT call state already is at
+    // registration time — this is not a real state transition. If the phone is
+    // idle when the service (re)registers (e.g. right after app launch), that
+    // synthetic callback reports CALL_STATE_IDLE, and without this guard we'd
+    // treat it as a real "call just ended" — firing a phantom overlay popup and
+    // a bogus backend log entry for a call that never happened. Only trust an
+    // IDLE if we've actually seen a RINGING/OFFHOOK since the last one.
+    private var callSessionActive = false
+
     private fun handleState(state: Int, rawPhone: String?) {
         // NOTE: no overlay-permission gate here. Call detection drives both the
         // visual overlay AND backend call logging — logging must never be
         // blocked just because "Display over other apps" wasn't granted.
         // NativeCallOverlayService already self-checks that permission before
         // it tries to actually draw anything (see hasOverlayPermission() there).
+        android.util.Log.d("CrmMonitor", "handleState called: state=$state rawPhone=$rawPhone")
 
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 
         when (state) {
             TelephonyManager.CALL_STATE_RINGING -> {
+                callSessionActive = true
                 // Mark session as incoming
                 prefs.edit().putBoolean("crm_is_incoming_call", true).apply()
 
@@ -187,6 +199,7 @@ class CallMonitorService : Service() {
             }
 
             TelephonyManager.CALL_STATE_OFFHOOK -> {
+                callSessionActive = true
                 val phone = rawPhone?.takeIf { it.isNotBlank() }
                     ?: readStoredValue(this, "crm_caller_phone")
                     ?: readStoredValue(this, "crm_last_out_phone")
@@ -200,6 +213,8 @@ class CallMonitorService : Service() {
             }
 
             TelephonyManager.CALL_STATE_IDLE -> {
+                if (!callSessionActive) return  // synthetic initial callback — no real call happened
+                callSessionActive = false
                 val wasIncoming = prefs.getBoolean("crm_is_incoming_call", false)
                 prefs.edit().remove("crm_is_incoming_call").apply()
 

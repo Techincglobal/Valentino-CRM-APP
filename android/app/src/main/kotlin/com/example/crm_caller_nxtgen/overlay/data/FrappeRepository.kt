@@ -87,6 +87,12 @@ class FrappeRepository(private val context: Context) {
     private val CACHE_TTL_MS = 30L * 60 * 1000  // 30 minutes — short enough to stay fresh
 
     suspend fun lookupIdentityByPhone(phone: String): CallerIdentity? = withContext(Dispatchers.IO) {
+        // "Hidden" is a placeholder for "the OS/fallback path couldn't resolve a real
+        // number" — never a real caller ID. Looking it up (or worse, caching a lead
+        // under phoneNumber="Hidden") would let one placeholder-number call
+        // permanently masquerade as whichever lead happened to be cached there.
+        if (phone.isBlank() || phone == "Hidden") return@withContext null
+
         val now = System.currentTimeMillis()
 
         val localLead = db.leadDao().getLeadByPhone(phone)

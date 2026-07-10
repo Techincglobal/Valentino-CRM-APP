@@ -18,9 +18,13 @@ import androidx.core.content.ContextCompat
  *  - OFFHOOK           → notify overlay the call is active (either direction)
  *  - IDLE              → always end the overlay/log the call (either direction)
  *
- * Android 10+ hides EXTRA_INCOMING_NUMBER without READ_CALL_LOG; we intentionally
- * don't request that permission. If the number is null here, CallMonitorService
- * (TelephonyCallback) already stored it in SharedPreferences as a fallback.
+ * Android 10+ hides EXTRA_INCOMING_NUMBER unless the app holds READ_CALL_LOG — the
+ * app now requests it (see MainActivity.requestRuntimePermissions) after the
+ * ROLE_CALL_SCREENING replacement was confirmed, via live device testing, to never
+ * actually get invoked by Telecom. If the permission was denied or the extra is
+ * still null for some other reason, CallMonitorService (TelephonyCallback) or the
+ * Flutter phone_state listener may have already stored a number in SharedPreferences
+ * as a fallback.
  */
 class CallStateReceiver : BroadcastReceiver() {
 
@@ -34,6 +38,7 @@ class CallStateReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        android.util.Log.d("CrmMonitor", "CallStateReceiver.onReceive action=${intent.action} state=${intent.getStringExtra(TelephonyManager.EXTRA_STATE)}")
 
         // ── Outgoing call — show overlay so this call gets logged too ─────────
         if (intent.action == Intent.ACTION_NEW_OUTGOING_CALL) {
