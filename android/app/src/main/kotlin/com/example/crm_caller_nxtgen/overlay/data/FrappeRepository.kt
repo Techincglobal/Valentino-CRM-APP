@@ -106,9 +106,17 @@ class FrappeRepository(private val context: Context) {
                 localLead?.toCallerIdentity()
             } else {
                 val entity = if (localLead != null) {
-                    // Refresh existing cache entry in place
+                    // Refresh existing cache entry in place. Critically, also re-key
+                    // phoneNumber to the number we just looked up: localLead may have
+                    // been found via the takeLast(10) suffix fallback above, i.e. a
+                    // DIFFERENT number than the one being resolved right now (e.g. one
+                    // stored with a country code, one without). Leaving phoneNumber
+                    // untouched here would silently overwrite that other number's cache
+                    // row with THIS lead's identity — so the next real call from that
+                    // other number would show the wrong person entirely.
                     localLead.copy(
                         frappeDocname      = remote.docname,
+                        phoneNumber        = phone,
                         name               = remote.leadName,
                         email              = remote.email,
                         company            = remote.companyName,

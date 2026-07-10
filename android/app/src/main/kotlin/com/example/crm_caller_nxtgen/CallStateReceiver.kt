@@ -60,10 +60,11 @@ class CallStateReceiver : BroadcastReceiver() {
 
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
 
-        // Overlay permission gate — if not granted, nothing to do
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-            !Settings.canDrawOverlays(context)
-        ) return
+        // NOTE: no overlay-permission gate here. Call detection drives both the
+        // visual overlay AND backend call logging — logging must never be
+        // blocked just because "Display over other apps" wasn't granted.
+        // NativeCallOverlayService already self-checks that permission before
+        // it tries to actually draw anything (see hasOverlayPermission() there).
 
         val state = intent.getStringExtra(TelephonyManager.EXTRA_STATE) ?: return
 

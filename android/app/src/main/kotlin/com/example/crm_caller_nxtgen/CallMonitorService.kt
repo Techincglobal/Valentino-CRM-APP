@@ -158,8 +158,11 @@ class CallMonitorService : Service() {
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun handleState(state: Int, rawPhone: String?) {
-        // Overlay permission gate
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
+        // NOTE: no overlay-permission gate here. Call detection drives both the
+        // visual overlay AND backend call logging — logging must never be
+        // blocked just because "Display over other apps" wasn't granted.
+        // NativeCallOverlayService already self-checks that permission before
+        // it tries to actually draw anything (see hasOverlayPermission() there).
 
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 

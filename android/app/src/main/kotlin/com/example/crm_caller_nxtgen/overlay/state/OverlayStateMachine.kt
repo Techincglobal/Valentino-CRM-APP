@@ -115,13 +115,19 @@ class OverlayStateMachine(
             }
 
             is OverlayEvent.CallEnded -> {
+                // CallStateReceiver (broadcast) and CallMonitorService (TelephonyCallback)
+                // both independently fire this same signal for one real call ending. Without
+                // this guard, the second firing would reconstruct PostCall from scratch —
+                // wiping whatever the user had already typed/opened — and launch a second
+                // createCallLog, creating a duplicate backend record for one call.
+                val phoneForDedup = current.phoneNumber ?: event.phone.takeIf { it.isNotBlank() }
+                if (current is OverlayState.PostCall && current.phoneNumber == phoneForDedup) return
+
                 activeJob?.cancel()
                 // Fall back to the phone passed by the call-ended signal itself —
                 // needed when no overlay was ever shown (e.g. outbound calls, or
                 // the state already reset to Idle) so the call still gets logged.
-                val phone = current.phoneNumber
-                    ?: event.phone.takeIf { it.isNotBlank() }
-                    ?: return
+                val phone = phoneForDedup ?: return
                 val identity = current.knownIdentity ?: CallerIdentity.Unknown
                 val duration = repository.getSessionDuration(phone)
                 // PostCall stays expanded and opens straight into the "add a note"
