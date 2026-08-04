@@ -235,9 +235,11 @@ class FrappeRepository(private val context: Context) {
         email: String,
         company: String,
         phone: String,
+        linkDoctype: String? = null,
+        linkName: String? = null,
     ): String = withContext(Dispatchers.IO) {
         api.refreshCsrfToken()
-        api.createContact(name, email, company, phone)
+        api.createContact(name, email, company, phone, linkDoctype, linkName)
     }
 
     // ─────────────────────────────────────────────────────────────────────────

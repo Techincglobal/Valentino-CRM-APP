@@ -332,6 +332,8 @@ class FrappeApiService(private val context: Context) {
         email: String,
         company: String,
         phone: String,
+        linkDoctype: String? = null,
+        linkName: String? = null,
     ): String = withContext(Dispatchers.IO) {
         val config = getConfig()
         if (!config.hasSession) throw IllegalStateException("Frappe not configured")
@@ -341,6 +343,8 @@ class FrappeApiService(private val context: Context) {
             if (email.isNotBlank())   put("email_id", email)
             if (phone.isNotBlank())   put("mobile_no", normalisePhone(phone))
             if (company.isNotBlank()) put("company_name", company)
+            if (!linkDoctype.isNullOrBlank()) put("link_doctype", linkDoctype)
+            if (!linkName.isNullOrBlank())    put("link_name", linkName)
         }
 
         val request = Request.Builder()

@@ -113,13 +113,15 @@ class CallerService {
     }
   }
 
-  // Create Contact (without entering the sales pipeline)
+  // Create Contact (without entering the sales pipeline, optionally linked to Customer/Lead)
   static Future<Map<String, dynamic>> createContact({
     required String firstName,
     String? lastName,
     String? mobile,
     String? email,
     String? company,
+    String? linkDoctype,
+    String? linkName,
   }) async {
     final cleanEmail = (email != null && email.contains('@') && email.contains('.')) ? email : null;
     final payload = <String, dynamic>{"first_name": firstName};
@@ -127,6 +129,8 @@ class CallerService {
     if (mobile != null && mobile.isNotEmpty) payload["mobile_no"] = mobile;
     if (cleanEmail != null) payload["email_id"] = cleanEmail;
     if (company != null && company.isNotEmpty) payload["company_name"] = company;
+    if (linkDoctype != null && linkDoctype.isNotEmpty) payload["link_doctype"] = linkDoctype;
+    if (linkName != null && linkName.isNotEmpty) payload["link_name"] = linkName;
     final response = await ApiService.post("$_base.create_contact", payload);
     final data = jsonDecode(response.body);
     if (response.statusCode == 200) {
