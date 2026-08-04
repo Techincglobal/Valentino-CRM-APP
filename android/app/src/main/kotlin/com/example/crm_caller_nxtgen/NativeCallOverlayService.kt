@@ -44,6 +44,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class NativeCallOverlayService : Service() {
@@ -195,14 +196,31 @@ class NativeCallOverlayService : Service() {
             ACTION_CALL_ENDED -> {
                 val phone     = intent.getStringExtra(EXTRA_PHONE) ?: ""
                 val direction = intent.getStringExtra("direction") ?: "Inbound"
+                val suppliedStatus = intent.getStringExtra("status")
+                val startedAt = intent.getLongExtra("call_started_at", 0L)
                 timerManager.stop()
                 repository.markCallEnded(phone)
-                stateMachine.handleEvent(OverlayEvent.CallEnded(direction = direction, phone = phone))
                 updateNotification("Call ended — overlay open")
-                SyncWorker.enqueue(applicationContext)
                 // Release the long call wakelock — user still sees PostCall overlay
                 if (callWakeLock?.isHeld == true) callWakeLock?.release()
                 // No auto-dismiss — overlay stays until user closes it
+
+                // Android writes its CallLog entry shortly *after* the IDLE callback.
+                // Resolve it from the service (rather than the receiver) so starting the
+                // foreground service stays within Android's broadcast time limit.
+                serviceScope.launch {
+                    val status = suppliedStatus?.takeIf { it.isNotBlank() }
+                        ?: waitForSystemCallStatus(applicationContext, phone, direction, startedAt)
+                        ?: if (direction == "Inbound") "Missed" else "No Answer"
+                    android.util.Log.d("CrmMonitor", "NativeCallOverlayService resolved outcome: phone=$phone direction=$direction status=$status")
+                    stateMachine.handleEvent(
+                        OverlayEvent.CallEnded(direction = direction, phone = phone, status = status),
+                    )
+                    // Give the state machine a moment to insert its local-first record
+                    // before WorkManager checks for unsynced logs.
+                    delay(250L)
+                    SyncWorker.enqueue(applicationContext)
+                }
             }
         }
 
@@ -337,9 +355,9 @@ class NativeCallOverlayService : Service() {
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-            // FLAG_LAYOUT_IN_SCREEN ensures the overlay is placed in the screen frame,
-            // not clipped by the status bar — keeps it visually above all other windows
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
         if (!focusable) baseFlags = baseFlags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
 
@@ -424,7 +442,10 @@ class NativeCallOverlayService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_DIM_BEHIND or
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity   = Gravity.CENTER

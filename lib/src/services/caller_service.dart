@@ -113,6 +113,29 @@ class CallerService {
     }
   }
 
+  // Create Contact (without entering the sales pipeline)
+  static Future<Map<String, dynamic>> createContact({
+    required String firstName,
+    String? lastName,
+    String? mobile,
+    String? email,
+    String? company,
+  }) async {
+    final cleanEmail = (email != null && email.contains('@') && email.contains('.')) ? email : null;
+    final payload = <String, dynamic>{"first_name": firstName};
+    if (lastName != null && lastName.isNotEmpty) payload["last_name"] = lastName;
+    if (mobile != null && mobile.isNotEmpty) payload["mobile_no"] = mobile;
+    if (cleanEmail != null) payload["email_id"] = cleanEmail;
+    if (company != null && company.isNotEmpty) payload["company_name"] = company;
+    final response = await ApiService.post("$_base.create_contact", payload);
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return data["message"];
+    } else {
+      throw Exception(data["message"] ?? "Contact creation failed");
+    }
+  }
+
   // Add Note To Existing Lead / Opportunity
   static Future<void> addNote({
     required String doctype,

@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/call_log_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
@@ -60,22 +60,34 @@ class _SettingsScreenState extends State<SettingsScreen>
     });
   }
 
-  Future<void> _loadWeeklyData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final now = DateTime.now();
-    final data = List.generate(7, (i) {
-      final day = now.subtract(Duration(days: 6 - i));
-      final key = 'crm_calls_${day.toIso8601String().split('T')[0]}';
-      return (prefs.getInt(key) ?? 0).toDouble();
-    });
-    if (mounted) setState(() => _weeklyData = data);
-  }
-
+  // Derives the weekly volume chart from real backend call log records
+  // (both inbound and outbound) instead of a local per-day counter that only
+  // ever got incremented by this device's own inbound phone_state listener —
+  // that counter never reflected outgoing calls or calls logged purely via
+  // native code, so the chart just sat flat regardless of real call activity.
   @override
-  void refreshWeeklyData() {
-    _loadWeeklyData();
-  }
+  Future<void> refreshWeeklyData() => _loadWeeklyData();
 
+  Future<void> _loadWeeklyData() async {
+    try {
+      final logs = await CallLogService.getCallLogs();
+      final now = DateTime.now();
+      final data = List.generate(7, (i) {
+        final day = now.subtract(Duration(days: 6 - i));
+        final count = logs.where((log) {
+          final ts = DateTime.tryParse(log.creation);
+          return ts != null &&
+              ts.year == day.year &&
+              ts.month == day.month &&
+              ts.day == day.day;
+        }).length;
+        return count.toDouble();
+      });
+      if (mounted) setState(() => _weeklyData = data);
+    } catch (_) {
+      // Offline or transient error — keep whatever was last shown.
+    }
+  }
 
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(

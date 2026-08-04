@@ -218,7 +218,10 @@ class FrappeApiService(private val context: Context) {
                 companyName        = "",
                 email              = msg.optString("email_id"),
                 mobileNo           = msg.optString("mobile_no").ifBlank { msg.optString("phone") },
-                status             = "Lead",
+                // Use the type the server returned ("Lead" or "Customer") so the
+                // caller is correctly identified in the overlay instead of always
+                // showing as a lead even when they're an existing customer.
+                status             = msg.optString("type", "Lead").ifBlank { "Lead" },
                 latestNote         = msg.optString("latest_note"),
                 latestQuoteSubject = quote?.optString("title") ?: quote?.optString("name") ?: "",
                 latestQuoteAmount  = quote?.optDouble("grand_total", 0.0) ?: 0.0,
@@ -318,6 +321,48 @@ class FrappeApiService(private val context: Context) {
             mobileNo    = normalisePhone(phone),
             status      = "Lead",
         )
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CREATE CONTACT  →  nxtgen_crm_mobile.api.create_contact
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createContact(
+        name: String,
+        email: String,
+        company: String,
+        phone: String,
+    ): String = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
+
+        val body = JSONObject().apply {
+            put("first_name", name)
+            if (email.isNotBlank())   put("email_id", email)
+            if (phone.isNotBlank())   put("mobile_no", normalisePhone(phone))
+            if (company.isNotBlank()) put("company_name", company)
+        }
+
+        val request = Request.Builder()
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_contact")
+            .header("Cookie", config.cookieHeader)
+            .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
+            .post(body.toString().toRequestBody(JSON))
+            .build()
+
+        Log.d(TAG, "CREATE CONTACT REQUEST url=${request.url} body=$body")
+        val response = executePost(request)
+        val rawBody = response.body?.string() ?: ""
+        if (!response.isSuccessful) {
+            Log.e(TAG, "CREATE CONTACT ERROR ${response.code}: $rawBody")
+            throw RuntimeException(parseFrappeError(rawBody, response.code))
+        }
+        Log.d(TAG, "CREATE CONTACT RESPONSE ${response.code}: $rawBody")
+
+        val msg = JSONObject(rawBody.ifBlank { "{}" }).optJSONObject("message")
+            ?: throw RuntimeException("Unexpected response from server")
+        msg.optString("contact_name")
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -504,6 +549,8 @@ class FrappeApiService(private val context: Context) {
         notes: String,
         callType: String,
         direction: String,
+        linkedDoctype: String? = null,
+        status: String = "Answered",
     ): FrappeCallLogResult = withContext(Dispatchers.IO) {
         val config = getConfig()
         if (!config.hasSession) throw IllegalStateException("Frappe not configured")
@@ -515,7 +562,14 @@ class FrappeApiService(private val context: Context) {
             put("notes",        notes)
             put("call_type",    callType)
             put("direction",    direction)
-            if (!leadDocname.isNullOrBlank()) put("linked_docname", leadDocname)
+            put("status",       status)
+            if (!leadDocname.isNullOrBlank()) {
+                put("linked_docname", leadDocname)
+                // Without this, the backend only auto-detects Lead/Customer by
+                // checking existence — a Contact docname matches neither, so it
+                // would silently end up unlinked. Explicit beats implicit here.
+                if (!linkedDoctype.isNullOrBlank()) put("linked_doctype", linkedDoctype)
+            }
         }
 
         val request = Request.Builder()

@@ -527,6 +527,14 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
   bool   _searchingCustomers = false;
   bool   _showCustomerDropdown = false;
 
+  // Contact search — a plain Contact not yet a Lead/Customer
+  final _contactSearchCtrl = TextEditingController();
+  String _selectedContactName = '';
+  String _selectedContactDocname = '';
+  List<ContactResult> _contactResults = [];
+  bool   _searchingContacts = false;
+  bool   _showContactDropdown = false;
+
   // Ticket type
   List<String> _ticketTypes     = [];
   String       _selectedType    = '';
@@ -549,6 +557,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
     _subjectCtrl.dispose();
     _descCtrl.dispose();
     _customerSearchCtrl.dispose();
+    _contactSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -592,6 +601,40 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
     });
   }
 
+  Future<void> _onContactSearch(String q) async {
+    final query = q.trim();
+    if (query.isEmpty) {
+      setState(() { _contactResults = []; _showContactDropdown = false; });
+      return;
+    }
+    setState(() { _searchingContacts = true; _showContactDropdown = true; });
+    final results = await TicketService.searchContacts(query);
+    if (mounted) {
+      setState(() { _contactResults = results; _searchingContacts = false; });
+    }
+  }
+
+  void _selectContact(ContactResult c) {
+    setState(() {
+      _selectedContactName    = c.display;
+      _selectedContactDocname = c.name;
+      _contactSearchCtrl.text = c.display;
+      _showContactDropdown    = false;
+      _contactResults         = [];
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  void _clearContact() {
+    setState(() {
+      _selectedContactName    = '';
+      _selectedContactDocname = '';
+      _contactSearchCtrl.clear();
+      _showContactDropdown    = false;
+      _contactResults         = [];
+    });
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() { _submitting = true; _error = ''; });
@@ -603,6 +646,7 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
         priority:    _priority,
         ticketType:  _selectedType,
         customer:    _selectedCustomerDocname,
+        contact:     _selectedContactDocname,
       );
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -774,6 +818,27 @@ class _CreateTicketSheetState extends State<_CreateTicketSheet> {
                   onSelect:            _selectCustomer,
                   onClear:             _clearCustomer,
                   onDismissDropdown:   () => setState(() => _showCustomerDropdown = false),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Contact Search — for a caller who isn't a Lead/Customer,
+                // just a plain Contact (e.g. added via "Add to Contacts" on the
+                // call popup) but still needs a ticket logged against them. ──
+                _FieldLabel(label: 'CONTACT', ac: ac),
+                const SizedBox(height: 6),
+                _ContactSearchField(
+                  controller:          _contactSearchCtrl,
+                  selectedName:        _selectedContactName,
+                  results:             _contactResults,
+                  searching:           _searchingContacts,
+                  showDropdown:        _showContactDropdown,
+                  isDark:              isDark,
+                  ac:                  ac,
+                  onSearch:            _onContactSearch,
+                  onSelect:            _selectContact,
+                  onClear:             _clearContact,
+                  onDismissDropdown:   () => setState(() => _showContactDropdown = false),
                 ),
 
                 const SizedBox(height: 16),
@@ -1619,6 +1684,166 @@ class _CustomerSearchField extends StatelessWidget {
             border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
           ),
           child: Text('No customers found', style: TextStyle(color: ac.textTertiary, fontSize: 13)),
+        ),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contact search field with live dropdown — lets a ticket be logged against a
+// plain Contact (someone identified via "Add to Contacts" but not yet a
+// Lead/Customer) instead of requiring one of those first.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ContactSearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final String               selectedName;
+  final List<ContactResult>  results;
+  final bool                 searching;
+  final bool                 showDropdown;
+  final bool                 isDark;
+  final AdaptiveColors       ac;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<ContactResult> onSelect;
+  final VoidCallback         onClear;
+  final VoidCallback         onDismissDropdown;
+
+  const _ContactSearchField({
+    required this.controller, required this.selectedName, required this.results,
+    required this.searching, required this.showDropdown, required this.isDark,
+    required this.ac, required this.onSearch, required this.onSelect,
+    required this.onClear, required this.onDismissDropdown,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSelection = selectedName.isNotEmpty;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasSelection
+                ? _violet.withValues(alpha: 0.50)
+                : isDark ? Colors.white.withValues(alpha: 0.10) : ac.border,
+            width: hasSelection ? 1.5 : 1,
+          ),
+        ),
+        child: Row(children: [
+          const SizedBox(width: 14),
+          Icon(
+            hasSelection ? Icons.person_rounded : Icons.search_rounded,
+            size: 18,
+            color: hasSelection ? _violet : ac.textTertiary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller:  controller,
+              onChanged:   onSearch,
+              enabled:     !hasSelection,
+              style: TextStyle(color: ac.textPrimary, fontSize: 14),
+              decoration: InputDecoration(
+                hintText:        hasSelection ? selectedName : 'Search by contact name or phone…',
+                hintStyle:       TextStyle(
+                  color: hasSelection ? ac.textPrimary : ac.textTertiary,
+                  fontSize: 14,
+                  fontWeight: hasSelection ? FontWeight.w600 : FontWeight.w400,
+                ),
+                border:          InputBorder.none,
+                isDense:         true,
+                contentPadding:  const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          if (searching)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(color: _violet, strokeWidth: 2)),
+            )
+          else if (hasSelection)
+            GestureDetector(
+              onTap: onClear,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(Icons.close_rounded, size: 18, color: ac.textTertiary),
+              ),
+            ),
+        ]),
+      ),
+
+      if (showDropdown && results.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          constraints: const BoxConstraints(maxHeight: 200),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.10),
+                blurRadius: 16, offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: ListView.separated(
+            shrinkWrap:   true,
+            padding:      const EdgeInsets.symmetric(vertical: 6),
+            itemCount:    results.length,
+            separatorBuilder: (_, i2) => Divider(
+              height: 1,
+              color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.borderLight,
+            ),
+            itemBuilder: (_, i) {
+              final c = results[i];
+              return GestureDetector(
+                onTap: () => onSelect(c),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  child: Row(children: [
+                    Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: _violet.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          c.display.isNotEmpty ? c.display[0].toUpperCase() : '?',
+                          style: const TextStyle(color: _violet, fontSize: 13, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(c.display,
+                            style: TextStyle(color: ac.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+                        if (c.phone.isNotEmpty)
+                          Text(c.phone, style: TextStyle(color: ac.textTertiary, fontSize: 11)),
+                      ]),
+                    ),
+                    Icon(Icons.add_circle_outline_rounded, size: 16, color: _violet.withValues(alpha: 0.60)),
+                  ]),
+                ),
+              );
+            },
+          ),
+        )
+      else if (showDropdown && !searching && results.isEmpty)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+          ),
+          child: Text('No contacts found', style: TextStyle(color: ac.textTertiary, fontSize: 13)),
         ),
     ]);
   }

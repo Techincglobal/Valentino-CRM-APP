@@ -105,20 +105,25 @@ fun ExpandedOverlayCard(
         modifier = Modifier
             .padding(horizontal = 10.dp, vertical = 8.dp)
             .shadow(
-                elevation    = 24.dp,
-                shape        = RoundedCornerShape(24.dp),
-                ambientColor = if (isDark) Color.Black.copy(alpha = 0.40f) else Color.Black.copy(alpha = 0.10f),
-                spotColor    = accentColor.copy(alpha = if (isDark) 0.18f else 0.08f),
+                elevation    = 32.dp,
+                shape        = RoundedCornerShape(28.dp),
+                ambientColor = if (isDark) Color.Black.copy(alpha = 0.50f) else Color.Black.copy(alpha = 0.15f),
+                spotColor    = accentColor.copy(alpha = if (isDark) 0.25f else 0.15f),
             ),
     ) {
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surface)
+                .clip(RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.75f else 0.85f))
                 .border(
-                    1.dp,
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.10f else 0.07f),
-                    RoundedCornerShape(24.dp),
+                    1.5.dp,
+                    Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.15f else 0.25f),
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                        )
+                    ),
+                    RoundedCornerShape(28.dp),
                 )
                 .heightIn(max = 720.dp),
         ) {
@@ -163,11 +168,14 @@ fun ExpandedOverlayCard(
                 when (identity) {
                     is CallerIdentity.Unknown -> {
                         UnknownCallerForm(
-                            phone       = phone,
-                            activeSheet = activeSheet,
-                            onEvent     = onEvent,
-                            onSubmit    = { name, email, company, note ->
+                            phone           = phone,
+                            activeSheet     = activeSheet,
+                            onEvent         = onEvent,
+                            onSubmit        = { name, email, company, note ->
                                 onEvent(OverlayEvent.SubmitLead(name, email, company, note))
+                            },
+                            onSubmitContact = { name, email, company, note ->
+                                onEvent(OverlayEvent.SubmitContact(name, email, company, note))
                             },
                         )
                     }

@@ -101,6 +101,7 @@ fun UnknownCallerForm(
     activeSheet: ActiveSheet = ActiveSheet.NONE,
     onEvent: (OverlayEvent) -> Unit,
     onSubmit: (name: String, email: String, company: String, note: String) -> Unit,
+    onSubmitContact: (name: String, email: String, company: String, note: String) -> Unit,
 ) {
     var name    by remember { mutableStateOf("") }
     var email   by remember { mutableStateOf("") }
@@ -114,15 +115,20 @@ fun UnknownCallerForm(
     var nameTouched  by remember { mutableStateOf(false) }
     var emailTouched by remember { mutableStateOf(false) }
 
-    fun submit() {
-        // Force-touch both validated fields
+    fun validated(): Boolean {
         nameTouched  = true
         emailTouched = true
         nameError    = validateName(name.trim())
         emailError   = validateEmail(email.trim())
-        if (nameError == null && emailError == null) {
-            onSubmit(name.trim(), email.trim(), company.trim(), note.trim())
-        }
+        return nameError == null && emailError == null
+    }
+
+    fun submit() {
+        if (validated()) onSubmit(name.trim(), email.trim(), company.trim(), note.trim())
+    }
+
+    fun submitContact() {
+        if (validated()) onSubmitContact(name.trim(), email.trim(), company.trim(), note.trim())
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -146,7 +152,7 @@ fun UnknownCallerForm(
                     .background(AccentIndigo),
             )
             Text(
-                text          = "CREATE NEW LEAD",
+                text          = "IDENTIFY THIS CALLER",
                 color         = AccentIndigo,
                 fontSize      = 11.sp,
                 fontWeight    = FontWeight.ExtraBold,
@@ -277,6 +283,45 @@ fun UnknownCallerForm(
                     color         = Color.White,
                     fontSize      = 15.sp,
                     letterSpacing = 0.3.sp,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // ── Create Contact button — lighter-weight than a Lead: just identifies
+        // the caller and links them to this call's log, without entering the
+        // sales pipeline. ────────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.5.dp, AccentIndigo.copy(alpha = if (name.isBlank()) 0.25f else 0.55f), RoundedCornerShape(14.dp)),
+        ) {
+            Button(
+                onClick  = ::submitContact,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                enabled  = name.isNotBlank(),
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor         = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                ),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Check,
+                    contentDescription = null,
+                    tint               = AccentIndigo.copy(alpha = if (name.isBlank()) 0.4f else 1f),
+                    modifier           = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text          = "Add to Contacts",
+                    fontWeight    = FontWeight.Bold,
+                    color         = AccentIndigo.copy(alpha = if (name.isBlank()) 0.4f else 1f),
+                    fontSize      = 14.sp,
+                    letterSpacing = 0.2.sp,
                 )
             }
         }

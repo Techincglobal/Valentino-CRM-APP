@@ -45,20 +45,22 @@ class FrappeRepository(private val context: Context) {
         CoroutineScope(Dispatchers.IO).launch { api.refreshCsrfToken() }
     }
 
-    // Call session tracking (phone → callAnsweredAt timestamp)
+    // Call session tracking (phone → answered/ended timestamps)
     private val sessionStarts = mutableMapOf<String, Long>()
+    private val sessionEnds = mutableMapOf<String, Long>()
 
     fun markCallAnswered(phone: String) {
         sessionStarts[phone] = System.currentTimeMillis()
     }
 
     fun markCallEnded(phone: String) {
-        // Keep the value; durationSeconds reads it
+        sessionEnds[phone] = System.currentTimeMillis()
     }
 
     fun getSessionDuration(phone: String): Long {
         val start = sessionStarts.remove(phone) ?: return 0L
-        return (System.currentTimeMillis() - start) / 1000L
+        val end = sessionEnds.remove(phone) ?: System.currentTimeMillis()
+        return (end - start).coerceAtLeast(0L) / 1000L
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -219,6 +221,23 @@ class FrappeRepository(private val context: Context) {
         )
         db.leadDao().updateLead(synced)
         synced.toCallerIdentity() as CallerIdentity.Lead
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CREATE CONTACT — lighter-weight than a Lead: just identifies the caller
+    // and links them to the call log, without entering the sales pipeline.
+    // Not part of the local-first Lead cache (Contacts aren't looked up on
+    // every incoming call the way Leads are), so this is a direct network call.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createContact(
+        name: String,
+        email: String,
+        company: String,
+        phone: String,
+    ): String = withContext(Dispatchers.IO) {
+        api.refreshCsrfToken()
+        api.createContact(name, email, company, phone)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -426,6 +445,12 @@ class FrappeRepository(private val context: Context) {
         notes: String,
         callType: String,
         direction: String = "Inbound",
+        // Set when the caller was identified via "Add to Contacts" rather than
+        // matching a Lead/Customer — links the call log to that Contact instead.
+        contactDocname: String? = null,
+        // "Answered" / "Missed" / "Rejected" / "No Answer" — resolved from
+        // the system CallLog and persisted locally so offline retries preserve it.
+        status: String = "Answered",
     ): CallLogRef = withContext(Dispatchers.IO) {
         val phone = when (identity) {
             is CallerIdentity.Lead     -> identity.phone
@@ -435,8 +460,9 @@ class FrappeRepository(private val context: Context) {
         val leadDocname = when (identity) {
             is CallerIdentity.Lead     -> identity.docname
             is CallerIdentity.Customer -> identity.leadDocname
-            else -> ""
+            else -> contactDocname ?: ""
         }
+        val linkedDoctype = if (identity is CallerIdentity.Unknown && !contactDocname.isNullOrBlank()) "Contact" else null
         val callerName = when (identity) {
             is CallerIdentity.Unknown  -> "Unknown"
             is CallerIdentity.Lead     -> identity.name
@@ -452,6 +478,7 @@ class FrappeRepository(private val context: Context) {
             notes           = notes,
             callType        = callType,
             direction       = direction,
+            status          = status,
             createdAt       = System.currentTimeMillis(),
             isSynced        = false,
         )
@@ -475,6 +502,8 @@ class FrappeRepository(private val context: Context) {
                 notes           = notes,
                 callType        = callType,
                 direction       = direction,
+                linkedDoctype   = linkedDoctype,
+                status          = status,
             )
             db.callLogDao().update(entity.copy(
                 frappeDocname = remote.docname,
@@ -526,7 +555,9 @@ fun LeadEntity.toCallerIdentity(): CallerIdentity.Lead = CallerIdentity.Lead(
     email              = email ?: "",
     phone              = phoneNumber,
     status             = status,
-    isCustomer         = status == "Converted",
+    // "Converted" = lead that became a customer; "Customer" = looked up directly
+    // as a Customer record (no prior Lead). Both should show the customer badge.
+    isCustomer         = status == "Converted" || status == "Customer",
     latestNote         = latestNote,
     latestQuoteSubject = latestQuoteSubject,
     latestQuoteAmount  = latestQuoteAmount,

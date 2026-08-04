@@ -8,7 +8,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 
-import 'package:flutter_animate/flutter_animate.dart';
 import '../models/user_model.dart';
 import '../services/app_settings_service.dart';
 import '../services/caller_service.dart';

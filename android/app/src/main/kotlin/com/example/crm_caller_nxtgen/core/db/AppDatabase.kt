@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         NoteEntity::class,
         CallLogEntity::class,
     ],
-    version = 6,             // bumped 5 → 6 for quote columns on leads
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -89,6 +89,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Preserve the detected call outcome when a call is created offline and
+        // uploaded later by SyncWorker.
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE call_logs ADD COLUMN status TEXT NOT NULL DEFAULT 'Answered'")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -96,7 +104,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "crm_caller_database",
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     // Safety net: if a device has a DB version older than 2 (pre-release),
                     // wipe and recreate rather than crash.
                     .fallbackToDestructiveMigrationFrom(1)

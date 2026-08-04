@@ -166,6 +166,7 @@ class CallMonitorService : Service() {
     // a bogus backend log entry for a call that never happened. Only trust an
     // IDLE if we've actually seen a RINGING/OFFHOOK since the last one.
     private var callSessionActive = false
+    private var callStartedAt = 0L
 
     private fun handleState(state: Int, rawPhone: String?) {
         // NOTE: no overlay-permission gate here. Call detection drives both the
@@ -180,8 +181,12 @@ class CallMonitorService : Service() {
         when (state) {
             TelephonyManager.CALL_STATE_RINGING -> {
                 callSessionActive = true
+                callStartedAt = System.currentTimeMillis()
                 // Mark session as incoming
-                prefs.edit().putBoolean("crm_is_incoming_call", true).apply()
+                prefs.edit()
+                    .putBoolean("crm_is_incoming_call", true)
+                    .putLong("crm_call_started_at", callStartedAt)
+                    .apply()
 
                 // Resolve number: callback param (legacy API) → stored prefs fallback → "Hidden"
                 val phone = rawPhone?.takeIf { it.isNotBlank() }
@@ -207,12 +212,14 @@ class CallMonitorService : Service() {
                 // otherwise still read "true" from whatever the LAST real call set it
                 // to — mislabeling this new outgoing call as inbound too. Correct it here.
                 if (!callSessionActive) {
+                    callStartedAt = System.currentTimeMillis()
                     prefs.edit().putBoolean("crm_is_incoming_call", false).apply()
                     // Also drop any stale inbound-caller-ID cache now — it belongs to
                     // whatever call last used it and must not leak into this new
                     // outgoing call's own number resolution at IDLE.
                     clearStoredValue(this, "crm_caller_phone")
                 }
+                if (callStartedAt == 0L) callStartedAt = System.currentTimeMillis()
                 callSessionActive = true
                 val phone = rawPhone?.takeIf { it.isNotBlank() }
                     ?: readStoredValue(this, "crm_caller_phone")
@@ -236,6 +243,9 @@ class CallMonitorService : Service() {
                 // as-is: the NEXT call always overwrites it fresh via RINGING (true) or
                 // ACTION_NEW_OUTGOING_CALL (false) before reaching IDLE again.
                 val wasIncoming = prefs.getBoolean("crm_is_incoming_call", false)
+                val startedAt = callStartedAt.takeIf { it > 0L }
+                    ?: prefs.getLong("crm_call_started_at", 0L)
+                callStartedAt = 0L
 
                 val direction = if (wasIncoming) "Inbound" else "Outbound"
                 // crm_caller_phone is an INBOUND-only cache (written by the caller-ID path)
@@ -254,12 +264,13 @@ class CallMonitorService : Service() {
                         ?: queryLastOutgoingNumber(this)
                         ?: rawPhone?.takeIf { it.isNotBlank() }
                 }
-                android.util.Log.d("CrmMonitor", "CallMonitorService IDLE resolved: phone=$phone direction=$direction wasIncoming=$wasIncoming rawPhone=$rawPhone")
+                android.util.Log.d("CrmMonitor", "CallMonitorService IDLE resolved: phone=$phone direction=$direction startedAt=$startedAt wasIncoming=$wasIncoming rawPhone=$rawPhone")
                 ContextCompat.startForegroundService(
                     this,
                     Intent(this, NativeCallOverlayService::class.java).apply {
                         action = NativeCallOverlayService.ACTION_CALL_ENDED
                         putExtra("direction", direction)
+                        putExtra("call_started_at", startedAt)
                         if (!phone.isNullOrBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, phone)
                     },
                 )
@@ -272,6 +283,7 @@ class CallMonitorService : Service() {
                 clearStoredValue(this, "crm_caller_name")
                 clearStoredValue(this, "crm_caller_type")
                 clearStoredValue(this, "crm_caller_docname")
+                prefs.edit().remove("crm_call_started_at").apply()
             }
         }
     }

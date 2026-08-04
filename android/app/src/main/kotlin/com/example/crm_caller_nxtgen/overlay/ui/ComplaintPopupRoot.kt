@@ -112,14 +112,23 @@ private fun ComplaintCard(
         modifier = Modifier
             .width(320.dp)
             .shadow(
-                elevation    = 24.dp,
-                shape        = RoundedCornerShape(20.dp),
-                ambientColor = Color.Black.copy(alpha = 0.10f),
-                spotColor    = Color.Black.copy(alpha = 0.16f),
+                elevation    = 32.dp,
+                shape        = RoundedCornerShape(28.dp),
+                ambientColor = Color.Black.copy(alpha = 0.30f),
+                spotColor    = Color.Black.copy(alpha = 0.35f),
             ),
-        shape           = RoundedCornerShape(20.dp),
-        color           = White,
+        shape           = RoundedCornerShape(28.dp),
+        color           = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         tonalElevation  = 0.dp,
+        border          = androidx.compose.foundation.BorderStroke(
+            1.5.dp,
+            androidx.compose.ui.graphics.Brush.linearGradient(
+                listOf(
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+            )
+        )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
 
@@ -148,13 +157,13 @@ private fun ComplaintCard(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text       = "Log a Ticket",
-                        color      = TextPrimary,
+                        color      = MaterialTheme.colorScheme.onSurface,
                         fontSize   = 18.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
                         text     = state.identity.displayNameShort,
-                        color    = TextSecondary,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                     )
                 }
@@ -163,8 +172,8 @@ private fun ComplaintCard(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .background(SurfaceLight)
-                        .border(1.dp, BorderLight, CircleShape),
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), CircleShape),
                 ) {
                     Icon(
                         imageVector        = Icons.Default.Close,
@@ -275,10 +284,24 @@ private fun SubmittingCard() {
     Surface(
         modifier = Modifier
             .width(260.dp)
-            .shadow(16.dp, RoundedCornerShape(20.dp)),
-        shape          = RoundedCornerShape(20.dp),
-        color          = White,
+            .shadow(
+                elevation    = 24.dp,
+                shape        = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.30f),
+                spotColor    = Color.Black.copy(alpha = 0.35f),
+            ),
+        shape          = RoundedCornerShape(24.dp),
+        color          = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         tonalElevation = 0.dp,
+        border         = androidx.compose.foundation.BorderStroke(
+            1.5.dp,
+            androidx.compose.ui.graphics.Brush.linearGradient(
+                listOf(
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+            )
+        )
     ) {
         Row(
             modifier              = Modifier.padding(24.dp),

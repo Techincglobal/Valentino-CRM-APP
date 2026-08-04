@@ -144,6 +144,9 @@ sealed class OverlayState {
         val callPhase: CallPhase = CallPhase.RINGING,
         val isExpanded: Boolean = false,
         val activeSheet: ActiveSheet = ActiveSheet.NONE,
+        // Set once "Add to Contacts" succeeds — lets the call log this call
+        // produces link to that Contact instead of staying unlinked.
+        val linkedContactDocname: String? = null,
     ) : OverlayState()
 
     /** Lead form is being submitted. Input locked. */
@@ -181,6 +184,9 @@ sealed class OverlayState {
         // Set once the call has been auto-logged (see OverlayStateMachine.CallEnded).
         // The "add a note" form patches this record rather than creating a new one.
         val callLogRef: CallLogRef? = null,
+        // Carried over from UnknownCaller if "Add to Contacts" was used mid-call —
+        // lets createCallLog link the record to that Contact.
+        val linkedContactDocname: String? = null,
     ) : OverlayState()
 }
 
@@ -251,7 +257,17 @@ sealed class OverlayEvent {
     object AnswerCall : OverlayEvent()
     // phone/direction let the state machine log the call even when no overlay
     // was ever shown (e.g. outbound calls, or state already reset to Idle).
-    data class CallEnded(val direction: String = "Inbound", val phone: String = "") : OverlayEvent()
+    data class CallEnded(
+        val direction: String = "Inbound",
+        val phone: String = "",
+        // "Answered" / "Missed" / "Rejected" / "No Answer" — read from the
+        // system's own CallLog entry (see queryLatestSystemCallStatus), since
+        // TelephonyManager's RINGING/OFFHOOK/IDLE transitions alone can't
+        // reliably distinguish these (notably: OFFHOOK fires for an outgoing
+        // call the instant it's dialed, regardless of whether the far end
+        // ever actually answers).
+        val status: String = "Answered",
+    ) : OverlayEvent()
 
     // Backend results
     data class IdentityResolved(val identity: CallerIdentity) : OverlayEvent()
@@ -271,6 +287,17 @@ sealed class OverlayEvent {
     ) : OverlayEvent()
     data class LeadCreated(val identity: CallerIdentity.Lead) : OverlayEvent()
     data class LeadFailed(val reason: String) : OverlayEvent()
+
+    // Contact creation (unknown caller) — lighter-weight than a Lead: just
+    // identifies the caller and links them to this call's log.
+    data class SubmitContact(
+        val name: String,
+        val email: String,
+        val company: String,
+        val note: String,
+    ) : OverlayEvent()
+    data class ContactCreated(val docname: String) : OverlayEvent()
+    data class ContactFailed(val reason: String) : OverlayEvent()
 
     // Opportunity
     object OpenOpportunityForm : OverlayEvent()

@@ -120,6 +120,7 @@ class SyncWorker(
                     notes           = log.notes,
                     callType        = log.callType,
                     direction       = log.direction,
+                    status          = log.status,
                 )
                 db.callLogDao().update(log.copy(frappeDocname = remote.docname, isSynced = true))
             } catch (e: Exception) {

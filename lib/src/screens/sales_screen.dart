@@ -309,6 +309,7 @@ class _SalesScreenState extends State<SalesScreen>
         builder: (_, _) {
           if (_tab.index == 0) {
             return FloatingActionButton.extended(
+              heroTag: 'new_lead_fab',
               onPressed: _showCreateLeadForm,
               backgroundColor: _indigo,
               icon: const Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
@@ -318,6 +319,7 @@ class _SalesScreenState extends State<SalesScreen>
           }
           if (_tab.index == 1) {
             return FloatingActionButton.extended(
+              heroTag: 'new_opp_fab',
               onPressed: _showCreateOpportunityForm,
               backgroundColor: _indigo,
               icon: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 18),

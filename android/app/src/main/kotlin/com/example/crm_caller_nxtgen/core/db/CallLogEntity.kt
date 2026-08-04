@@ -14,6 +14,7 @@ data class CallLogEntity(
     val notes: String,
     val callType: String,         // "Regular" or "WhatsApp"
     val direction: String = "Inbound",
+    val status: String = "Answered",
     val createdAt: Long,
     val isSynced: Boolean,
 )

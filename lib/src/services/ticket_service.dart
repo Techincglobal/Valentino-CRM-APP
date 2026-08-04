@@ -201,6 +201,22 @@ class CustomerResult {
   String get display => customerName.isNotEmpty ? customerName : name;
 }
 
+/// A plain Frappe Contact — lighter-weight than a Lead/Customer, used for
+/// callers who were just identified (via "Add to Contacts") rather than
+/// entered into the sales pipeline.
+class ContactResult {
+  final String name;
+  final String contactName;
+  final String phone;
+  const ContactResult({required this.name, required this.contactName, required this.phone});
+  factory ContactResult.fromJson(Map<String, dynamic> j) => ContactResult(
+    name:        j['name']?.toString() ?? '',
+    contactName: j['contact_name']?.toString() ?? (j['name']?.toString() ?? ''),
+    phone:       j['phone']?.toString() ?? '',
+  );
+  String get display => contactName.isNotEmpty ? contactName : name;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Service
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,6 +263,7 @@ class TicketService {
     String ticketType = '',
     String agentGroup = '',
     String customer   = '',
+    String contact    = '',
   }) async {
     final payload = <String, dynamic>{
       'subject':     subject,
@@ -257,6 +274,7 @@ class TicketService {
     if (ticketType.isNotEmpty) payload['ticket_type']  = ticketType;
     if (agentGroup.isNotEmpty) payload['agent_group']  = agentGroup;
     if (customer.isNotEmpty)   payload['customer']     = customer;
+    if (contact.isNotEmpty)    payload['contact']      = contact;
 
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.create_support_ticket',
@@ -313,6 +331,27 @@ class TicketService {
       return list
           .whereType<Map<String, dynamic>>()
           .map(CustomerResult.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Search Contact records by name or phone — lets the user pick a Contact
+  /// (not yet a Lead/Customer) to log a ticket against directly.
+  static Future<List<ContactResult>> searchContacts(String query) async {
+    final resp = await ApiService.post(
+      '/api/method/nxtgen_crm_mobile.api.search_contacts',
+      {'query': query, 'limit': 15},
+    );
+    if (resp.statusCode != 200) return [];
+    try {
+      final decoded = jsonDecode(resp.body);
+      final msg  = (decoded is Map) ? decoded['message'] : null;
+      final list = (msg is List) ? msg : <dynamic>[];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(ContactResult.fromJson)
           .toList();
     } catch (_) {
       return [];

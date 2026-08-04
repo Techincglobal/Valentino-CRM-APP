@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
 
 /**
  * Listens for phone state changes and drives the overlay service.
@@ -33,6 +34,7 @@ class CallStateReceiver : BroadcastReceiver() {
         private const val KEY_LAST_PHONE    = "crm_last_phone_number"
         private const val KEY_LAST_TS       = "crm_last_phone_state_ts"
         private const val KEY_IS_INCOMING   = "crm_is_incoming_call"
+        private const val KEY_CALL_STARTED_AT = "crm_call_started_at"
         private const val DEBOUNCE_MS       = 1500L
         private const val PREFS             = "FlutterSharedPreferences"
     }
@@ -45,6 +47,7 @@ class CallStateReceiver : BroadcastReceiver() {
             val outPhone = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER)
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putBoolean(KEY_IS_INCOMING, false)
+                .putLong(KEY_CALL_STARTED_AT, System.currentTimeMillis())
                 .putString("crm_last_out_phone", outPhone ?: "")
                 .apply()
 
@@ -88,7 +91,10 @@ class CallStateReceiver : BroadcastReceiver() {
             // ── Phone is ringing ──────────────────────────────────────────────
             TelephonyManager.EXTRA_STATE_RINGING -> {
                 // Mark this session as incoming so OFFHOOK/IDLE know to act
-                prefs.edit().putBoolean(KEY_IS_INCOMING, true).apply()
+                prefs.edit()
+                    .putBoolean(KEY_IS_INCOMING, true)
+                    .putLong(KEY_CALL_STARTED_AT, System.currentTimeMillis())
+                    .apply()
 
                 // Use "Hidden" if the number wasn't available (Android 10+ privacy mask)
                 val safePhone = phone?.takeIf { it.isNotBlank() } ?: "Hidden"
@@ -102,6 +108,11 @@ class CallStateReceiver : BroadcastReceiver() {
 
             // ── Call answered ─────────────────────────────────────────────────
             TelephonyManager.EXTRA_STATE_OFFHOOK -> {
+                if (prefs.getLong(KEY_CALL_STARTED_AT, 0L) == 0L) {
+                    // An outgoing call may begin with OFFHOOK, without the outgoing
+                    // broadcast being delivered on newer Android versions.
+                    prefs.edit().putLong(KEY_CALL_STARTED_AT, System.currentTimeMillis()).apply()
+                }
                 val activePhone = phone
                     ?: readStoredValue(context, "crm_last_out_phone")
                     ?: ""
@@ -115,6 +126,7 @@ class CallStateReceiver : BroadcastReceiver() {
             // ── Call ended / hung up ──────────────────────────────────────────
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 val wasIncoming = prefs.getBoolean(KEY_IS_INCOMING, false)
+                val startedAt = prefs.getLong(KEY_CALL_STARTED_AT, 0L)
                 val direction   = if (wasIncoming) "Inbound" else "Outbound"
                 // `phone` (EXTRA_INCOMING_NUMBER / crm_caller_phone fallback, computed above)
                 // is an INBOUND-only signal — crm_caller_phone is written specifically by the
@@ -133,7 +145,7 @@ class CallStateReceiver : BroadcastReceiver() {
                         ?: phone
                         ?: ""
                 }
-                android.util.Log.d("CrmMonitor", "CallStateReceiver IDLE resolved: phone=$safePhone direction=$direction wasIncoming=$wasIncoming rawPhoneExtra=$phone")
+                android.util.Log.d("CrmMonitor", "CallStateReceiver IDLE resolved: phone=$safePhone direction=$direction startedAt=$startedAt wasIncoming=$wasIncoming rawPhoneExtra=$phone")
 
                 // KEY_IS_INCOMING deliberately NOT cleared here — CallMonitorService's IDLE
                 // handler reads this same key independently (both fire for one real hangup),
@@ -146,6 +158,7 @@ class CallStateReceiver : BroadcastReceiver() {
                 // to clear per-call (see clearStoredValue calls below), unrelated to the race.
                 prefs.edit()
                     .remove(KEY_LAST_STATE)
+                    .remove(KEY_CALL_STARTED_AT)
                     .remove("crm_last_out_phone")
                     .apply()
                 clearStoredValue(context, "crm_caller_phone")
@@ -158,6 +171,7 @@ class CallStateReceiver : BroadcastReceiver() {
                     Intent(context, NativeCallOverlayService::class.java).apply {
                         action = NativeCallOverlayService.ACTION_CALL_ENDED
                         putExtra("direction", direction)
+                        putExtra("call_started_at", startedAt)
                         if (safePhone.isNotBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, safePhone)
                     }
                 )
@@ -222,6 +236,97 @@ internal fun queryLastOutgoingNumber(context: Context): String? {
         result
     } catch (e: Exception) {
         android.util.Log.e("CrmMonitor", "queryLastOutgoingNumber threw", e)
+        null
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Call outcome lookup via CallLog content provider
+//
+// TelephonyManager's RINGING/OFFHOOK/IDLE transitions can't reliably tell us
+// whether a call was actually answered, missed, rejected, or blocked — most
+// notably, OFFHOOK fires for an OUTGOING call the instant it's dialed,
+// regardless of whether the far end ever picks up. Android's own CallLog
+// provider, however, already classifies every call correctly (the system
+// writes this entry right as the call ends) — read that instead of trying to
+// reconstruct the outcome ourselves.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Wait for Android to commit this call's CallLog row, then return the outcome
+ * only if it belongs to this call. At IDLE the provider commonly still exposes
+ * the previous row for a short time, which was why every record became Answered.
+ */
+internal suspend fun waitForSystemCallStatus(
+    context: Context,
+    phone: String,
+    direction: String,
+    startedAt: Long,
+): String? {
+    repeat(5) { attempt ->
+        if (attempt > 0) delay(500L)
+        queryLatestSystemCallStatus(context, phone, direction, startedAt)?.let { return it }
+    }
+    return null
+}
+
+internal fun queryLatestSystemCallStatus(
+    context: Context,
+    phone: String,
+    direction: String,
+    startedAt: Long,
+): String? {
+    return try {
+        val result = context.contentResolver.query(
+            android.provider.CallLog.Calls.CONTENT_URI,
+            arrayOf(
+                android.provider.CallLog.Calls.NUMBER,
+                android.provider.CallLog.Calls.TYPE,
+                android.provider.CallLog.Calls.DATE,
+                android.provider.CallLog.Calls.DURATION,
+            ),
+            null,
+            null,
+            "${android.provider.CallLog.Calls.DATE} DESC",
+        )?.use { cursor ->
+            val phoneDigits = phone.filter { it.isDigit() }.takeLast(10)
+            val earliestDate = if (startedAt > 0L) startedAt - 5_000L else System.currentTimeMillis() - 120_000L
+            while (cursor.moveToNext()) {
+                val rowPhone = cursor.getString(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.NUMBER)).orEmpty()
+                val rowDigits = rowPhone.filter { it.isDigit() }.takeLast(10)
+                val type = cursor.getInt(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.TYPE))
+                val date = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.DATE))
+                val duration = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.DURATION))
+
+                if (date < earliestDate) break
+                if (phoneDigits.isNotBlank() && rowDigits != phoneDigits) continue
+
+                val isInboundType = type in setOf(
+                    android.provider.CallLog.Calls.INCOMING_TYPE,
+                    android.provider.CallLog.Calls.MISSED_TYPE,
+                    android.provider.CallLog.Calls.REJECTED_TYPE,
+                    android.provider.CallLog.Calls.BLOCKED_TYPE,
+                    android.provider.CallLog.Calls.VOICEMAIL_TYPE,
+                )
+                if ((direction == "Inbound") != isInboundType) continue
+
+                return@use when (type) {
+                    android.provider.CallLog.Calls.INCOMING_TYPE,
+                    android.provider.CallLog.Calls.ANSWERED_EXTERNALLY_TYPE -> "Answered"
+                    android.provider.CallLog.Calls.OUTGOING_TYPE -> if (duration > 0L) "Answered" else "No Answer"
+                    android.provider.CallLog.Calls.MISSED_TYPE -> "Missed"
+                    android.provider.CallLog.Calls.REJECTED_TYPE,
+                    android.provider.CallLog.Calls.BLOCKED_TYPE -> "Rejected"
+                    android.provider.CallLog.Calls.VOICEMAIL_TYPE -> "No Answer"
+                    else -> null
+                }
+            }
+            null
+        }
+        android.util.Log.d("CrmMonitor", "queryLatestSystemCallStatus result=$result")
+        result
+    } catch (e: Exception) {
+        android.util.Log.e("CrmMonitor", "queryLatestSystemCallStatus threw", e)
         null
     }
 }

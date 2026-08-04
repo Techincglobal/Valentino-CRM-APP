@@ -164,6 +164,13 @@ class OverlayStateMachine(
                 }
                 android.util.Log.d("CrmMonitor", "CallEnded: proceeding to log call for phone=$phone direction=${event.direction}")
                 val initialIdentity = current.knownIdentity ?: CallerIdentity.Unknown
+                // Carry over a Contact created mid-call (via "Add to Contacts" on the
+                // Unknown Caller form) so the log this call produces links to it.
+                val carriedContactDocname = when (current) {
+                    is OverlayState.UnknownCaller -> current.linkedContactDocname
+                    is OverlayState.PostCall      -> current.linkedContactDocname
+                    else -> null
+                }
                 val duration = repository.getSessionDuration(phone)
                 postCallEnteredAt = System.currentTimeMillis()
                 // PostCall stays expanded and opens straight into the "add a note"
@@ -173,6 +180,7 @@ class OverlayStateMachine(
                     isExpanded  = true,
                     activeSheet = ActiveSheet.LOG_CALL,
                     direction   = event.direction,
+                    linkedContactDocname = carriedContactDocname,
                 )
 
                 // Log the call immediately, with no notes — every call gets a
@@ -194,7 +202,11 @@ class OverlayStateMachine(
                         if (stillSame) _state.value = (_state.value as OverlayState.PostCall).copy(identity = identity)
                     }
                     val ref = runCatching {
-                        repository.createCallLog(identity, phone, duration, "", "Regular", event.direction)
+                        repository.createCallLog(
+                            identity, phone, duration, "", "Regular", event.direction,
+                            contactDocname = if (identity is CallerIdentity.Unknown) carriedContactDocname else null,
+                            status = event.status,
+                        )
                     }.onFailure {
                         android.util.Log.e("CrmMonitor", "createCallLog failed for $phone", it)
                     }.getOrNull()
@@ -444,6 +456,73 @@ class OverlayStateMachine(
                 _state.value = OverlayState.UnknownCaller(phone, current.callPhase ?: CallPhase.RINGING, isExpanded = true)
                 emitEffect(OverlaySideEffect.ShowToast("Lead creation failed: ${event.reason}"))
             }
+
+            // ── Contact creation (lighter-weight than a Lead) ─────────────────
+
+            is OverlayEvent.SubmitContact -> {
+                if (event.name.isBlank()) return
+                when (current) {
+                    is OverlayState.UnknownCaller -> {
+                        val phone = current.phoneNumber
+                        activeJob = scope.launch {
+                            val result = runCatching {
+                                repository.createContact(
+                                    name    = event.name,
+                                    email   = event.email,
+                                    company = event.company,
+                                    phone   = phone,
+                                )
+                            }
+                            result.fold(
+                                onSuccess = { docname ->
+                                    val stillSame = (_state.value as? OverlayState.UnknownCaller)?.phoneNumber == phone
+                                    if (stillSame) {
+                                        _state.value = (_state.value as OverlayState.UnknownCaller)
+                                            .copy(linkedContactDocname = docname)
+                                    }
+                                    emitEffect(OverlaySideEffect.ShowToast("Added to Contacts: ${event.name}"))
+                                },
+                                onFailure = { err ->
+                                    emitEffect(OverlaySideEffect.ShowToast("Failed: ${err.message}"))
+                                }
+                            )
+                        }
+                    }
+                    is OverlayState.PostCall -> {
+                        val phone = current.phoneNumber
+                        activeJob = scope.launch {
+                            val result = runCatching {
+                                repository.createContact(
+                                    name    = event.name,
+                                    email   = event.email,
+                                    company = event.company,
+                                    phone   = phone,
+                                )
+                            }
+                            result.fold(
+                                onSuccess = { docname ->
+                                    val stillSame = (_state.value as? OverlayState.PostCall)?.phoneNumber == phone
+                                    if (stillSame) {
+                                        _state.value = (_state.value as OverlayState.PostCall)
+                                            .copy(linkedContactDocname = docname)
+                                    }
+                                    emitEffect(OverlaySideEffect.ShowToast("Added to Contacts: ${event.name}"))
+                                },
+                                onFailure = { err ->
+                                    emitEffect(OverlaySideEffect.ShowToast("Failed: ${err.message}"))
+                                }
+                            )
+                        }
+                    }
+                    else -> return
+                }
+            }
+
+            // Handled inline within SubmitContact above — kept as events for parity
+            // with LeadCreated/LeadFailed in case a future caller wants to dispatch
+            // them independently.
+            is OverlayEvent.ContactCreated -> {}
+            is OverlayEvent.ContactFailed -> {}
 
             // ── Opportunity submission ────────────────────────────────────────
 
