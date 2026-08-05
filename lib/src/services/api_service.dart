@@ -15,7 +15,7 @@ class ApiService {
   static Stream<void> get onSessionExpired => _sessionExpiredController.stream;
 
   static Future<void> _handleUnauthorised() async {
-    await StorageService.clearAll();
+    await StorageService.clearSession(); // keeps base URL so next start shows login, not site-setup
     await DbService.clearAll(); // Wipe offline cache on logout
     _sessionExpiredController.add(null);
     throw const SessionExpiredException();
