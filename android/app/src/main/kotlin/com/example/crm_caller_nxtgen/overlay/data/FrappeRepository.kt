@@ -95,6 +95,10 @@ class FrappeRepository(private val context: Context) {
         // permanently masquerade as whichever lead happened to be cached there.
         if (phone.isBlank() || phone == "Hidden") return@withContext null
 
+        // No active session — don't serve stale cache from a previous user's session.
+        // The overlay will show "Unknown Caller" with a login prompt instead.
+        if (!api.getConfig().hasSession) return@withContext null
+
         val now = System.currentTimeMillis()
 
         val localLead = db.leadDao().getLeadByPhone(phone)
@@ -240,6 +244,19 @@ class FrappeRepository(private val context: Context) {
     ): String = withContext(Dispatchers.IO) {
         api.refreshCsrfToken()
         api.createContact(name, email, company, phone, linkDoctype, linkName)
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CREATE SUPPLIER
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createSupplier(
+        name: String,
+        phone: String,
+        email: String = "",
+    ): String = withContext(Dispatchers.IO) {
+        api.refreshCsrfToken()
+        api.createSupplier(name, phone, email)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -560,6 +577,7 @@ fun LeadEntity.toCallerIdentity(): CallerIdentity.Lead = CallerIdentity.Lead(
     // "Converted" = lead that became a customer; "Customer" = looked up directly
     // as a Customer record (no prior Lead). Both should show the customer badge.
     isCustomer         = status == "Converted" || status == "Customer",
+    isSupplier         = status == "Supplier",
     latestNote         = latestNote,
     latestQuoteSubject = latestQuoteSubject,
     latestQuoteAmount  = latestQuoteAmount,

@@ -93,10 +93,11 @@ fun ExpandedOverlayCard(
     }
 
     // Matches the type-color legend used app-wide (see AppColors in app_theme.dart)
-    val accentColor = when (identity) {
-        is CallerIdentity.Unknown  -> Color(0xFFF59E0B) // warning amber
-        is CallerIdentity.Customer -> Color(0xFF2490EF) // brand blue
-        is CallerIdentity.Lead     -> Color(0xFF2490EF) // brand blue
+    val accentColor = when {
+        identity is CallerIdentity.Unknown              -> Color(0xFFF59E0B) // amber
+        identity is CallerIdentity.Lead && identity.isSupplier -> Color(0xFFE67E22) // orange
+        identity is CallerIdentity.Customer             -> Color(0xFF14B8A6) // teal
+        else                                            -> Color(0xFF2490EF) // brand blue (Lead)
     }
 
     val isDark = isSystemInDarkTheme()
@@ -168,14 +169,17 @@ fun ExpandedOverlayCard(
                 when (identity) {
                     is CallerIdentity.Unknown -> {
                         UnknownCallerForm(
-                            phone           = phone,
-                            activeSheet     = activeSheet,
-                            onEvent         = onEvent,
-                            onSubmit        = { name, email, company, note ->
+                            phone             = phone,
+                            activeSheet       = activeSheet,
+                            onEvent           = onEvent,
+                            onSubmit          = { name, email, company, note ->
                                 onEvent(OverlayEvent.SubmitLead(name, email, company, note))
                             },
-                            onSubmitContact = { name, email, company, note ->
+                            onSubmitContact   = { name, email, company, note ->
                                 onEvent(OverlayEvent.SubmitContact(name, email, company, note))
+                            },
+                            onSubmitSupplier  = { name, email ->
+                                onEvent(OverlayEvent.SubmitSupplier(name, email))
                             },
                         )
                     }
@@ -260,11 +264,14 @@ private fun CardHeader(
                     .padding(horizontal = 8.dp, vertical = 3.dp),
             ) {
                 Text(
-                    text = when (identity) {
-                        is CallerIdentity.Unknown  -> if (isPostCall) "POST CALL" else "UNKNOWN"
-                        is CallerIdentity.Customer -> if (isPostCall) "POST CALL" else "CUSTOMER"
-                        is CallerIdentity.Lead     -> if (isPostCall) "POST CALL"
-                                                      else identity.status.uppercase().ifBlank { "LEAD" }
+                    text = when {
+                        isPostCall -> "POST CALL"
+                        identity is CallerIdentity.Unknown -> "UNKNOWN"
+                        identity is CallerIdentity.Customer -> "CUSTOMER"
+                        identity is CallerIdentity.Lead && identity.isSupplier -> "SUPPLIER"
+                        identity is CallerIdentity.Lead && identity.isCustomer -> "CUSTOMER"
+                        identity is CallerIdentity.Lead -> identity.status.uppercase().ifBlank { "LEAD" }
+                        else -> "UNKNOWN"
                     },
                     color         = accentColor,
                     fontSize      = 9.sp,

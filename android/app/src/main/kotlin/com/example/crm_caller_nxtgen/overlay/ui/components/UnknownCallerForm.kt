@@ -60,11 +60,12 @@ import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 // ─────────────────────────────────────────────────────────────────────────────
 // Brand accent colours (not theme-sensitive)
 // ─────────────────────────────────────────────────────────────────────────────
-private val AccentIndigo = Color(0xFF2490EF) // brand blue (kept name for minimal diff)
-private val AccentAmber  = Color(0xFFF59E0B)
-private val AccentRed    = Color(0xFFEF4444)
-private val AccentGreen  = Color(0xFF22C55E)
-private val AccentBlue   = AccentIndigo
+private val AccentIndigo  = Color(0xFF2490EF) // brand blue (kept name for minimal diff)
+private val AccentAmber   = Color(0xFFF59E0B)
+private val AccentRed     = Color(0xFFEF4444)
+private val AccentGreen   = Color(0xFF22C55E)
+private val AccentOrange  = Color(0xFFE67E22) // Supplier
+private val AccentBlue    = AccentIndigo
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Validation helpers
@@ -102,6 +103,7 @@ fun UnknownCallerForm(
     onEvent: (OverlayEvent) -> Unit,
     onSubmit: (name: String, email: String, company: String, note: String) -> Unit,
     onSubmitContact: (name: String, email: String, company: String, note: String) -> Unit,
+    onSubmitSupplier: (name: String, email: String) -> Unit = { _, _ -> },
 ) {
     var name    by remember { mutableStateOf("") }
     var email   by remember { mutableStateOf("") }
@@ -129,6 +131,10 @@ fun UnknownCallerForm(
 
     fun submitContact() {
         if (validated()) onSubmitContact(name.trim(), email.trim(), company.trim(), note.trim())
+    }
+
+    fun submitSupplier() {
+        if (validated()) onSubmitSupplier(name.trim(), email.trim())
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -320,6 +326,43 @@ fun UnknownCallerForm(
                     text          = "Add to Contacts",
                     fontWeight    = FontWeight.Bold,
                     color         = AccentIndigo.copy(alpha = if (name.isBlank()) 0.4f else 1f),
+                    fontSize      = 14.sp,
+                    letterSpacing = 0.2.sp,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // ── Add as Supplier button ────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.5.dp, AccentOrange.copy(alpha = if (name.isBlank()) 0.25f else 0.60f), RoundedCornerShape(14.dp)),
+        ) {
+            Button(
+                onClick  = ::submitSupplier,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                enabled  = name.isNotBlank(),
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor         = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                ),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Business,
+                    contentDescription = null,
+                    tint               = AccentOrange.copy(alpha = if (name.isBlank()) 0.4f else 1f),
+                    modifier           = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text          = "Add as Supplier",
+                    fontWeight    = FontWeight.Bold,
+                    color         = AccentOrange.copy(alpha = if (name.isBlank()) 0.4f else 1f),
                     fontSize      = 14.sp,
                     letterSpacing = 0.2.sp,
                 )

@@ -241,10 +241,15 @@ class _HomeScreenState extends State<HomeScreen>
     }
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
+    // Read theme before the async gap so it's safe to use after await.
+    final sheetBg = context.isDark ? const Color(0xFF0D1117) : context.ac.bgBase;
     final outcome = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: sheetBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (_) => _LookupResultSheet(phone: phone, result: result),
     );
@@ -268,6 +273,24 @@ class _HomeScreenState extends State<HomeScreen>
       ));
       if (mounted) _phoneController.clear();
       widget.onOpportunityCreated?.call();
+    } else if (outcome == 'contact_created') {
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Contact saved successfully'),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+      if (mounted) _phoneController.clear();
+    } else if (outcome == 'supplier_created') {
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Supplier saved successfully'),
+        backgroundColor: const Color(0xFFE67E22),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ));
+      if (mounted) _phoneController.clear();
     }
   }
 
@@ -1329,13 +1352,23 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   final _nameCtrl  = TextEditingController();
   final _emailCtrl = TextEditingController();
 
-  bool    _creatingLead = false;
-  bool    _creatingOpp  = false;
+  bool    _creatingLead     = false;
+  bool    _creatingContact  = false;
+  bool    _creatingSupplier = false;
+  bool    _creatingOpp      = false;
   String? _error;
 
   // Set after a lead is saved — drives the "Create Opportunity" transition
   String _newLeadDocname     = '';
   String _newLeadDisplayName = '';
+
+  // Set after a contact is saved
+  String _newContactDocname     = '';
+  String _newContactDisplayName = '';
+
+  // Set after a supplier is saved
+  String _newSupplierDocname     = '';
+  String _newSupplierDisplayName = '';
 
   late final bool   _found;
   late final String _displayName;
@@ -1345,11 +1378,13 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   late final String _mobile;
   late final String _latestNote;
 
-  static const _amber  = Color(0xFFF59E0B);
-  static const _indigo = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
-  static const _teal   = Color(0xFF14B8A6);
-  static const _slate  = Color(0xFF94A3B8);
-  static const _red    = Color(0xFFEF4444);
+  static const _amber   = Color(0xFFF59E0B);
+  static const _indigo  = Color(0xFF2490EF); // brand accent (kept name for minimal diff)
+  static const _teal    = Color(0xFF14B8A6);
+  static const _orange  = Color(0xFFE67E22); // Supplier
+  static const _green   = Color(0xFF10B981); // Contact standalone
+  static const _slate   = Color(0xFF94A3B8);
+  static const _red     = Color(0xFFEF4444);
 
   @override
   void initState() {
@@ -1379,9 +1414,13 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
   }
 
   Color get _typeColor {
-    if (_type == 'Lead')     return _indigo;
-    if (_type == 'Customer') return _teal;
-    return _slate;
+    switch (_type) {
+      case 'Customer':  return _teal;
+      case 'Supplier':  return _orange;
+      case 'Contact':   return _green;
+      case 'Lead':      return _indigo;
+      default:          return _slate;
+    }
   }
 
   Future<void> _createOpportunity() async {
@@ -1428,21 +1467,60 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
     }
   }
 
+  Future<void> _createContact() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) { setState(() => _error = 'Name is required'); return; }
+    setState(() { _creatingContact = true; _error = null; });
+    try {
+      await CallerService.createContact(
+        firstName: name,
+        mobile: widget.phone,
+        email: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+      );
+      if (!mounted) return;
+      setState(() {
+        _newContactDocname     = widget.phone; // used as a non-empty sentinel
+        _newContactDisplayName = name;
+        _creatingContact       = false;
+        _error                 = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _creatingContact = false; _error = e.toString().replaceFirst('Exception: ', ''); });
+    }
+  }
+
+  Future<void> _createSupplier() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) { setState(() => _error = 'Name is required'); return; }
+    setState(() { _creatingSupplier = true; _error = null; });
+    try {
+      await CallerService.createSupplier(
+        supplierName: name,
+        mobile: widget.phone,
+        email: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+      );
+      if (!mounted) return;
+      setState(() {
+        _newSupplierDocname     = widget.phone; // non-empty sentinel
+        _newSupplierDisplayName = name;
+        _creatingSupplier       = false;
+        _error                  = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _creatingSupplier = false; _error = e.toString().replaceFirst('Exception: ', ''); });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ac     = context.ac;
     final isDark = context.isDark;
     final bottom = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
 
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(
-          top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
-        ),
-      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1484,9 +1562,11 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
                   ]),
                   const SizedBox(height: 18),
 
-                  if (_newLeadDocname.isNotEmpty) ..._newLeadContent(ac, isDark)
-                  else if (_found)               ..._foundContent(ac, isDark)
-                  else                           ..._unknownContent(ac, isDark),
+                  if (_newSupplierDocname.isNotEmpty) ..._newSupplierContent(ac, isDark)
+                  else if (_newContactDocname.isNotEmpty) ..._newContactContent(ac, isDark)
+                  else if (_newLeadDocname.isNotEmpty) ..._newLeadContent(ac, isDark)
+                  else if (_found)                    ..._foundContent(ac, isDark)
+                  else                                ..._unknownContent(ac, isDark),
 
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -1841,15 +1921,19 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
         ]),
       ),
       const SizedBox(height: 10),
+      // Save as Lead button
       GestureDetector(
-        onTap: _creatingLead ? null : _createLead,
+        onTap: (_creatingLead || _creatingContact || _creatingSupplier) ? null : _createLead,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_indigo, Color(0xFF1A7FD4)]),
+            gradient: LinearGradient(colors: [
+              _indigo.withValues(alpha: (_creatingContact || _creatingSupplier) ? 0.4 : 1.0),
+              const Color(0xFF1A7FD4).withValues(alpha: (_creatingContact || _creatingSupplier) ? 0.4 : 1.0),
+            ]),
             borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))],
+            boxShadow: (_creatingContact || _creatingSupplier) ? [] : [BoxShadow(color: _indigo.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Center(
             child: _creatingLead
@@ -1860,6 +1944,223 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
                     Text('Save as Lead', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                   ]),
           ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      // Add to Contacts button (lighter weight — no sales pipeline entry)
+      GestureDetector(
+        onTap: (_creatingLead || _creatingContact || _creatingSupplier) ? null : _createContact,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _indigo.withValues(alpha: (_creatingLead || _creatingSupplier) ? 0.25 : 0.55),
+              width: 1.5,
+            ),
+          ),
+          child: Center(
+            child: _creatingContact
+                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: _indigo, strokeWidth: 2))
+                : Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.contact_page_outlined, color: _indigo.withValues(alpha: (_creatingLead || _creatingSupplier) ? 0.4 : 1.0), size: 16),
+                    const SizedBox(width: 8),
+                    Text('Add to Contacts',
+                        style: TextStyle(color: _indigo.withValues(alpha: (_creatingLead || _creatingSupplier) ? 0.4 : 1.0),
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  ]),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      // Add as Supplier button
+      GestureDetector(
+        onTap: (_creatingLead || _creatingContact || _creatingSupplier) ? null : _createSupplier,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _orange.withValues(alpha: (_creatingLead || _creatingContact) ? 0.25 : 0.60),
+              width: 1.5,
+            ),
+          ),
+          child: Center(
+            child: _creatingSupplier
+                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: _orange, strokeWidth: 2))
+                : Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.store_rounded, color: _orange.withValues(alpha: (_creatingLead || _creatingContact) ? 0.4 : 1.0), size: 16),
+                    const SizedBox(width: 8),
+                    Text('Add as Supplier',
+                        style: TextStyle(color: _orange.withValues(alpha: (_creatingLead || _creatingContact) ? 0.4 : 1.0),
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  ]),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _newContactContent(AdaptiveColors ac, bool isDark) {
+    final initial = _newContactDisplayName.isNotEmpty ? _newContactDisplayName[0].toUpperCase() : '?';
+    return [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF10B981).withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.30)),
+        ),
+        child: const Row(children: [
+          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+          SizedBox(width: 10),
+          Expanded(child: Text('Contact saved successfully',
+              style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600))),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+        ),
+        child: Row(children: [
+          Container(
+            width: 52, height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [Color(0xFF5BAAFF), Color(0xFF1A7FD4)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(child: Text(initial,
+                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_newContactDisplayName,
+                style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+            const SizedBox(height: 4),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _indigo.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _indigo.withValues(alpha: 0.28)),
+                ),
+                child: const Text('Contact', style: TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.phone_rounded, size: 12, color: _slate),
+              const SizedBox(width: 4),
+              Flexible(child: Text(widget.phone,
+                  style: const TextStyle(color: _slate, fontSize: 12), overflow: TextOverflow.ellipsis)),
+            ]),
+          ])),
+        ]),
+      ),
+      const SizedBox(height: 20),
+      GestureDetector(
+        onTap: () => Navigator.pop(context, 'contact_created'),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+          ),
+          child: Center(child: Text('Done',
+              style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _newSupplierContent(AdaptiveColors ac, bool isDark) {
+    final initial = _newSupplierDisplayName.isNotEmpty ? _newSupplierDisplayName[0].toUpperCase() : '?';
+    return [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF10B981).withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.30)),
+        ),
+        child: const Row(children: [
+          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+          SizedBox(width: 10),
+          Expanded(child: Text('Supplier saved successfully',
+              style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600))),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+        ),
+        child: Row(children: [
+          Container(
+            width: 52, height: 52,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [_orange.withValues(alpha: 0.25), _orange.withValues(alpha: 0.12)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _orange.withValues(alpha: 0.40)),
+            ),
+            child: Center(child: Text(initial,
+                style: TextStyle(color: _orange, fontSize: 20, fontWeight: FontWeight.w800))),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_newSupplierDisplayName,
+                style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+            const SizedBox(height: 4),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _orange.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _orange.withValues(alpha: 0.28)),
+                ),
+                child: Text('Supplier', style: TextStyle(color: _orange, fontSize: 10, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.phone_rounded, size: 12, color: _slate),
+              const SizedBox(width: 4),
+              Flexible(child: Text(widget.phone,
+                  style: const TextStyle(color: _slate, fontSize: 12), overflow: TextOverflow.ellipsis)),
+            ]),
+          ])),
+        ]),
+      ),
+      const SizedBox(height: 20),
+      GestureDetector(
+        onTap: () => Navigator.pop(context, 'supplier_created'),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+          ),
+          child: Center(child: Text('Done',
+              style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
         ),
       ),
     ];

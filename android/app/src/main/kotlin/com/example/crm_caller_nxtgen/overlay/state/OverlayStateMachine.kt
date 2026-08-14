@@ -524,6 +524,36 @@ class OverlayStateMachine(
             is OverlayEvent.ContactCreated -> {}
             is OverlayEvent.ContactFailed -> {}
 
+            // ── Supplier creation (unknown caller) ────────────────────────────
+
+            is OverlayEvent.SubmitSupplier -> {
+                if (event.name.isBlank()) return
+                val phone = when (current) {
+                    is OverlayState.UnknownCaller -> current.phoneNumber
+                    is OverlayState.PostCall      -> current.phoneNumber
+                    else                          -> return
+                }
+                activeJob = scope.launch {
+                    val result = runCatching {
+                        repository.createSupplier(
+                            name  = event.name,
+                            phone = phone,
+                            email = event.email,
+                        )
+                    }
+                    result.fold(
+                        onSuccess = { _ ->
+                            emitEffect(OverlaySideEffect.ShowToast("Added as Supplier: ${event.name}"))
+                        },
+                        onFailure = { err ->
+                            emitEffect(OverlaySideEffect.ShowToast("Failed: ${err.message}"))
+                        }
+                    )
+                }
+            }
+            is OverlayEvent.SupplierCreated -> {}
+            is OverlayEvent.SupplierFailed -> {}
+
             // ── Opportunity submission ────────────────────────────────────────
 
             is OverlayEvent.SubmitOpportunity -> {

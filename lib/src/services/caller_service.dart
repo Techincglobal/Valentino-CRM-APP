@@ -140,6 +140,24 @@ class CallerService {
     }
   }
 
+  static Future<Map<String, dynamic>> createSupplier({
+    required String supplierName,
+    String? mobile,
+    String? email,
+  }) async {
+    final cleanEmail = (email != null && email.contains('@') && email.contains('.')) ? email : null;
+    final payload = <String, dynamic>{"supplier_name": supplierName};
+    if (mobile != null && mobile.isNotEmpty) payload["mobile_no"] = mobile;
+    if (cleanEmail != null) payload["email_id"] = cleanEmail;
+    final response = await ApiService.post("$_base.create_supplier", payload);
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return data["message"];
+    } else {
+      throw Exception(data["message"] ?? "Supplier creation failed");
+    }
+  }
+
   // Add Note To Existing Lead / Opportunity
   static Future<void> addNote({
     required String doctype,

@@ -52,9 +52,10 @@ sealed class CallerIdentity {
         val company: String,
         val email: String = "",
         val phone: String,
-        val status: String = "Lead", // "New", "Lead", "Interested", "Converted"
+        val status: String = "Lead", // "New", "Lead", "Interested", "Converted", "Customer", "Supplier", "Contact"
         val hasOpportunity: Boolean = false,
         val isCustomer: Boolean = false,
+        val isSupplier: Boolean = false,
         val latestNote: String = "",         // most recent note from Frappe — shown on incoming call
         val latestQuoteSubject: String = "", // most recent quotation subject
         val latestQuoteAmount: Double = 0.0, // most recent quotation grand total
@@ -298,6 +299,14 @@ sealed class OverlayEvent {
     ) : OverlayEvent()
     data class ContactCreated(val docname: String) : OverlayEvent()
     data class ContactFailed(val reason: String) : OverlayEvent()
+
+    // Supplier creation (unknown caller calling as a vendor/supplier)
+    data class SubmitSupplier(
+        val name: String,
+        val email: String,
+    ) : OverlayEvent()
+    data class SupplierCreated(val docname: String) : OverlayEvent()
+    data class SupplierFailed(val reason: String) : OverlayEvent()
 
     // Opportunity
     object OpenOpportunityForm : OverlayEvent()

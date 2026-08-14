@@ -370,6 +370,46 @@ class FrappeApiService(private val context: Context) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // CREATE SUPPLIER
+    // ─────────────────────────────────────────────────────────────────────────
+
+    suspend fun createSupplier(
+        name: String,
+        phone: String,
+        email: String = "",
+    ): String = withContext(Dispatchers.IO) {
+        val config = getConfig()
+        if (!config.hasSession) throw IllegalStateException("Frappe not configured")
+
+        val body = JSONObject().apply {
+            put("supplier_name", name)
+            if (phone.isNotBlank()) put("mobile_no", normalisePhone(phone))
+            if (email.isNotBlank())  put("email_id", email)
+        }
+
+        val request = Request.Builder()
+            .url("${config.serverUrl}/api/method/nxtgen_crm_mobile.api.create_supplier")
+            .header("Cookie", config.cookieHeader)
+            .header("Content-Type", "application/json")
+            .apply { if (config.csrfToken.isNotBlank()) header("X-Frappe-CSRF-Token", config.csrfToken) }
+            .post(body.toString().toRequestBody(JSON))
+            .build()
+
+        Log.d(TAG, "CREATE SUPPLIER REQUEST url=${request.url} body=$body")
+        val response = executePost(request)
+        val rawBody = response.body?.string() ?: ""
+        if (!response.isSuccessful) {
+            Log.e(TAG, "CREATE SUPPLIER ERROR ${response.code}: $rawBody")
+            throw RuntimeException(parseFrappeError(rawBody, response.code))
+        }
+        Log.d(TAG, "CREATE SUPPLIER RESPONSE ${response.code}: $rawBody")
+
+        val msg = JSONObject(rawBody.ifBlank { "{}" }).optJSONObject("message")
+            ?: throw RuntimeException("Unexpected response from server")
+        msg.optString("supplier_name")
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // CREATE OPPORTUNITY
     // ─────────────────────────────────────────────────────────────────────────
 
