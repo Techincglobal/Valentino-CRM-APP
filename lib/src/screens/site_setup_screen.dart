@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/storage_service.dart';
@@ -199,24 +200,31 @@ class _SiteSetupScreenState extends State<SiteSetupScreen>
                             onTap: _saving ? null : _saveSite,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: AppOutlineButton(
-                            label: 'Dev Skip Site Setup',
-                            icon: Icons.developer_mode,
-                            onTap: () async {
-                              await StorageService.saveBaseUrl(
-                                  'https://demo.frappe.cloud');
-                              if (!context.mounted) return;
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const LoginScreen()),
-                              );
-                            },
+                        // Debug-only shortcut. Without this gate it shipped in
+                        // release builds, letting a real user skip site setup and
+                        // silently point the app at demo.frappe.cloud — every
+                        // subsequent request then fails against a site that isn't
+                        // theirs, with no obvious way back.
+                        if (kDebugMode) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: AppOutlineButton(
+                              label: 'Dev Skip Site Setup',
+                              icon: Icons.developer_mode,
+                              onTap: () async {
+                                await StorageService.saveBaseUrl(
+                                    'https://demo.frappe.cloud');
+                                if (!context.mounted) return;
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginScreen()),
+                                );
+                              },
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),

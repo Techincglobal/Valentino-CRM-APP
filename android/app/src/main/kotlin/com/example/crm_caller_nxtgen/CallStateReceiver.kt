@@ -42,6 +42,14 @@ class CallStateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         android.util.Log.d("CrmMonitor", "CallStateReceiver.onReceive action=${intent.action} state=${intent.getStringExtra(TelephonyManager.EXTRA_STATE)}")
 
+        // Logged out — the app stays completely inert on calls: no overlay, no
+        // call log. Bail before any prefs bookkeeping so nothing from a
+        // logged-out call can leak into the next session's state.
+        if (!hasCrmSession(context)) {
+            android.util.Log.d("CrmMonitor", "CallStateReceiver: no CRM session — ignoring")
+            return
+        }
+
         // ── Outgoing call — show overlay so this call gets logged too ─────────
         if (intent.action == Intent.ACTION_NEW_OUTGOING_CALL) {
             val outPhone = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER)
@@ -338,6 +346,24 @@ internal fun queryLatestSystemCallStatus(
 internal fun readStoredValue(context: Context, key: String): String? {
     val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     return prefs.getString(key, null) ?: prefs.getString("flutter.$key", null)
+}
+
+/**
+ * Whether a CRM session is stored — i.e. the app is logged in.
+ *
+ * Mirrors FrappeConfig.hasSession (server URL + sid, deliberately ignoring the CSRF
+ * token, which self-heals via refreshCsrfToken). Logging out removes both keys
+ * (StorageService.clearAll on the Flutter side), which is what makes every call-time
+ * entry point below go inert.
+ *
+ * Read straight from prefs rather than through FrappeRepository so a receiver can
+ * check it without constructing the Room/OkHttp stack just to throw the call away.
+ */
+internal fun hasCrmSession(context: Context): Boolean {
+    val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+    val url = prefs.getString("flutter.crm_base_url", "") ?: ""
+    val sid = prefs.getString("flutter.crm_sid", "") ?: ""
+    return url.isNotBlank() && sid.isNotBlank()
 }
 
 internal fun writeStoredValue(context: Context, key: String, value: String) {

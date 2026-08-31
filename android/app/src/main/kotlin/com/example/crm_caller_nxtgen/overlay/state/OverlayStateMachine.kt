@@ -2,6 +2,7 @@ package com.example.crm_caller_nxtgen.overlay.state
 
 import com.example.crm_caller_nxtgen.overlay.domain.*
 import com.example.crm_caller_nxtgen.overlay.data.FrappeRepository
+import com.example.crm_caller_nxtgen.core.util.redactPhone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -89,6 +90,9 @@ class OverlayStateMachine(
             }
 
             is OverlayEvent.CallRinging -> {
+                // No active CRM session — don't show overlay at all when logged out.
+                if (!repository.isSessionActive()) return
+
                 // Ignore duplicate event for the same phone number to prevent race
                 // between the native BroadcastReceiver and the Flutter phone listener.
                 val currentPhone = when (current) {
@@ -131,6 +135,12 @@ class OverlayStateMachine(
             }
 
             is OverlayEvent.CallEnded -> {
+                // No active CRM session — no post-call popup and no call log. Without
+                // this, a logged-out call still opened the "log this call" form and
+                // still wrote an unsynced local row, which SyncWorker would later push
+                // to the backend under whoever logged in next.
+                if (!repository.isSessionActive()) return
+
                 // CallStateReceiver (broadcast) and CallMonitorService (TelephonyCallback)
                 // both independently fire this same signal for one real call ending. Without
                 // this guard, the second firing would reconstruct PostCall from scratch —
@@ -208,7 +218,7 @@ class OverlayStateMachine(
                             status = event.status,
                         )
                     }.onFailure {
-                        android.util.Log.e("CrmMonitor", "createCallLog failed for $phone", it)
+                        android.util.Log.e("CrmMonitor", "createCallLog failed for ${redactPhone(phone)}", it)
                     }.getOrNull()
                     val stillSamePostCall = (_state.value as? OverlayState.PostCall)?.phoneNumber == phone
                     if (ref != null && stillSamePostCall) {

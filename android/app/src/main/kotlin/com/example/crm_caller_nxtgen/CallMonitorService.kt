@@ -176,6 +176,15 @@ class CallMonitorService : Service() {
         // it tries to actually draw anything (see hasOverlayPermission() there).
         android.util.Log.d("CrmMonitor", "handleState called: state=$state rawPhone=$rawPhone")
 
+        // Logged out — do nothing at all for this call. Returning before the
+        // session bookkeeping below means a call that starts while logged out
+        // never reaches IDLE with callSessionActive=true, so it is never logged
+        // even if the user signs in mid-call.
+        if (!hasCrmSession(this)) {
+            android.util.Log.d("CrmMonitor", "CallMonitorService: no CRM session — ignoring state=$state")
+            return
+        }
+
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 
         when (state) {

@@ -77,6 +77,8 @@ class FrappeRepository(private val context: Context) {
         db.leadDao().deleteAllLeads()
     }
 
+    fun isSessionActive(): Boolean = api.getConfig().hasSession
+
     // ─────────────────────────────────────────────────────────────────────────
     // LOOKUP  — local-first with 6h TTL network refresh
     //

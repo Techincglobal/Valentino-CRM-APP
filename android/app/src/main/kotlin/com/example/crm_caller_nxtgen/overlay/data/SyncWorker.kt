@@ -1,6 +1,7 @@
 package com.example.crm_caller_nxtgen.overlay.data
 
 import android.content.Context
+import com.example.crm_caller_nxtgen.core.util.redactPhone
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -124,7 +125,7 @@ class SyncWorker(
                 )
                 db.callLogDao().update(log.copy(frappeDocname = remote.docname, isSynced = true))
             } catch (e: Exception) {
-                android.util.Log.e("CrmMonitor", "SyncWorker: call log sync failed for ${log.phoneNumber}", e)
+                android.util.Log.e("CrmMonitor", "SyncWorker: call log sync failed for ${redactPhone(log.phoneNumber)}", e)
                 anyFailure = true
             }
         }

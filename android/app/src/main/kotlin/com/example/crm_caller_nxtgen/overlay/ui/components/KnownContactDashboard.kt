@@ -320,30 +320,33 @@ private fun LeadSummaryCard(
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            accentColor.copy(alpha = if (isDark) 0.13f else 0.07f),
+                            accentColor.copy(alpha = if (isDark) 0.16f else 0.09f),
                             accentColor.copy(alpha = 0f),
                         )
                     )
                 )
-                .padding(horizontal = 14.dp, vertical = 14.dp),
+                .padding(horizontal = 14.dp, vertical = 16.dp),
         ) {
             Row(
                 verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                // Avatar
+                // Avatar — 64dp gradient rounded rectangle
                 Box(
                     modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(accentColor.copy(alpha = if (isDark) 0.22f else 0.14f))
-                        .border(1.5.dp, accentColor.copy(alpha = 0.40f), CircleShape),
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(accentColor, accentColor.copy(alpha = 0.75f))
+                            )
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text       = initials,
-                        color      = accentColor,
-                        fontSize   = if (initials.length == 1) 19.sp else 15.sp,
+                        color      = Color.White,
+                        fontSize   = if (initials.length == 1) 26.sp else 22.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
@@ -355,10 +358,11 @@ private fun LeadSummaryCard(
                     Text(
                         text       = identity.displayName,
                         color      = MaterialTheme.colorScheme.onSurface,
-                        fontSize   = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines   = 1,
+                        fontSize   = 19.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines   = 2,
                         overflow   = TextOverflow.Ellipsis,
+                        lineHeight = 23.sp,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         StatusPill(
@@ -371,6 +375,15 @@ private fun LeadSummaryCard(
                                 accentColor = Emerald500,
                             )
                         }
+                    }
+                    if (company.isNotBlank() || email.isNotBlank()) {
+                        Text(
+                            text       = company.ifBlank { email },
+                            color      = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
+                            fontSize   = 12.sp,
+                            maxLines   = 1,
+                            overflow   = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -498,9 +511,13 @@ private fun LeadSummaryCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(accentColor)
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(accentColor, accentColor.copy(alpha = 0.80f))
+                        )
+                    )
                     .clickable { onEvent(OverlayEvent.OpenInApp) },
                 contentAlignment = Alignment.Center,
             ) {

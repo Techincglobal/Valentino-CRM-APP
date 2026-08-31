@@ -1,6 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'native_call_service.dart';
+
 class StorageService {
   static const _storage = FlutterSecureStorage();
 
@@ -51,6 +53,11 @@ class StorageService {
 
   // Clears session credentials only — base URL is intentionally preserved so
   // the user lands on the login screen (not site setup) after signing out.
+  //
+  // Also tears down the native overlay: dropping the sid is what makes the whole
+  // call-detection chain go inert, so a popup already on screen must not outlive
+  // it. Done here rather than at each sign-out button so the session-expiry path
+  // (ApiService._handleUnauthorised) is covered too.
   static Future<void> clearSession() async {
     await _storage.delete(key: 'sid');
     await _storage.delete(key: 'csrf_token');
@@ -58,6 +65,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('crm_sid');
     await prefs.remove('crm_csrf_token');
+    await NativeCallService.hideOverlay();
   }
 
   static Future<void> clearAll() async {
@@ -66,6 +74,7 @@ class StorageService {
     await prefs.remove('crm_base_url');
     await prefs.remove('crm_sid');
     await prefs.remove('crm_csrf_token');
+    await NativeCallService.hideOverlay();
   }
 
   // ── Overlay schedule settings (SharedPreferences — readable by Kotlin) ─────

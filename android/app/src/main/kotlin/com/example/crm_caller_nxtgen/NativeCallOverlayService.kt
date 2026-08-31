@@ -127,6 +127,19 @@ class NativeCallOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Logged out — stay fully inert: no wakelock, no window, no call log. This is
+        // the single choke point every entry path funnels through (screening service,
+        // call receiver, monitor service, Flutter channel), so it backstops the
+        // earlier per-entry checks. Bail before acquiring the wakelock, and before
+        // ACTION_SHOW can take the 1-hour callWakeLock for a call it will never draw.
+        // ACTION_HIDE is exempt so a popup still on screen when the user signs out
+        // can be torn down.
+        if (intent?.action != ACTION_HIDE && !hasCrmSession(this)) {
+            android.util.Log.d("CrmOverlay", "No CRM session — ignoring ${intent?.action}")
+            runCatching { cleanup() }.onFailure { stopSelf() }
+            return START_NOT_STICKY
+        }
+
         wakeLock?.acquire(10_000L)
 
         when (intent?.action) {

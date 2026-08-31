@@ -34,5 +34,23 @@
 -dontwarn androidx.compose.**
 
 # App-specific overlay domain models
--keep class com.techincglobal.crmcaller.overlay.domain.** { *; }
--keep class com.techincglobal.crmcaller.core.db.** { *; }
+-keep class com.example.crm_caller_nxtgen.overlay.domain.** { *; }
+-keep class com.example.crm_caller_nxtgen.core.db.** { *; }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Strip debug/verbose/info logging from release builds.
+#
+# The call pipeline logs phone numbers at Log.d to make missed-call and
+# direction-resolution bugs diagnosable during development. Those numbers are
+# customer PII and must not reach logcat on a user's device, where any app
+# holding READ_LOGS — or anyone with adb — can read them.
+#
+# Log.w / Log.e are deliberately KEPT so production crashes and sync failures
+# stay diagnosable; the few of those that referenced a phone number now pass it
+# through redactPhone() instead.
+# ─────────────────────────────────────────────────────────────────────────────
+-assumenosideeffects class android.util.Log {
+    public static int d(...);
+    public static int v(...);
+    public static int i(...);
+}

@@ -42,7 +42,12 @@ class CrmCallScreeningService : CallScreeningService() {
     override fun onScreenCall(callDetails: Call.Details) {
         val number = callDetails.handle?.schemeSpecificPart
         Log.d(TAG, "onScreenCall fired — number=$number handle=${callDetails.handle}")
-        if (!number.isNullOrBlank()) {
+        // Logged out — capture nothing and show nothing. respondToCall below still
+        // runs unconditionally: Telecom is waiting on it, and failing to answer
+        // would delay or drop the user's call.
+        if (!hasCrmSession(this)) {
+            Log.d(TAG, "No CRM session — allowing call through without overlay")
+        } else if (!number.isNullOrBlank()) {
             writeStoredValue(this, "crm_caller_phone", number)
             ContextCompat.startForegroundService(
                 this,

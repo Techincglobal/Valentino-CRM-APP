@@ -1520,14 +1520,14 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
     final bottom = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
 
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Center(
             child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 4),
-              width: 36, height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40, height: 4,
               decoration: BoxDecoration(
                 color: isDark ? Colors.white.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(2),
@@ -1536,50 +1536,34 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
           ),
           Flexible(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(22, 8, 22, 24 + bottom),
+              padding: EdgeInsets.only(bottom: 28 + bottom),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Title row
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: _indigo.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.manage_search_rounded, color: _indigo, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Lookup Result',
-                            style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.4)),
-                        Text(widget.phone, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
-                      ]),
-                    ),
-                  ]),
-                  const SizedBox(height: 18),
-
                   if (_newSupplierDocname.isNotEmpty) ..._newSupplierContent(ac, isDark)
                   else if (_newContactDocname.isNotEmpty) ..._newContactContent(ac, isDark)
                   else if (_newLeadDocname.isNotEmpty) ..._newLeadContent(ac, isDark)
                   else if (_found)                    ..._foundContent(ac, isDark)
                   else                                ..._unknownContent(ac, isDark),
 
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color:  _red.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _red.withValues(alpha: 0.28)),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _red.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _red.withValues(alpha: 0.28)),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.error_outline_rounded, color: _red, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_error!, style: const TextStyle(color: _red, fontSize: 13))),
+                        ]),
                       ),
-                      child: Text(_error!, style: const TextStyle(color: _red, fontSize: 13)),
                     ),
-                  ],
                 ],
               ),
             ),
@@ -1589,580 +1573,500 @@ class _LookupResultSheetState extends State<_LookupResultSheet> {
     );
   }
 
-  List<Widget> _newLeadContent(AdaptiveColors ac, bool isDark) {
-    final initial = _newLeadDisplayName.isNotEmpty ? _newLeadDisplayName[0].toUpperCase() : '?';
-    return [
-      // Success banner
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF10B981).withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.30)),
-        ),
-        child: Row(children: [
-          const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-          const SizedBox(width: 10),
-          const Expanded(child: Text('Lead saved — create an opportunity?',
-              style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600))),
-        ]),
-      ),
-      const SizedBox(height: 14),
-
-      // Lead card
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
-        ),
-        child: Row(children: [
-          Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF5BAAFF), Color(0xFF1A7FD4)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_newLeadDisplayName, style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
-            const SizedBox(height: 4),
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _indigo.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: _indigo.withValues(alpha: 0.28)),
-                ),
-                child: const Text('Lead', style: TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.phone_rounded, size: 12, color: _slate),
-              const SizedBox(width: 4),
-              Flexible(child: Text(widget.phone, style: const TextStyle(color: _slate, fontSize: 12), overflow: TextOverflow.ellipsis)),
-            ]),
-          ])),
-        ]),
-      ),
-      const SizedBox(height: 20),
-
-      // Create Opportunity button — shown only when setting is enabled
-      if (AppSettingsService.current.enableOpportunityPopup)
-        GestureDetector(
-          onTap: _creatingOpp ? null : _createOpportunity,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
-            ),
-            child: Center(
-              child: _creatingOpp
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.trending_up_rounded, color: Colors.white, size: 16),
-                      SizedBox(width: 8),
-                      Text('Create Opportunity', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                    ]),
-            ),
-          ),
-        ),
-      const SizedBox(height: 8),
-
-      // Done (just close, lead already saved)
-      GestureDetector(
-        onTap: () => Navigator.pop(context, 'lead_created'),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
-          ),
-          child: Center(child: Text('Done', style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
-        ),
-      ),
-    ];
-  }
-
   List<Widget> _foundContent(AdaptiveColors ac, bool isDark) {
     final color  = _typeColor;
     final isLead = _type == 'Lead';
+
     return [
-      // Contact card
+      // ── Hero ──────────────────────────────────────────────────────────────
       Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(22, 6, 22, 22),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [color.withValues(alpha: isDark ? 0.16 : 0.09), Colors.transparent],
+          ),
         ),
-        child: Row(children: [
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
           Container(
-            width: 52, height: 52,
+            width: 64, height: 64,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.10)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color, color.withValues(alpha: 0.75)],
               ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color.withValues(alpha: 0.30)),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 5))],
             ),
             child: Center(
-              child: Text(_initials, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800)),
+              child: Text(_initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_displayName,
-                  style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
-              const SizedBox(height: 4),
+              Text(
+                _displayName,
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: ac.textPrimary, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+              ),
+              const SizedBox(height: 6),
               Row(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                   decoration: BoxDecoration(
-                    color:  color.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: color.withValues(alpha: 0.28)),
+                    color: color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(color: color.withValues(alpha: 0.32)),
                   ),
-                  child: Text(_type, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+                  child: Text(_type, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
                 ),
-                const SizedBox(width: 8),
-                Flexible(child: Text(_docname, style: TextStyle(color: ac.textTertiary, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                if (_docname.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(_docname, style: TextStyle(color: ac.textTertiary, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                ],
               ]),
-              if (_mobile.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Row(children: [
-                  Icon(Icons.phone_rounded, size: 12, color: ac.textTertiary),
-                  const SizedBox(width: 5),
-                  Text(_mobile, style: TextStyle(color: ac.textSecondary, fontSize: 12)),
-                ]),
-              ],
-              if (_email.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Row(children: [
-                  Icon(Icons.email_outlined, size: 12, color: ac.textTertiary),
-                  const SizedBox(width: 5),
-                  Flexible(child: Text(_email, style: TextStyle(color: ac.textSecondary, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                ]),
-              ],
             ]),
           ),
         ]),
       ),
 
-      // Latest note banner
-      if (_latestNote.isNotEmpty) ...[
-        const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-          decoration: BoxDecoration(
-            color:  _amber.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _amber.withValues(alpha: 0.28)),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [
-              Icon(Icons.sticky_note_2_rounded, color: _amber, size: 13),
-              SizedBox(width: 6),
-              Text('LAST NOTE', style: TextStyle(color: _amber, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
-            ]),
-            const SizedBox(height: 6),
-            Text(_latestNote, style: TextStyle(color: ac.textPrimary, fontSize: 13, height: 1.5), maxLines: 5, overflow: TextOverflow.ellipsis),
+      // ── Info chips ────────────────────────────────────────────────────────
+      if (_mobile.isNotEmpty || _email.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 4),
+          child: Column(children: [
+            if (_mobile.isNotEmpty) _infoRow(Icons.phone_rounded, _mobile, ac, color),
+            if (_email.isNotEmpty)  _infoRow(Icons.alternate_email_rounded, _email, ac, color),
           ]),
         ),
-      ],
 
-      // Convert to Opportunity — only for Leads, and only when setting is enabled
-      if (isLead && AppSettingsService.current.enableOpportunityPopup) ...[
-        const SizedBox(height: 20),
-        GestureDetector(
-          onTap: _creatingOpp ? null : _createOpportunity,
+      // ── Latest note ────────────────────────────────────────────────────────
+      if (_latestNote.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
           child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 15),
+            padding: const EdgeInsets.fromLTRB(14, 11, 14, 13),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
+              color: _amber.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: _indigo.withValues(alpha: 0.30), blurRadius: 14, offset: const Offset(0, 4))],
+              border: Border.all(color: _amber.withValues(alpha: 0.25)),
             ),
-            child: Center(
-              child: _creatingOpp
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.trending_up_rounded, color: Colors.white, size: 16),
-                      SizedBox(width: 8),
-                      Text('Create Opportunity', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                    ]),
-            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Icon(Icons.sticky_note_2_rounded, color: _amber, size: 13),
+                const SizedBox(width: 6),
+                const Text('LAST NOTE', style: TextStyle(color: _amber, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+              ]),
+              const SizedBox(height: 6),
+              Text(_latestNote, style: TextStyle(color: ac.textPrimary, fontSize: 13, height: 1.5), maxLines: 4, overflow: TextOverflow.ellipsis),
+            ]),
           ),
         ),
-      ],
+
+      // ── Action ────────────────────────────────────────────────────────────
+      const SizedBox(height: 20),
+      if (isLead && AppSettingsService.current.enableOpportunityPopup)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: _filledButton(
+            label: 'Create Opportunity',
+            icon: Icons.trending_up_rounded,
+            gradient: [color, color.withValues(alpha: 0.78)],
+            onTap: _creatingOpp ? null : _createOpportunity,
+            loading: _creatingOpp,
+          ),
+        ),
+      const SizedBox(height: 8),
     ];
   }
 
   List<Widget> _unknownContent(AdaptiveColors ac, bool isDark) {
-    return [
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52, height: 52,
-              decoration: BoxDecoration(
-                color: _slate.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _slate.withValues(alpha: 0.28)),
-              ),
-              child: const Center(child: Icon(Icons.person_outline_rounded, color: _slate, size: 24)),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Unknown Number', style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    const Icon(Icons.phone_rounded, size: 12, color: _slate),
-                    const SizedBox(width: 5),
-                    Text(widget.phone, style: const TextStyle(color: _slate, fontSize: 12)),
-                  ]),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color:  _slate.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: _slate.withValues(alpha: 0.25)),
-                    ),
-                    child: const Text('Not in CRM', style: TextStyle(color: _slate, fontSize: 10, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    final busy = _creatingLead || _creatingContact || _creatingSupplier;
 
-      const SizedBox(height: 20),
-      Text('SAVE AS LEAD', style: TextStyle(color: ac.textTertiary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.4)),
-      const SizedBox(height: 8),
+    return [
+      // ── Hero ──────────────────────────────────────────────────────────────
       Container(
+        padding: const EdgeInsets.fromLTRB(22, 6, 22, 22),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
-        ),
-        child: TextField(
-          controller: _nameCtrl,
-          enabled: !_creatingLead,
-          style: TextStyle(color: ac.textPrimary, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: 'Full name *',
-            hintStyle: TextStyle(color: ac.textTertiary, fontSize: 13),
-            prefixIcon: Icon(Icons.person_rounded, color: ac.textTertiary, size: 18),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [_amber.withValues(alpha: isDark ? 0.12 : 0.07), Colors.transparent],
           ),
         ),
-      ),
-      const SizedBox(height: 8),
-      Container(
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
-        ),
-        child: TextField(
-          controller: _emailCtrl,
-          enabled: !_creatingLead,
-          keyboardType: TextInputType.emailAddress,
-          style: TextStyle(color: ac.textPrimary, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: 'Email',
-            hintStyle: TextStyle(color: ac.textTertiary, fontSize: 13),
-            prefixIcon: Icon(Icons.email_outlined, color: ac.textTertiary, size: 18),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Container(
+            width: 64, height: 64,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.08) : _slate.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: _slate.withValues(alpha: 0.22)),
+            ),
+            child: const Center(child: Icon(Icons.person_outline_rounded, color: _slate, size: 30)),
           ),
-        ),
-      ),
-      const SizedBox(height: 8),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color:  _indigo.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _indigo.withValues(alpha: 0.20)),
-        ),
-        child: Row(children: [
-          const Icon(Icons.phone_rounded, size: 14, color: _indigo),
-          const SizedBox(width: 8),
-          Text(widget.phone, style: const TextStyle(color: _indigo, fontSize: 13, fontWeight: FontWeight.w600)),
-          const Spacer(),
-          const Text('Mobile', style: TextStyle(color: _indigo, fontSize: 11)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Unknown Number', style: TextStyle(color: ac.textPrimary, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+              const SizedBox(height: 5),
+              Text(widget.phone, style: const TextStyle(color: _slate, fontSize: 13, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _slate.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: _slate.withValues(alpha: 0.22)),
+                ),
+                child: const Text('Not in CRM', style: TextStyle(color: _slate, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+              ),
+            ]),
+          ),
         ]),
       ),
-      const SizedBox(height: 10),
-      // Save as Lead button
-      GestureDetector(
-        onTap: (_creatingLead || _creatingContact || _creatingSupplier) ? null : _createLead,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [
-              _indigo.withValues(alpha: (_creatingContact || _creatingSupplier) ? 0.4 : 1.0),
-              const Color(0xFF1A7FD4).withValues(alpha: (_creatingContact || _creatingSupplier) ? 0.4 : 1.0),
+
+      // ── Form ──────────────────────────────────────────────────────────────
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(width: 3, height: 14, decoration: BoxDecoration(color: _indigo, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(width: 8),
+            Text('ADD TO CRM', style: TextStyle(color: isDark ? Colors.white.withValues(alpha: 0.40) : _slate, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+          ]),
+          const SizedBox(height: 12),
+          _inputField(
+            controller: _nameCtrl,
+            hint: 'Full name *',
+            icon: Icons.person_rounded,
+            ac: ac, isDark: isDark,
+            enabled: !busy,
+          ),
+          const SizedBox(height: 8),
+          _inputField(
+            controller: _emailCtrl,
+            hint: 'Email (optional)',
+            icon: Icons.alternate_email_rounded,
+            ac: ac, isDark: isDark,
+            enabled: !busy,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _indigo.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _indigo.withValues(alpha: 0.18)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.phone_rounded, size: 15, color: _indigo),
+              const SizedBox(width: 10),
+              Text(widget.phone, style: const TextStyle(color: _indigo, fontSize: 13, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              const Text('Mobile', style: TextStyle(color: _indigo, fontSize: 11)),
             ]),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: (_creatingContact || _creatingSupplier) ? [] : [BoxShadow(color: _indigo.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4))],
           ),
-          child: Center(
-            child: _creatingLead
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.person_add_rounded, color: Colors.white, size: 16),
-                    SizedBox(width: 8),
-                    Text('Save as Lead', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-                  ]),
+          const SizedBox(height: 14),
+          _filledButton(
+            label: 'Save as Lead',
+            icon: Icons.person_add_rounded,
+            gradient: [_indigo.withValues(alpha: (_creatingContact || _creatingSupplier) ? 0.45 : 1.0),
+                       const Color(0xFF1A7FD4).withValues(alpha: (_creatingContact || _creatingSupplier) ? 0.45 : 1.0)],
+            onTap: busy ? null : _createLead,
+            loading: _creatingLead,
           ),
+          const SizedBox(height: 8),
+          _outlineButton(
+            label: 'Add to Contacts',
+            icon: Icons.contact_page_outlined,
+            color: _indigo.withValues(alpha: (_creatingLead || _creatingSupplier) ? 0.35 : 1.0),
+            onTap: busy ? null : _createContact,
+            loading: _creatingContact,
+          ),
+          const SizedBox(height: 8),
+          _outlineButton(
+            label: 'Add as Supplier',
+            icon: Icons.store_rounded,
+            color: _orange.withValues(alpha: (_creatingLead || _creatingContact) ? 0.35 : 1.0),
+            onTap: busy ? null : _createSupplier,
+            loading: _creatingSupplier,
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    ];
+  }
+
+  List<Widget> _newLeadContent(AdaptiveColors ac, bool isDark) {
+    return [
+      ..._successHero(
+        name: _newLeadDisplayName,
+        type: 'Lead',
+        color: _indigo,
+        message: 'Lead saved — create an opportunity?',
+        ac: ac, isDark: isDark,
+      ),
+      if (AppSettingsService.current.enableOpportunityPopup)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+          child: _filledButton(
+            label: 'Create Opportunity',
+            icon: Icons.trending_up_rounded,
+            gradient: [_indigo, const Color(0xFF1A7FD4)],
+            onTap: _creatingOpp ? null : _createOpportunity,
+            loading: _creatingOpp,
+          ),
+        ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+        child: _outlineButton(
+          label: 'Done',
+          icon: Icons.check_rounded,
+          color: _slate,
+          onTap: () => Navigator.pop(context, 'lead_created'),
         ),
       ),
       const SizedBox(height: 8),
-      // Add to Contacts button (lighter weight — no sales pipeline entry)
-      GestureDetector(
-        onTap: (_creatingLead || _creatingContact || _creatingSupplier) ? null : _createContact,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _indigo.withValues(alpha: (_creatingLead || _creatingSupplier) ? 0.25 : 0.55),
-              width: 1.5,
-            ),
-          ),
-          child: Center(
-            child: _creatingContact
-                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: _indigo, strokeWidth: 2))
-                : Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.contact_page_outlined, color: _indigo.withValues(alpha: (_creatingLead || _creatingSupplier) ? 0.4 : 1.0), size: 16),
-                    const SizedBox(width: 8),
-                    Text('Add to Contacts',
-                        style: TextStyle(color: _indigo.withValues(alpha: (_creatingLead || _creatingSupplier) ? 0.4 : 1.0),
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                  ]),
-          ),
-        ),
-      ),
-      const SizedBox(height: 8),
-      // Add as Supplier button
-      GestureDetector(
-        onTap: (_creatingLead || _creatingContact || _creatingSupplier) ? null : _createSupplier,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _orange.withValues(alpha: (_creatingLead || _creatingContact) ? 0.25 : 0.60),
-              width: 1.5,
-            ),
-          ),
-          child: Center(
-            child: _creatingSupplier
-                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: _orange, strokeWidth: 2))
-                : Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.store_rounded, color: _orange.withValues(alpha: (_creatingLead || _creatingContact) ? 0.4 : 1.0), size: 16),
-                    const SizedBox(width: 8),
-                    Text('Add as Supplier',
-                        style: TextStyle(color: _orange.withValues(alpha: (_creatingLead || _creatingContact) ? 0.4 : 1.0),
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                  ]),
-          ),
-        ),
-      ),
     ];
   }
 
   List<Widget> _newContactContent(AdaptiveColors ac, bool isDark) {
-    final initial = _newContactDisplayName.isNotEmpty ? _newContactDisplayName[0].toUpperCase() : '?';
     return [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF10B981).withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.30)),
-        ),
-        child: const Row(children: [
-          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-          SizedBox(width: 10),
-          Expanded(child: Text('Contact saved successfully',
-              style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600))),
-        ]),
+      ..._successHero(
+        name: _newContactDisplayName,
+        type: 'Contact',
+        color: _green,
+        message: 'Contact saved successfully',
+        ac: ac, isDark: isDark,
       ),
-      const SizedBox(height: 14),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
-        ),
-        child: Row(children: [
-          Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF5BAAFF), Color(0xFF1A7FD4)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(child: Text(initial,
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_newContactDisplayName,
-                style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
-            const SizedBox(height: 4),
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _indigo.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: _indigo.withValues(alpha: 0.28)),
-                ),
-                child: const Text('Contact', style: TextStyle(color: _indigo, fontSize: 10, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.phone_rounded, size: 12, color: _slate),
-              const SizedBox(width: 4),
-              Flexible(child: Text(widget.phone,
-                  style: const TextStyle(color: _slate, fontSize: 12), overflow: TextOverflow.ellipsis)),
-            ]),
-          ])),
-        ]),
-      ),
-      const SizedBox(height: 20),
-      GestureDetector(
-        onTap: () => Navigator.pop(context, 'contact_created'),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
-          ),
-          child: Center(child: Text('Done',
-              style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+        child: _outlineButton(
+          label: 'Done',
+          icon: Icons.check_rounded,
+          color: _slate,
+          onTap: () => Navigator.pop(context, 'contact_created'),
         ),
       ),
+      const SizedBox(height: 8),
     ];
   }
 
   List<Widget> _newSupplierContent(AdaptiveColors ac, bool isDark) {
-    final initial = _newSupplierDisplayName.isNotEmpty ? _newSupplierDisplayName[0].toUpperCase() : '?';
     return [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF10B981).withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.30)),
+      ..._successHero(
+        name: _newSupplierDisplayName,
+        type: 'Supplier',
+        color: _orange,
+        message: 'Supplier saved successfully',
+        ac: ac, isDark: isDark,
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+        child: _outlineButton(
+          label: 'Done',
+          icon: Icons.check_rounded,
+          color: _slate,
+          onTap: () => Navigator.pop(context, 'supplier_created'),
         ),
-        child: const Row(children: [
-          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-          SizedBox(width: 10),
-          Expanded(child: Text('Supplier saved successfully',
-              style: TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600))),
-        ]),
+      ),
+      const SizedBox(height: 8),
+    ];
+  }
+
+  // ── Shared success hero (used by all three save-success states) ─────────
+  List<Widget> _successHero({
+    required String name,
+    required String type,
+    required Color color,
+    required String message,
+    required AdaptiveColors ac,
+    required bool isDark,
+  }) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return [
+      // Success banner
+      Padding(
+        padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.30)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message, style: const TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.w600))),
+          ]),
+        ),
       ),
       const SizedBox(height: 14),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A2235) : ac.bgCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
-        ),
-        child: Row(children: [
-          Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [_orange.withValues(alpha: 0.25), _orange.withValues(alpha: 0.12)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _orange.withValues(alpha: 0.40)),
-            ),
-            child: Center(child: Text(initial,
-                style: TextStyle(color: _orange, fontSize: 20, fontWeight: FontWeight.w800))),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_newSupplierDisplayName,
-                style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
-            const SizedBox(height: 4),
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _orange.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: _orange.withValues(alpha: 0.28)),
-                ),
-                child: Text('Supplier', style: TextStyle(color: _orange, fontSize: 10, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.phone_rounded, size: 12, color: _slate),
-              const SizedBox(width: 4),
-              Flexible(child: Text(widget.phone,
-                  style: const TextStyle(color: _slate, fontSize: 12), overflow: TextOverflow.ellipsis)),
-            ]),
-          ])),
-        ]),
-      ),
-      const SizedBox(height: 20),
-      GestureDetector(
-        onTap: () => Navigator.pop(context, 'supplier_created'),
+      // Record card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22),
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 13),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : ac.bgInput,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [color.withValues(alpha: isDark ? 0.15 : 0.07), color.withValues(alpha: isDark ? 0.06 : 0.03)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withValues(alpha: 0.24)),
           ),
-          child: Center(child: Text('Done',
-              style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
+          child: Row(children: [
+            Container(
+              width: 52, height: 52,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [color, color.withValues(alpha: 0.78)],
+                ),
+                borderRadius: BorderRadius.circular(17),
+                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.32), blurRadius: 12, offset: const Offset(0, 3))],
+              ),
+              child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: TextStyle(color: ac.textPrimary, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+              const SizedBox(height: 5),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: color.withValues(alpha: 0.28)),
+                  ),
+                  child: Text(type, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.phone_rounded, size: 12, color: _slate),
+                const SizedBox(width: 4),
+                Flexible(child: Text(widget.phone, style: const TextStyle(color: _slate, fontSize: 12), overflow: TextOverflow.ellipsis)),
+              ]),
+            ])),
+          ]),
         ),
       ),
+      const SizedBox(height: 16),
     ];
+  }
+
+  Widget _infoRow(IconData icon, String text, AdaptiveColors ac, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(children: [
+        Container(
+          width: 34, height: 34,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 12),
+        Flexible(child: Text(text, style: TextStyle(color: ac.textSecondary, fontSize: 14), overflow: TextOverflow.ellipsis)),
+      ]),
+    );
+  }
+
+  Widget _inputField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    required AdaptiveColors ac,
+    required bool isDark,
+    bool enabled = true,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : ac.bgInput,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+      ),
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        keyboardType: keyboardType,
+        style: TextStyle(color: ac.textPrimary, fontSize: 14),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: ac.textTertiary, fontSize: 13),
+          prefixIcon: Icon(icon, color: ac.textTertiary, size: 18),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _filledButton({
+    required String label,
+    required IconData icon,
+    required List<Color> gradient,
+    required VoidCallback? onTap,
+    bool loading = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradient),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: onTap == null || loading
+              ? []
+              : [BoxShadow(color: gradient.first.withValues(alpha: 0.32), blurRadius: 16, offset: const Offset(0, 4))],
+        ),
+        child: Center(
+          child: loading
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(icon, color: Colors.white, size: 17),
+                  const SizedBox(width: 9),
+                  Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _outlineButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onTap,
+    bool loading = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: loading ? 0.25 : 0.55), width: 1.5),
+        ),
+        child: Center(
+          child: loading
+              ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: color, strokeWidth: 2))
+              : Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(icon, color: color, size: 17),
+                  const SizedBox(width: 9),
+                  Text(label, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w600)),
+                ]),
+        ),
+      ),
+    );
   }
 }

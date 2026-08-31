@@ -302,7 +302,7 @@ class FrappeApiService(private val context: Context) {
         } else {
             Log.e(TAG, "╔══ CREATE LEAD ERROR ❌ ═════════════════════════════════")
             Log.e(TAG, "║  Status : $statusLine")
-            Log.e(TAG, "║  Body   : $rawBody")
+            Log.e(TAG, "║  Body   : (redacted — see thrown error message)")
             Log.e(TAG, "╚════════════════════════════════════════════════════════")
         }
 
@@ -359,7 +359,7 @@ class FrappeApiService(private val context: Context) {
         val response = executePost(request)
         val rawBody = response.body?.string() ?: ""
         if (!response.isSuccessful) {
-            Log.e(TAG, "CREATE CONTACT ERROR ${response.code}: $rawBody")
+            Log.e(TAG, "CREATE CONTACT ERROR ${response.code} (body redacted)")
             throw RuntimeException(parseFrappeError(rawBody, response.code))
         }
         Log.d(TAG, "CREATE CONTACT RESPONSE ${response.code}: $rawBody")
@@ -399,7 +399,7 @@ class FrappeApiService(private val context: Context) {
         val response = executePost(request)
         val rawBody = response.body?.string() ?: ""
         if (!response.isSuccessful) {
-            Log.e(TAG, "CREATE SUPPLIER ERROR ${response.code}: $rawBody")
+            Log.e(TAG, "CREATE SUPPLIER ERROR ${response.code} (body redacted)")
             throw RuntimeException(parseFrappeError(rawBody, response.code))
         }
         Log.d(TAG, "CREATE SUPPLIER RESPONSE ${response.code}: $rawBody")
@@ -628,7 +628,7 @@ class FrappeApiService(private val context: Context) {
         val response = executePost(request)
         val rawBody = response.body?.string() ?: ""
         if (!response.isSuccessful) {
-            Log.e(TAG, "CREATE CALL LOG ERROR ${response.code}: $rawBody")
+            Log.e(TAG, "CREATE CALL LOG ERROR ${response.code} (body redacted)")
             throw RuntimeException("Frappe error ${response.code}: $rawBody")
         }
         Log.d(TAG, "CREATE CALL LOG RESPONSE ${response.code}: $rawBody")
