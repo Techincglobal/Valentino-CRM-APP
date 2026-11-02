@@ -272,6 +272,7 @@ class FrappeApiService(private val context: Context) {
         val body = JSONObject().apply {
             put("first_name", name)
             if (email.isNotBlank()) put("email_id", email)
+            if (company.isNotBlank()) put("company_name", company)
             put("mobile_no",  normalisePhone(phone))
             if (note.isNotBlank()) put("note_content", note)
         }
