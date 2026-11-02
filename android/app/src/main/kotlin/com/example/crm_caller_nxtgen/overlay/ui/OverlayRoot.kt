@@ -5,6 +5,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,9 +26,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.crm_caller_nxtgen.overlay.data.SessionTimerManager
 import com.example.crm_caller_nxtgen.overlay.domain.ActiveSheet
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
@@ -183,27 +189,35 @@ fun OverlayRoot(
 
 @Composable
 private fun LoadingBubble() {
-    Surface(
-        modifier        = Modifier.padding(16.dp),
-        shape           = RoundedCornerShape(28.dp),
-        color           = Color(0xFF1A2235),
-        shadowElevation = 14.dp,
-        tonalElevation  = 0.dp,
+    Box(
+        modifier = Modifier
+            .padding(top = 10.dp)
+            .shadow(
+                elevation    = 20.dp,
+                shape        = RoundedCornerShape(32.dp),
+                ambientColor = Color.Black.copy(alpha = 0.50f),
+            )
+            .clip(RoundedCornerShape(32.dp))
+            .background(Color(0xFF0A0A0C))
+            .border(0.75.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(32.dp))
+            .padding(horizontal = 16.dp, vertical = 9.dp),
     ) {
         Row(
-            modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
             CircularProgressIndicator(
-                color       = Color(0xFF2490EF),
-                modifier    = Modifier.size(18.dp),
-                strokeWidth = 2.5.dp,
+                color       = Color(0xFF38BDF8),
+                modifier    = Modifier.size(15.dp),
+                strokeWidth = 2.dp,
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Text(
-                text       = "Looking up caller…",
-                color      = Color(0xFFF8FAFC),
-                fontWeight = FontWeight.SemiBold,
+                text          = "Valentino CRM • Identifying…",
+                color         = Color(0xFFF5F5F7),
+                fontSize      = 12.5.sp,
+                fontWeight    = FontWeight.SemiBold,
+                letterSpacing = (-0.1).sp,
             )
         }
     }
@@ -211,27 +225,35 @@ private fun LoadingBubble() {
 
 @Composable
 private fun SubmittingBubble(label: String) {
-    Surface(
-        modifier        = Modifier.padding(16.dp),
-        shape           = RoundedCornerShape(28.dp),
-        color           = Color(0xFF1A2235),
-        shadowElevation = 14.dp,
-        tonalElevation  = 0.dp,
+    Box(
+        modifier = Modifier
+            .padding(top = 10.dp)
+            .shadow(
+                elevation    = 20.dp,
+                shape        = RoundedCornerShape(32.dp),
+                ambientColor = Color.Black.copy(alpha = 0.50f),
+            )
+            .clip(RoundedCornerShape(32.dp))
+            .background(Color(0xFF0A0A0C))
+            .border(0.75.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(32.dp))
+            .padding(horizontal = 16.dp, vertical = 9.dp),
     ) {
         Row(
-            modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
             CircularProgressIndicator(
-                color       = Color(0xFF2490EF),
-                modifier    = Modifier.size(18.dp),
-                strokeWidth = 2.5.dp,
+                color       = Color(0xFF38BDF8),
+                modifier    = Modifier.size(15.dp),
+                strokeWidth = 2.dp,
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Text(
-                text       = label,
-                color      = Color(0xFFF8FAFC),
-                fontWeight = FontWeight.SemiBold,
+                text          = label,
+                color         = Color(0xFFF5F5F7),
+                fontSize      = 12.5.sp,
+                fontWeight    = FontWeight.SemiBold,
+                letterSpacing = (-0.1).sp,
             )
         }
     }

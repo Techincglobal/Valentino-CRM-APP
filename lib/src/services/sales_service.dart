@@ -433,20 +433,25 @@ class SalesService {
     List<Map<String, dynamic>> items = const [],
     String sellingPriceList = '',
     String validTill = '',
+    String? defaultSalesPerson,
   }) async {
+    final payload = <String, dynamic>{
+      'lead_docname':        leadDocname,
+      'party_type':          partyType,
+      'subject':             subject,
+      'amount':              amount,
+      'note':                note,
+      'currency':            currency,
+      'items':               items,
+      'selling_price_list':  sellingPriceList,
+      'valid_till':          validTill,
+    };
+    if (defaultSalesPerson != null && defaultSalesPerson.isNotEmpty) {
+      payload['default_sales_person'] = defaultSalesPerson;
+    }
     final resp = await ApiService.post(
       '/api/method/nxtgen_crm_mobile.api.create_quotation',
-      {
-        'lead_docname':        leadDocname,
-        'party_type':          partyType,
-        'subject':             subject,
-        'amount':              amount,
-        'note':                note,
-        'currency':            currency,
-        'items':               items,
-        'selling_price_list':  sellingPriceList,
-        'valid_till':          validTill,
-      },
+      payload,
     );
     if (resp.statusCode != 200) {
       throw Exception(_parseFrappeError(resp.body, 'Failed to create quotation (${resp.statusCode})'));
@@ -599,6 +604,8 @@ class QuotationDefaults {
   final String partyName;
   final String partyEmail;
   final String partyPhone;
+  final String defaultSalesPerson;
+  final String salesPersonName;
 
   const QuotationDefaults({
     required this.company,
@@ -609,23 +616,28 @@ class QuotationDefaults {
     required this.partyName,
     required this.partyEmail,
     required this.partyPhone,
+    this.defaultSalesPerson = '',
+    this.salesPersonName = '',
   });
 
   factory QuotationDefaults.fromJson(Map<String, dynamic> j) => QuotationDefaults(
-        company:           j['company']?.toString() ?? '',
-        currency:          j['currency']?.toString() ?? 'LKR',
-        symbol:            j['symbol']?.toString() ?? 'Rs.',
-        sellingPriceList:  j['selling_price_list']?.toString() ?? '',
-        termsContent:      j['terms_content']?.toString() ?? '',
-        partyName:         j['party_name']?.toString() ?? '',
-        partyEmail:        j['party_email']?.toString() ?? '',
-        partyPhone:        j['party_phone']?.toString() ?? '',
+        company:              j['company']?.toString() ?? '',
+        currency:             j['currency']?.toString() ?? 'LKR',
+        symbol:               j['symbol']?.toString() ?? 'Rs.',
+        sellingPriceList:     j['selling_price_list']?.toString() ?? '',
+        termsContent:         j['terms_content']?.toString() ?? '',
+        partyName:            j['party_name']?.toString() ?? '',
+        partyEmail:           j['party_email']?.toString() ?? '',
+        partyPhone:           j['party_phone']?.toString() ?? '',
+        defaultSalesPerson:   j['default_sales_person']?.toString() ?? '',
+        salesPersonName:      j['sales_person_name']?.toString() ?? '',
       );
 
   static const empty = QuotationDefaults(
     company: '', currency: 'LKR', symbol: 'Rs.',
     sellingPriceList: '', termsContent: '',
     partyName: '', partyEmail: '', partyPhone: '',
+    defaultSalesPerson: '', salesPersonName: '',
   );
 }
 

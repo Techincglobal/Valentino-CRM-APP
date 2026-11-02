@@ -416,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           const SizedBox(width: 10),
           Text(
-            'CRM Caller',
+            'Valentino CRM',
             style: TextStyle(
               color: ac.textPrimary,
               fontSize: 18,

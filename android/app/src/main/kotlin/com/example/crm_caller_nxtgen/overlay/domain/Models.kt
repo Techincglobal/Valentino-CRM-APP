@@ -179,7 +179,7 @@ sealed class OverlayState {
         val phoneNumber: String,
         val identity: CallerIdentity,
         val durationSeconds: Long,
-        val isExpanded: Boolean = true,
+        val isExpanded: Boolean = false,
         val activeSheet: ActiveSheet = ActiveSheet.NONE,
         val direction: String = "Inbound",
         // Set once the call has been auto-logged (see OverlayStateMachine.CallEnded).

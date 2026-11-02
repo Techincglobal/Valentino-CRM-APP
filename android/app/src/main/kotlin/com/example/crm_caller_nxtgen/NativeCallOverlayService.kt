@@ -33,6 +33,7 @@ import com.example.crm_caller_nxtgen.overlay.domain.ComplaintPopupState
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayEvent
 import com.example.crm_caller_nxtgen.overlay.domain.OverlaySideEffect
 import com.example.crm_caller_nxtgen.overlay.domain.OverlayState
+import com.example.crm_caller_nxtgen.overlay.domain.isExpanded
 import com.example.crm_caller_nxtgen.overlay.domain.needsFocus
 import com.example.crm_caller_nxtgen.overlay.domain.shouldShowWindow
 import com.example.crm_caller_nxtgen.overlay.state.OverlayStateMachine
@@ -310,18 +311,15 @@ class NativeCallOverlayService : Service() {
     private fun snapToEdge() {
         val p = params ?: return
         val displayMetrics = resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
+        val topMargin = (16 * displayMetrics.density).toInt()
 
-        // Snap to left or right side with margin
-        val margin = (EDGE_MARGIN_DP * displayMetrics.density).toInt()
-        p.x = if (p.x + (composeView?.width ?: 0) / 2 < screenWidth / 2) {
-            margin
+        // Apple-style: snap smoothly to top-center Dynamic Island position when near top
+        if (p.y <= (100 * displayMetrics.density).toInt()) {
+            p.x = 0
+            p.y = topMargin
         } else {
-            screenWidth - (composeView?.width ?: 0) - margin
+            p.y = p.y.coerceIn(topMargin, maxAllowedY())
         }
-
-        // Clamp Y so overlay never slides under the navigation bar
-        p.y = p.y.coerceIn(0, maxAllowedY())
 
         windowX = p.x
         windowY = p.y
@@ -369,21 +367,35 @@ class NativeCallOverlayService : Service() {
             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR
 
         if (!focusable) baseFlags = baseFlags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
 
+        val isExpanded = stateMachine.state.value.isExpanded
+
+        val layoutWidth = if (isExpanded) {
+            WindowManager.LayoutParams.MATCH_PARENT
+        } else {
+            WindowManager.LayoutParams.WRAP_CONTENT
+        }
+
+        val layoutGravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        val topMargin = (16 * resources.displayMetrics.density).toInt()
+        val layoutX = if (isExpanded) 0 else windowX
+        val layoutY = if (isExpanded) topMargin else windowY.coerceAtLeast(topMargin)
+
         return WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            layoutWidth,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             baseFlags,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = windowX
-            y = windowY
+            gravity = layoutGravity
+            x = layoutX
+            y = layoutY
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
         }
     }
 
@@ -457,12 +469,13 @@ class NativeCallOverlayService : Service() {
             WindowManager.LayoutParams.FLAG_DIM_BEHIND or
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity   = Gravity.CENTER
             dimAmount = 0.55f
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
         }
     }
 
@@ -644,7 +657,7 @@ class NativeCallOverlayService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setContentTitle("CRM Caller")
+            .setContentTitle("Valentino CRM")
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .addAction(0, "Close", hideIntent)
@@ -654,9 +667,9 @@ class NativeCallOverlayService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID, "Call Overlay", NotificationManager.IMPORTANCE_LOW
+                CHANNEL_ID, "Valentino Overlay", NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "CRM overlay on incoming calls"
+                description = "Valentino CRM call overlay"
                 setShowBadge(false)
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)

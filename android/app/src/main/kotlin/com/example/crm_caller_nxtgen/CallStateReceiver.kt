@@ -37,18 +37,32 @@ class CallStateReceiver : BroadcastReceiver() {
         private const val KEY_CALL_STARTED_AT = "crm_call_started_at"
         private const val DEBOUNCE_MS       = 1500L
         private const val PREFS             = "FlutterSharedPreferences"
+
+        internal fun safeStartOverlayService(context: Context, intent: Intent) {
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: Exception) {
+                android.util.Log.w("CallStateReceiver", "startForegroundService not allowed from background: ${e.message}")
+                try {
+                    context.startService(intent)
+                } catch (e2: Exception) {
+                    android.util.Log.w("CallStateReceiver", "startService fallback failed: ${e2.message}")
+                }
+            }
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        android.util.Log.d("CrmMonitor", "CallStateReceiver.onReceive action=${intent.action} state=${intent.getStringExtra(TelephonyManager.EXTRA_STATE)}")
+        try {
+            android.util.Log.d("CrmMonitor", "CallStateReceiver.onReceive action=${intent.action} state=${intent.getStringExtra(TelephonyManager.EXTRA_STATE)}")
 
-        // Logged out — the app stays completely inert on calls: no overlay, no
-        // call log. Bail before any prefs bookkeeping so nothing from a
-        // logged-out call can leak into the next session's state.
-        if (!hasCrmSession(context)) {
-            android.util.Log.d("CrmMonitor", "CallStateReceiver: no CRM session — ignoring")
-            return
-        }
+            // Logged out — the app stays completely inert on calls: no overlay, no
+            // call log. Bail before any prefs bookkeeping so nothing from a
+            // logged-out call can leak into the next session's state.
+            if (!hasCrmSession(context)) {
+                android.util.Log.d("CrmMonitor", "CallStateReceiver: no CRM session — ignoring")
+                return
+            }
 
         // ── Outgoing call — show overlay so this call gets logged too ─────────
         if (intent.action == Intent.ACTION_NEW_OUTGOING_CALL) {
@@ -62,7 +76,7 @@ class CallStateReceiver : BroadcastReceiver() {
             if (!outPhone.isNullOrBlank() &&
                 (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context))
             ) {
-                ContextCompat.startForegroundService(
+                safeStartOverlayService(
                     context,
                     Intent(context, NativeCallOverlayService::class.java).apply {
                         action = NativeCallOverlayService.ACTION_SHOW
@@ -111,7 +125,7 @@ class CallStateReceiver : BroadcastReceiver() {
                     action = NativeCallOverlayService.ACTION_SHOW
                     putExtra(NativeCallOverlayService.EXTRA_PHONE, safePhone)
                 }
-                ContextCompat.startForegroundService(context, overlayIntent)
+                safeStartOverlayService(context, overlayIntent)
             }
 
             // ── Call answered ─────────────────────────────────────────────────
@@ -128,7 +142,7 @@ class CallStateReceiver : BroadcastReceiver() {
                     action = NativeCallOverlayService.ACTION_CALL_ACTIVE
                     if (activePhone.isNotBlank()) putExtra(NativeCallOverlayService.EXTRA_PHONE, activePhone)
                 }
-                ContextCompat.startForegroundService(context, overlayIntent)
+                safeStartOverlayService(context, overlayIntent)
             }
 
             // ── Call ended / hung up ──────────────────────────────────────────
@@ -174,7 +188,7 @@ class CallStateReceiver : BroadcastReceiver() {
                 clearStoredValue(context, "crm_caller_type")
                 clearStoredValue(context, "crm_caller_docname")
 
-                ContextCompat.startForegroundService(
+                safeStartOverlayService(
                     context,
                     Intent(context, NativeCallOverlayService::class.java).apply {
                         action = NativeCallOverlayService.ACTION_CALL_ENDED
@@ -184,6 +198,9 @@ class CallStateReceiver : BroadcastReceiver() {
                     }
                 )
             }
+        }
+        } catch (t: Throwable) {
+            android.util.Log.e("CallStateReceiver", "Error in CallStateReceiver.onReceive: ${t.message}", t)
         }
     }
 

@@ -118,6 +118,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Valentino CRM',
       debugShowCheckedModeBanner: false,
       theme:     CrmTheme.light(),
       darkTheme:  CrmTheme.dark(),
@@ -163,7 +164,7 @@ class _MyAppState extends State<MyApp> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Starting CRM Caller...',
+                              'Starting Valentino CRM...',
                               style: TextStyle(
                                 color: ac.textSecondary,
                                 fontSize: 13,

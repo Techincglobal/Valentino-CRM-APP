@@ -146,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                          const SizedBox(height: 28),
                         Text(
-                          'CRM Caller',
+                          'Valentino CRM',
                           style: TextStyle(
                             color: ac.textPrimary,
                             fontSize: 32,

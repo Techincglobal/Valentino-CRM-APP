@@ -1233,11 +1233,12 @@ class _QuoteSheetState extends State<_QuoteSheet> {
   final _noteCtrl     = TextEditingController();
   final _validTillCtrl = TextEditingController();
   final _items        = <_QuoteItem>[];
-  String  _currency         = 'LKR';
-  String  _sellingPriceList = '';
-  String  _partyEmail       = '';
-  String  _partyPhone       = '';
-  bool    _loadingDefaults  = true;
+  String  _currency           = 'LKR';
+  String  _sellingPriceList   = '';
+  String  _partyEmail         = '';
+  String  _partyPhone         = '';
+  String  _defaultSalesPerson = '';
+  bool    _loadingDefaults    = true;
   bool    _busy             = false;
   String? _error;
   String? _subjectError;
@@ -1265,9 +1266,10 @@ class _QuoteSheetState extends State<_QuoteSheet> {
     if (!mounted) return;
     setState(() {
       if (defaults.currency.isNotEmpty) _currency = defaults.currency;
-      _sellingPriceList = defaults.sellingPriceList;
-      _partyEmail       = defaults.partyEmail;
-      _partyPhone       = defaults.partyPhone;
+      _sellingPriceList   = defaults.sellingPriceList;
+      _partyEmail         = defaults.partyEmail;
+      _partyPhone         = defaults.partyPhone;
+      _defaultSalesPerson = defaults.defaultSalesPerson;
       if (defaults.termsContent.isNotEmpty && _noteCtrl.text.isEmpty) {
         _noteCtrl.text = defaults.termsContent;
       }
@@ -1307,14 +1309,15 @@ class _QuoteSheetState extends State<_QuoteSheet> {
         leadDocname: widget.opp.partyDocname.isNotEmpty
             ? widget.opp.partyDocname
             : widget.opp.name,
-        partyType:        widget.opp.partyType,
-        subject:          subject,
-        amount:           _grandTotal,
-        note:             _noteCtrl.text.trim(),
-        currency:         _currency,
-        items:            validItems.map((e) => e.toJson()).toList(),
-        sellingPriceList: _sellingPriceList,
-        validTill:        _validTillCtrl.text.trim(),
+        partyType:          widget.opp.partyType,
+        subject:            subject,
+        amount:             _grandTotal,
+        note:               _noteCtrl.text.trim(),
+        currency:           _currency,
+        items:              validItems.map((e) => e.toJson()).toList(),
+        sellingPriceList:   _sellingPriceList,
+        validTill:          _validTillCtrl.text.trim(),
+        defaultSalesPerson: _defaultSalesPerson.isNotEmpty ? _defaultSalesPerson : null,
       );
       if (!mounted) return;
       final goToQuotes = widget.onGoToQuotes;

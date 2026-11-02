@@ -71,7 +71,7 @@ class OverlayStateMachine(
                     phoneNumber = event.phoneNumber,
                     identity    = event.identity,
                     callPhase   = CallPhase.RINGING,
-                    isExpanded  = true,
+                    isExpanded  = false,
                 )
                 // Enrich in the background — the caller info we were handed may be
                 // minimal (just name/email/status); the full lookup fills in
@@ -187,7 +187,7 @@ class OverlayStateMachine(
                 // form — the second popup the user sees right after a call ends.
                 _state.value = OverlayState.PostCall(
                     phone, initialIdentity, duration,
-                    isExpanded  = true,
+                    isExpanded  = false,
                     activeSheet = ActiveSheet.LOG_CALL,
                     direction   = event.direction,
                     linkedContactDocname = carriedContactDocname,
@@ -233,12 +233,12 @@ class OverlayStateMachine(
                 // Guard: if call ended before lookup finished, don't revert PostCall/Idle
                 if (current is OverlayState.PostCall || current is OverlayState.Idle) return
                 val phone = current.phoneNumber ?: return
-                // Pop up expanded immediately — no tiny pill the user has to tap.
+                val wasExpanded = (current as? OverlayState.KnownCaller)?.isExpanded ?: false
                 _state.value = OverlayState.KnownCaller(
                     phoneNumber = phone,
                     identity    = event.identity,
                     callPhase   = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded  = true,
+                    isExpanded  = wasExpanded,
                 )
             }
 
@@ -246,11 +246,11 @@ class OverlayStateMachine(
                 // Guard: if call ended before lookup finished, don't revert PostCall/Idle
                 if (current is OverlayState.PostCall || current is OverlayState.Idle) return
                 val phone = current.phoneNumber ?: return
-                // Pop up expanded immediately — no tiny pill the user has to tap.
+                val wasExpanded = (current as? OverlayState.UnknownCaller)?.isExpanded ?: false
                 _state.value = OverlayState.UnknownCaller(
                     phoneNumber = phone,
                     callPhase   = current.callPhase ?: CallPhase.RINGING,
-                    isExpanded  = true,
+                    isExpanded  = wasExpanded,
                 )
             }
 

@@ -2178,9 +2178,10 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
   String?       _error;
   String?       _leadError;
 
-  String  _company          = '';
-  String  _sellingPriceList = '';
-  bool    _fetchingDefaults = false;
+  String  _company            = '';
+  String  _sellingPriceList   = '';
+  String  _defaultSalesPerson = '';
+  bool    _fetchingDefaults   = false;
 
   final List<_QuoteLineDraft> _items = [_QuoteLineDraft()];
 
@@ -2208,10 +2209,11 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
       );
       if (!mounted) return;
       setState(() {
-        _company          = defaults.company;
-        _sellingPriceList = defaults.sellingPriceList;
+        _company            = defaults.company;
+        _sellingPriceList   = defaults.sellingPriceList;
+        _defaultSalesPerson = defaults.defaultSalesPerson;
         if (defaults.currency.isNotEmpty) _currency = defaults.currency;
-        _fetchingDefaults = false;
+        _fetchingDefaults   = false;
       });
     } catch (_) {
       if (mounted) setState(() => _fetchingDefaults = false);
@@ -2306,6 +2308,7 @@ class _NewQuoteSheetState extends State<_NewQuoteSheet> {
         currency:    _currency,
         validTill:   _validTill,
         sellingPriceList: _sellingPriceList,
+        defaultSalesPerson: _defaultSalesPerson.isNotEmpty ? _defaultSalesPerson : null,
         items: validItems.map((d) => {
           'item_code': d.itemCodeCtrl.text.trim(),
           'item_name': d.itemName.isNotEmpty ? d.itemName : d.itemCodeCtrl.text.trim(),

@@ -39,10 +39,14 @@ class CallMonitorService : Service() {
         private const val NOTIF_ID   = 2008
 
         fun start(context: Context) {
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, CallMonitorService::class.java),
-            )
+            try {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, CallMonitorService::class.java),
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("CallMonitorService", "Failed to start CallMonitorService from background: ${e.message}")
+            }
         }
     }
 
@@ -305,7 +309,7 @@ class CallMonitorService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val ch = NotificationChannel(
                 CHANNEL_ID,
-                "Call Monitor",
+                "Valentino Call Monitor",
                 NotificationManager.IMPORTANCE_MIN,
             ).apply {
                 description = "Monitors for incoming calls in the background"
@@ -321,7 +325,7 @@ class CallMonitorService : Service() {
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setContentTitle("CRM Caller")
+            .setContentTitle("Valentino CRM")
             .setContentText("Ready for incoming calls")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)

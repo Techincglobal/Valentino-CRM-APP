@@ -104,29 +104,30 @@ fun ExpandedOverlayCard(
 
     Box(
         modifier = Modifier
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
             .shadow(
-                elevation    = 32.dp,
+                elevation    = 28.dp,
                 shape        = RoundedCornerShape(28.dp),
-                ambientColor = if (isDark) Color.Black.copy(alpha = 0.50f) else Color.Black.copy(alpha = 0.15f),
-                spotColor    = accentColor.copy(alpha = if (isDark) 0.25f else 0.15f),
+                ambientColor = if (isDark) Color.Black.copy(alpha = 0.60f) else Color.Black.copy(alpha = 0.15f),
+                spotColor    = accentColor.copy(alpha = if (isDark) 0.25f else 0.12f),
             ),
     ) {
         Column(
             modifier = Modifier
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.75f else 0.85f))
+                .background(if (isDark) Color(0xFF0F0F14) else Color(0xFFFFFFFF))
                 .border(
-                    1.5.dp,
-                    Brush.linearGradient(
+                    0.75.dp,
+                    Brush.verticalGradient(
                         listOf(
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.15f else 0.25f),
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                            if (isDark) Color.White.copy(alpha = 0.18f) else Color.Black.copy(alpha = 0.10f),
+                            if (isDark) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.02f),
                         )
                     ),
                     RoundedCornerShape(28.dp),
                 )
-                .heightIn(max = 720.dp),
+                .heightIn(max = 680.dp),
         ) {
             // Accent gradient header band
             Box(
@@ -221,17 +222,33 @@ private fun CardHeader(
     onAnswer: () -> Unit,
 ) {
   Column {
+    // Top subtle grab handle
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(36.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)),
+        )
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment     = Alignment.CenterVertically,
     ) {
         // Avatar
         Box(
             modifier = Modifier
-                .size(50.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.linearGradient(
@@ -255,23 +272,23 @@ private fun CardHeader(
         }
 
         // Name + badge
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             // Type badge
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(accentColor.copy(alpha = if (isDark) 0.18f else 0.12f))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
             ) {
                 Text(
                     text = when {
-                        isPostCall -> "POST CALL"
-                        identity is CallerIdentity.Unknown -> "UNKNOWN"
-                        identity is CallerIdentity.Customer -> "CUSTOMER"
-                        identity is CallerIdentity.Lead && identity.isSupplier -> "SUPPLIER"
-                        identity is CallerIdentity.Lead && identity.isCustomer -> "CUSTOMER"
-                        identity is CallerIdentity.Lead -> identity.status.uppercase().ifBlank { "LEAD" }
-                        else -> "UNKNOWN"
+                        isPostCall -> "VALENTINO • POST CALL"
+                        identity is CallerIdentity.Unknown -> "VALENTINO • NEW CALLER"
+                        identity is CallerIdentity.Customer -> "VALENTINO CUSTOMER"
+                        identity is CallerIdentity.Lead && identity.isSupplier -> "VALENTINO SUPPLIER"
+                        identity is CallerIdentity.Lead && identity.isCustomer -> "VALENTINO CUSTOMER"
+                        identity is CallerIdentity.Lead -> "VALENTINO " + identity.status.uppercase().ifBlank { "LEAD" }
+                        else -> "VALENTINO CRM"
                     },
                     color         = accentColor,
                     fontSize      = 9.sp,
@@ -318,23 +335,21 @@ private fun CardHeader(
                         modifier           = Modifier.size(18.dp),
                     )
                 }
-                // Close — post-call only
-                if (isPostCall) {
-                    IconButton(
-                        onClick  = onClose,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Red500.copy(alpha = if (isDark) 0.15f else 0.08f))
-                            .border(1.dp, Red500.copy(alpha = 0.30f), CircleShape),
-                    ) {
-                        Icon(
-                            imageVector        = Icons.Default.Close,
-                            contentDescription = "Close overlay",
-                            tint               = Red500,
-                            modifier           = Modifier.size(15.dp),
-                        )
-                    }
+                // Close button — always available so user can dismiss anytime
+                IconButton(
+                    onClick  = onClose,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.Close,
+                        contentDescription = "Close overlay",
+                        tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier           = Modifier.size(15.dp),
+                    )
                 }
             }
 

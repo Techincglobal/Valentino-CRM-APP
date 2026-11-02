@@ -96,36 +96,37 @@ private fun ComplaintCard(
     var details  by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf("Medium") }
 
+    val isDark = isSystemInDarkTheme()
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor      = Red500,
-        unfocusedBorderColor    = BorderLight,
-        focusedTextColor        = TextPrimary,
-        unfocusedTextColor      = TextPrimary,
+        unfocusedBorderColor    = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+        focusedTextColor        = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor      = MaterialTheme.colorScheme.onSurface,
         focusedLabelColor       = Red500,
-        unfocusedLabelColor     = TextSecondary,
+        unfocusedLabelColor     = MaterialTheme.colorScheme.onSurfaceVariant,
         cursorColor             = Red500,
-        focusedContainerColor   = White,
-        unfocusedContainerColor = White,
+        focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.5f else 0.7f),
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.3f else 0.5f),
     )
 
     Surface(
         modifier = Modifier
-            .width(320.dp)
+            .fillMaxWidth(0.92f)
             .shadow(
                 elevation    = 32.dp,
                 shape        = RoundedCornerShape(28.dp),
-                ambientColor = Color.Black.copy(alpha = 0.30f),
-                spotColor    = Color.Black.copy(alpha = 0.35f),
+                ambientColor = Color.Black.copy(alpha = 0.40f),
+                spotColor    = Red500.copy(alpha = 0.25f),
             ),
         shape           = RoundedCornerShape(28.dp),
-        color           = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        color           = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.95f else 0.98f),
         tonalElevation  = 0.dp,
         border          = androidx.compose.foundation.BorderStroke(
             1.5.dp,
             androidx.compose.ui.graphics.Brush.linearGradient(
                 listOf(
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.20f else 0.12f),
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)
                 )
             )
         )
