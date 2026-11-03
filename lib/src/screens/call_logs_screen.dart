@@ -404,10 +404,12 @@ class _StatChip extends StatelessWidget {
 // _CallLogCard  — tappable, shows all key fields
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _CallLogCard extends StatelessWidget {
+typedef _CallLogCard = CallLogCard;
+
+class CallLogCard extends StatelessWidget {
   final CallLog log;
   final Future<void> Function() onRefresh;
-  const _CallLogCard({required this.log, required this.onRefresh});
+  const CallLogCard({super.key, required this.log, required this.onRefresh});
 
   void _openDetail(BuildContext context) async {
     final updated = await showModalBottomSheet<bool>(
@@ -1266,15 +1268,17 @@ class _TextBlock extends StatelessWidget {
 // _CreateLeadSheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _CreateLeadSheet extends StatefulWidget {
+typedef _CreateLeadSheet = CreateLeadSheet;
+
+class CreateLeadSheet extends StatefulWidget {
   final CallLog log;
-  const _CreateLeadSheet({required this.log});
+  const CreateLeadSheet({super.key, required this.log});
 
   @override
-  State<_CreateLeadSheet> createState() => _CreateLeadSheetState();
+  State<CreateLeadSheet> createState() => _CreateLeadSheetState();
 }
 
-class _CreateLeadSheetState extends State<_CreateLeadSheet> {
+class _CreateLeadSheetState extends State<CreateLeadSheet> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _emailCtrl;
