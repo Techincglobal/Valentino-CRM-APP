@@ -261,13 +261,8 @@ sealed class OverlayEvent {
     data class CallEnded(
         val direction: String = "Inbound",
         val phone: String = "",
-        // "Answered" / "Missed" / "Rejected" / "No Answer" — read from the
-        // system's own CallLog entry (see queryLatestSystemCallStatus), since
-        // TelephonyManager's RINGING/OFFHOOK/IDLE transitions alone can't
-        // reliably distinguish these (notably: OFFHOOK fires for an outgoing
-        // call the instant it's dialed, regardless of whether the far end
-        // ever actually answers).
         val status: String = "Answered",
+        val duration: Long = 0L,
     ) : OverlayEvent()
 
     // Backend results

@@ -425,7 +425,11 @@ class _CallLogCard extends StatelessWidget {
     final isDark = context.isDark;
     final isWA   = log.isWhatsApp;
     final accent = isWA ? _green : _blue;
-    final isOutgoing = !log.isInbound;
+    final isOutgoing = log.isOutbound;
+    final dirIcon = log.isMissed
+        ? Icons.call_missed_rounded
+        : (isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded);
+    final dirColor = log.isMissed ? _amber : (isOutgoing ? _rose : _green);
 
     return GestureDetector(
       onTap: () => _openDetail(context),
@@ -487,14 +491,14 @@ class _CallLogCard extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   Icon(
-                    isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
+                    dirIcon,
                     size: 11,
-                    color: isOutgoing ? _rose : _green,
+                    color: dirColor,
                   ),
                   const SizedBox(width: 3),
-                  Text(log.direction,
+                  Text(log.directionLabel,
                       style: TextStyle(
-                        color: isOutgoing ? _rose : _green,
+                        color: dirColor,
                         fontSize: 11, fontWeight: FontWeight.w600,
                       )),
                 ]),
@@ -692,7 +696,11 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
     final log    = widget.log;
     final isWA   = log.isWhatsApp;
     final accent = isWA ? _green : _blue;
-    final isOutgoing = !log.isInbound;
+    final isOutgoing = log.isOutbound;
+    final dirIcon = log.isMissed
+        ? Icons.call_missed_rounded
+        : (isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded);
+    final dirColor = log.isMissed ? _amber : (isOutgoing ? _rose : _green);
     final bottom = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
 
     return Container(
@@ -771,19 +779,19 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: (isOutgoing ? _rose : _green).withValues(alpha: 0.12),
+                    color: dirColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: (isOutgoing ? _rose : _green).withValues(alpha: 0.3)),
+                    border: Border.all(color: dirColor.withValues(alpha: 0.3)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(
-                      isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
-                      size: 13, color: isOutgoing ? _rose : _green,
+                      dirIcon,
+                      size: 13, color: dirColor,
                     ),
                     const SizedBox(width: 4),
-                    Text(log.direction,
+                    Text(log.directionLabel,
                         style: TextStyle(
-                          color: isOutgoing ? _rose : _green,
+                          color: dirColor,
                           fontSize: 11, fontWeight: FontWeight.w700,
                         )),
                   ]),
@@ -800,9 +808,9 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                   _DetailRow(label: 'Type', value: log.callType,
                       icon: isWA ? Icons.chat_rounded : Icons.phone_rounded,
                       color: accent, ac: ac, isDark: isDark),
-                  _DetailRow(label: 'Direction', value: log.direction,
-                      icon: isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
-                      color: isOutgoing ? _rose : _green, ac: ac, isDark: isDark),
+                  _DetailRow(label: 'Direction', value: log.directionLabel,
+                      icon: dirIcon,
+                      color: dirColor, ac: ac, isDark: isDark),
                   if (log.status.isNotEmpty)
                     _DetailRow(label: 'Status', value: log.status,
                         icon: _statusIcon(log.status),
@@ -1301,12 +1309,17 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
       _snack('Please enter a name for the lead.', _amber);
       return;
     }
+    final email = _emailCtrl.text.trim();
+    if (email.isNotEmpty && (!email.contains('@') || !email.contains('.'))) {
+      _snack('Please enter a valid email address or leave it blank.', _amber);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final result = await SalesService.createLeadFromCall(
         firstName:   name,
         mobileNo:    _phoneCtrl.text.trim(),
-        email:       _emailCtrl.text.trim(),
+        email:       email,
         noteContent: _noteCtrl.text.trim(),
       );
       if (!mounted) return;
@@ -1337,6 +1350,7 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.all(16),
+      duration: const Duration(seconds: 3),
     ));
   }
 
@@ -1347,7 +1361,9 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
     final bottom  = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 8, 20, bottom + 24),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
+      ),
       decoration: BoxDecoration(
         color:        isDark ? const Color(0xFF131A2A) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -1356,99 +1372,110 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
         Center(
           child: Container(
             width: 40, height: 4,
-            margin: const EdgeInsets.only(bottom: 18),
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
             decoration: BoxDecoration(
               color: ac.border, borderRadius: BorderRadius.circular(2)),
           ),
         ),
 
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Create Lead',
-                style: TextStyle(color: ac.textPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
-            Text('From call with ${widget.log.callerLabel}',
-                style: TextStyle(color: ac.textSecondary, fontSize: 12)),
-          ]),
-        ]),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, bottom + 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Create Lead',
+                        style: TextStyle(color: ac.textPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
+                    Text('From call with ${widget.log.callerLabel}',
+                        style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                  ]),
+                ]),
 
-        const SizedBox(height: 22),
+                const SizedBox(height: 22),
 
-        _SheetField(
-          ctrl: _nameCtrl, label: 'Full Name *',
-          hint: 'e.g. John Smith',
-          icon: Icons.person_outline_rounded,
-          ac: ac, isDark: isDark,
-        ),
-        const SizedBox(height: 12),
-
-        _SheetField(
-          ctrl: _phoneCtrl, label: 'Phone Number',
-          hint: '+1 555 000 0000',
-          icon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
-          ac: ac, isDark: isDark,
-        ),
-        const SizedBox(height: 12),
-
-        _SheetField(
-          ctrl: _emailCtrl, label: 'Email',
-          hint: 'lead@example.com',
-          icon: Icons.email_outlined,
-          keyboardType: TextInputType.emailAddress,
-          ac: ac, isDark: isDark,
-        ),
-        const SizedBox(height: 12),
-
-        _SheetField(
-          ctrl: _noteCtrl, label: 'Note',
-          hint: 'Call summary or follow-up…',
-          icon: Icons.notes_rounded,
-          maxLines: 3,
-          ac: ac, isDark: isDark,
-        ),
-
-        const SizedBox(height: 22),
-
-        SizedBox(
-          width: double.infinity,
-          child: GestureDetector(
-            onTap: _loading ? null : _submit,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: _loading
-                      ? [const Color(0xFF2490EF).withValues(alpha: 0.5), const Color(0xFF1A7FD4).withValues(alpha: 0.5)]
-                      : [const Color(0xFF2490EF), const Color(0xFF1A7FD4)],
+                _SheetField(
+                  ctrl: _nameCtrl, label: 'Full Name *',
+                  hint: 'e.g. John Smith',
+                  icon: Icons.person_outline_rounded,
+                  ac: ac, isDark: isDark,
                 ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: _loading ? [] : [
-                  BoxShadow(color: const Color(0xFF2490EF).withValues(alpha: 0.35),
-                      blurRadius: 14, offset: const Offset(0, 5)),
-                ],
-              ),
-              child: Center(
-                child: _loading
-                    ? const SizedBox(width: 20, height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                    : const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
-                        SizedBox(width: 8),
-                        Text('Create Lead',
-                            style: TextStyle(color: Colors.white, fontSize: 15,
-                                fontWeight: FontWeight.w700)),
-                      ]),
-              ),
+                const SizedBox(height: 12),
+
+                _SheetField(
+                  ctrl: _phoneCtrl, label: 'Phone Number',
+                  hint: '+1 555 000 0000',
+                  icon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  ac: ac, isDark: isDark,
+                ),
+                const SizedBox(height: 12),
+
+                _SheetField(
+                  ctrl: _emailCtrl, label: 'Email',
+                  hint: 'lead@example.com',
+                  icon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                  ac: ac, isDark: isDark,
+                ),
+                const SizedBox(height: 12),
+
+                _SheetField(
+                  ctrl: _noteCtrl, label: 'Note',
+                  hint: 'Call summary or follow-up…',
+                  icon: Icons.notes_rounded,
+                  maxLines: 3,
+                  ac: ac, isDark: isDark,
+                ),
+
+                const SizedBox(height: 22),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: GestureDetector(
+                    onTap: _loading ? null : _submit,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _loading
+                              ? [const Color(0xFF2490EF).withValues(alpha: 0.5), const Color(0xFF1A7FD4).withValues(alpha: 0.5)]
+                              : [const Color(0xFF2490EF), const Color(0xFF1A7FD4)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: _loading ? [] : [
+                          BoxShadow(color: const Color(0xFF2490EF).withValues(alpha: 0.35),
+                              blurRadius: 14, offset: const Offset(0, 5)),
+                        ],
+                      ),
+                      child: Center(
+                        child: _loading
+                            ? const SizedBox(width: 20, height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                            : const Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
+                                SizedBox(width: 8),
+                                Text('Create Lead',
+                                    style: TextStyle(color: Colors.white, fontSize: 15,
+                                        fontWeight: FontWeight.w700)),
+                              ]),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

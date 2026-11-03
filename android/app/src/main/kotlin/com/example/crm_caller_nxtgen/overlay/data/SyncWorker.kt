@@ -45,7 +45,12 @@ class SyncWorker(
         val api = FrappeApiService(applicationContext)
         val config = api.getConfig()
 
-        if (!config.isValid) return@withContext Result.success()  // nothing to do without config
+        if (!config.hasSession) return@withContext Result.success()  // nothing to do without session
+
+        // Refresh CSRF token proactively before performing sync requests
+        try {
+            api.refreshCsrfToken()
+        } catch (_: Exception) { }
 
         var anyFailure = false
 

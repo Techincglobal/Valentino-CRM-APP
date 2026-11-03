@@ -223,16 +223,37 @@ class NativeCallOverlayService : Service() {
                 // Resolve it from the service (rather than the receiver) so starting the
                 // foreground service stays within Android's broadcast time limit.
                 serviceScope.launch {
-                    val status = suppliedStatus?.takeIf { it.isNotBlank() }
-                        ?: waitForSystemCallStatus(applicationContext, phone, direction, startedAt)
-                        ?: if (direction == "Inbound") "Missed" else "No Answer"
-                    android.util.Log.d("CrmMonitor", "NativeCallOverlayService resolved outcome: phone=$phone direction=$direction status=$status")
-                    stateMachine.handleEvent(
-                        OverlayEvent.CallEnded(direction = direction, phone = phone, status = status),
-                    )
+                    val systemRecord = waitForSystemCallRecord(applicationContext, phone, direction, startedAt)
+
+                    val finalPhone = systemRecord?.phone?.takeIf { it.isNotBlank() }
+                        ?: phone.takeIf { it.isNotBlank() && it != "Hidden" }
+                        ?: queryLastOutgoingNumber(applicationContext)
+                        ?: ""
+                    val finalDirection = systemRecord?.direction ?: direction
+                    val finalStatus = suppliedStatus?.takeIf { it.isNotBlank() }
+                        ?: systemRecord?.status
+                        ?: if (finalDirection == "Inbound") "Missed" else "No Answer"
+                    val finalDuration = systemRecord?.durationSeconds?.takeIf { it > 0L }
+                        ?: repository.getSessionDuration(phone)
+
+                    android.util.Log.d("CrmMonitor", "NativeCallOverlayService resolved call: phone=$finalPhone direction=$finalDirection status=$finalStatus duration=$finalDuration")
+
+                    if (finalPhone.isNotBlank()) {
+                        stateMachine.handleEvent(
+                            OverlayEvent.CallEnded(
+                                direction = finalDirection,
+                                phone     = finalPhone,
+                                status    = finalStatus,
+                                duration  = finalDuration,
+                            ),
+                        )
+                    } else {
+                        android.util.Log.w("CrmMonitor", "NativeCallOverlayService: phone still blank after CallLog query")
+                    }
+
                     // Give the state machine a moment to insert its local-first record
                     // before WorkManager checks for unsynced logs.
-                    delay(250L)
+                    delay(300L)
                     SyncWorker.enqueue(applicationContext)
                 }
             }

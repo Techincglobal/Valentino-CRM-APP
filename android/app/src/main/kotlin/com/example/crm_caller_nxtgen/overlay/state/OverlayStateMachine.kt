@@ -181,7 +181,7 @@ class OverlayStateMachine(
                     is OverlayState.PostCall      -> current.linkedContactDocname
                     else -> null
                 }
-                val duration = repository.getSessionDuration(phone)
+                val duration = event.duration.takeIf { it > 0L } ?: repository.getSessionDuration(phone)
                 postCallEnteredAt = System.currentTimeMillis()
                 // PostCall stays expanded and opens straight into the "add a note"
                 // form — the second popup the user sees right after a call ends.

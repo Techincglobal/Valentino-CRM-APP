@@ -107,9 +107,28 @@ class CallLog {
         creation:        j['creation']?.toString() ?? '',
       );
 
-  bool get isWhatsApp => callType == 'WhatsApp';
-  bool get isInbound  => direction == 'Inbound';
-  bool get isMissed   => status == 'Missed';
+  bool get isWhatsApp => callType.toLowerCase() == 'whatsapp';
+
+  bool get isInbound =>
+      direction.toLowerCase() == 'inbound' ||
+      direction.toLowerCase() == 'received' ||
+      direction.toLowerCase() == 'incoming';
+
+  bool get isOutbound =>
+      direction.toLowerCase() == 'outbound' ||
+      direction.toLowerCase() == 'sent' ||
+      direction.toLowerCase() == 'outgoing';
+
+  bool get isMissed =>
+      direction.toLowerCase() == 'missed' ||
+      status.toLowerCase() == 'missed';
+
+  String get directionLabel {
+    if (isMissed) return 'Missed';
+    if (isInbound) return 'Incoming';
+    if (isOutbound) return 'Outgoing';
+    return direction.isNotEmpty ? direction : 'Call';
+  }
 
   CallLog copyWith({
     String? notes,

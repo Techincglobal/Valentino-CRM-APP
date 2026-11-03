@@ -278,30 +278,57 @@ internal fun queryLastOutgoingNumber(context: Context): String? {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Wait for Android to commit this call's CallLog row, then return the outcome
- * only if it belongs to this call. At IDLE the provider commonly still exposes
- * the previous row for a short time, which was why every record became Answered.
+ * Resolved call record directly from Android's system CallLog provider.
  */
+internal data class SystemCallRecord(
+    val phone: String,
+    val direction: String,     // "Inbound" or "Outbound"
+    val status: String,        // "Answered", "Missed", "Rejected", "No Answer"
+    val durationSeconds: Long, // actual system duration in seconds
+    val timestamp: Long,
+)
+
+/**
+ * Wait for Android to commit this call's CallLog row, then return the full
+ * record (phone number, direction, status, duration).
+ * Retries up to 8 times with 400ms delay to accommodate OEM background delays.
+ */
+internal suspend fun waitForSystemCallRecord(
+    context: Context,
+    phone: String,
+    direction: String,
+    startedAt: Long,
+): SystemCallRecord? {
+    repeat(8) { attempt ->
+        if (attempt > 0) delay(400L)
+        val record = queryLatestSystemCallRecord(context, phone, direction, startedAt)
+        if (record != null) return record
+    }
+    return null
+}
+
 internal suspend fun waitForSystemCallStatus(
     context: Context,
     phone: String,
     direction: String,
     startedAt: Long,
 ): String? {
-    repeat(5) { attempt ->
-        if (attempt > 0) delay(500L)
-        queryLatestSystemCallStatus(context, phone, direction, startedAt)?.let { return it }
-    }
-    return null
+    return waitForSystemCallRecord(context, phone, direction, startedAt)?.status
 }
 
-internal fun queryLatestSystemCallStatus(
+internal fun queryLatestSystemCallRecord(
     context: Context,
     phone: String,
     direction: String,
     startedAt: Long,
-): String? {
+): SystemCallRecord? {
     return try {
+        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CALL_LOG)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            android.util.Log.w("CrmMonitor", "queryLatestSystemCallRecord: READ_CALL_LOG not granted")
+            return null
+        }
+
         val result = context.contentResolver.query(
             android.provider.CallLog.Calls.CONTENT_URI,
             arrayOf(
@@ -314,17 +341,16 @@ internal fun queryLatestSystemCallStatus(
             null,
             "${android.provider.CallLog.Calls.DATE} DESC",
         )?.use { cursor ->
-            val phoneDigits = phone.filter { it.isDigit() }.takeLast(10)
-            val earliestDate = if (startedAt > 0L) startedAt - 5_000L else System.currentTimeMillis() - 120_000L
+            val phoneDigits = phone.filter { it.isDigit() }.takeLast(9)
+            val earliestDate = if (startedAt > 0L) startedAt - 10_000L else System.currentTimeMillis() - 180_000L
             while (cursor.moveToNext()) {
                 val rowPhone = cursor.getString(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.NUMBER)).orEmpty()
-                val rowDigits = rowPhone.filter { it.isDigit() }.takeLast(10)
+                val rowDigits = rowPhone.filter { it.isDigit() }.takeLast(9)
                 val type = cursor.getInt(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.TYPE))
                 val date = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.DATE))
                 val duration = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.CallLog.Calls.DURATION))
 
                 if (date < earliestDate) break
-                if (phoneDigits.isNotBlank() && rowDigits != phoneDigits) continue
 
                 val isInboundType = type in setOf(
                     android.provider.CallLog.Calls.INCOMING_TYPE,
@@ -333,9 +359,17 @@ internal fun queryLatestSystemCallStatus(
                     android.provider.CallLog.Calls.BLOCKED_TYPE,
                     android.provider.CallLog.Calls.VOICEMAIL_TYPE,
                 )
-                if ((direction == "Inbound") != isInboundType) continue
+                val resolvedDir = if (isInboundType) "Inbound" else "Outbound"
 
-                return@use when (type) {
+                // If a non-empty direction was expected, ensure it matches
+                if (direction.isNotBlank() && (direction == "Inbound") != isInboundType) continue
+
+                // If an expected phone was provided (and wasn't "Hidden"), check digits match
+                if (phoneDigits.isNotBlank() && phone != "Hidden" && rowDigits.isNotBlank() && rowDigits != phoneDigits) {
+                    continue
+                }
+
+                val status = when (type) {
                     android.provider.CallLog.Calls.INCOMING_TYPE,
                     android.provider.CallLog.Calls.ANSWERED_EXTERNALLY_TYPE -> "Answered"
                     android.provider.CallLog.Calls.OUTGOING_TYPE -> if (duration > 0L) "Answered" else "No Answer"
@@ -343,17 +377,35 @@ internal fun queryLatestSystemCallStatus(
                     android.provider.CallLog.Calls.REJECTED_TYPE,
                     android.provider.CallLog.Calls.BLOCKED_TYPE -> "Rejected"
                     android.provider.CallLog.Calls.VOICEMAIL_TYPE -> "No Answer"
-                    else -> null
+                    else -> if (duration > 0L) "Answered" else "Missed"
                 }
+
+                val finalNumber = rowPhone.takeIf { it.isNotBlank() } ?: phone
+                return@use SystemCallRecord(
+                    phone = finalNumber,
+                    direction = resolvedDir,
+                    status = status,
+                    durationSeconds = maxOf(0L, duration),
+                    timestamp = date,
+                )
             }
             null
         }
-        android.util.Log.d("CrmMonitor", "queryLatestSystemCallStatus result=$result")
+        android.util.Log.d("CrmMonitor", "queryLatestSystemCallRecord result=$result")
         result
     } catch (e: Exception) {
-        android.util.Log.e("CrmMonitor", "queryLatestSystemCallStatus threw", e)
+        android.util.Log.e("CrmMonitor", "queryLatestSystemCallRecord threw", e)
         null
     }
+}
+
+internal fun queryLatestSystemCallStatus(
+    context: Context,
+    phone: String,
+    direction: String,
+    startedAt: Long,
+): String? {
+    return queryLatestSystemCallRecord(context, phone, direction, startedAt)?.status
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
