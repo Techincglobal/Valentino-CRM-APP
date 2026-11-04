@@ -43,6 +43,7 @@ import com.example.crm_caller_nxtgen.overlay.ui.WindowLifecycleOwner
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -94,6 +95,20 @@ class NativeCallOverlayService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     // Separate long-running wakelock held for the call duration (not just startup burst)
     private var callWakeLock: PowerManager.WakeLock? = null
+
+    // Track active call-ended processing to debounce duplicate events from CallMonitorService & CallStateReceiver
+    private var callEndedJob: Job? = null
+    private var lastCallEndedTimestamp: Long = 0L
+    private var lastCallEndedPhone: String = ""
+
+    private fun isSamePhoneNumber(a: String, b: String): Boolean {
+        if (a.isBlank() || b.isBlank()) return true
+        val da = a.filter { it.isDigit() }
+        val db = b.filter { it.isDigit() }
+        if (da == db) return true
+        if (da.length >= 8 && db.length >= 8 && da.takeLast(8) == db.takeLast(8)) return true
+        return false
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Lifecycle
@@ -219,10 +234,24 @@ class NativeCallOverlayService : Service() {
                 if (callWakeLock?.isHeld == true) callWakeLock?.release()
                 // No auto-dismiss — overlay stays until user closes it
 
+                val now = System.currentTimeMillis()
+                val isRecentSameCall = (now - lastCallEndedTimestamp < 5000L) &&
+                    (phone.isBlank() || lastCallEndedPhone.isBlank() || isSamePhoneNumber(phone, lastCallEndedPhone))
+
+                if (isRecentSameCall && callEndedJob?.isActive == true) {
+                    android.util.Log.d("CrmMonitor", "NativeCallOverlayService: duplicate ACTION_CALL_ENDED ignored within 5s for phone=$phone")
+                    return START_STICKY
+                }
+
+                lastCallEndedTimestamp = now
+                if (phone.isNotBlank() && phone != "Hidden") {
+                    lastCallEndedPhone = phone
+                }
+
                 // Android writes its CallLog entry shortly *after* the IDLE callback.
                 // Resolve it from the service (rather than the receiver) so starting the
                 // foreground service stays within Android's broadcast time limit.
-                serviceScope.launch {
+                callEndedJob = serviceScope.launch {
                     val systemRecord = waitForSystemCallRecord(applicationContext, phone, direction, startedAt)
 
                     val finalPhone = systemRecord?.phone?.takeIf { it.isNotBlank() }
@@ -239,6 +268,7 @@ class NativeCallOverlayService : Service() {
                     android.util.Log.d("CrmMonitor", "NativeCallOverlayService resolved call: phone=$finalPhone direction=$finalDirection status=$finalStatus duration=$finalDuration")
 
                     if (finalPhone.isNotBlank()) {
+                        lastCallEndedPhone = finalPhone
                         stateMachine.handleEvent(
                             OverlayEvent.CallEnded(
                                 direction = finalDirection,
@@ -250,11 +280,6 @@ class NativeCallOverlayService : Service() {
                     } else {
                         android.util.Log.w("CrmMonitor", "NativeCallOverlayService: phone still blank after CallLog query")
                     }
-
-                    // Give the state machine a moment to insert its local-first record
-                    // before WorkManager checks for unsynced logs.
-                    delay(300L)
-                    SyncWorker.enqueue(applicationContext)
                 }
             }
         }

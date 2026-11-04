@@ -46,7 +46,18 @@ class OverlayStateMachine(
     // apart from "a genuinely new call to the same number, popup never dismissed"
     // (arrives much later) — phone-number equality alone can't distinguish these.
     private var postCallEnteredAt: Long = 0L
-    private val DEDUP_WINDOW_MS = 4000L
+    private val DEDUP_WINDOW_MS = 6000L
+    private var lastCallEndedLoggedPhone: String? = null
+    private var lastCallEndedLoggedAt: Long = 0L
+
+    private fun isSamePhoneNumber(a: String?, b: String?): Boolean {
+        if (a.isNullOrBlank() || b.isNullOrBlank()) return true
+        val da = a.filter { it.isDigit() }
+        val db = b.filter { it.isDigit() }
+        if (da == db) return true
+        if (da.length >= 8 && db.length >= 8 && da.takeLast(8) == db.takeLast(8)) return true
+        return false
+    }
 
     // Separate from activeJob so typing an item search never cancels a submit
     private var searchJob: Job? = null
@@ -157,14 +168,22 @@ class OverlayStateMachine(
                 } else {
                     current.phoneNumber ?: event.phone.takeIf { it.isNotBlank() }
                 }
-                val withinDedupWindow = System.currentTimeMillis() - postCallEnteredAt < DEDUP_WINDOW_MS
+                val now = System.currentTimeMillis()
+                val withinDedupWindow = now - postCallEnteredAt < DEDUP_WINDOW_MS
                 android.util.Log.d("CrmMonitor", "CallEnded: current=${current::class.simpleName} currentPhone=${current.phoneNumber} eventPhone=${event.phone} phoneForDedup=$phoneForDedup withinDedupWindow=$withinDedupWindow")
-                if (current is OverlayState.PostCall && current.phoneNumber == phoneForDedup && withinDedupWindow) {
+                if (current is OverlayState.PostCall && isSamePhoneNumber(current.phoneNumber, phoneForDedup) && withinDedupWindow) {
                     android.util.Log.d("CrmMonitor", "CallEnded: IGNORED (dedup — already PostCall for this phone, within ${DEDUP_WINDOW_MS}ms)")
                     return
                 }
 
-                activeJob?.cancel()
+                // If a CallEnded was already processed in the last 6s for the same number, ignore duplicate
+                if (lastCallEndedLoggedPhone != null &&
+                    (now - lastCallEndedLoggedAt < 6000L) &&
+                    isSamePhoneNumber(lastCallEndedLoggedPhone, phoneForDedup)) {
+                    android.util.Log.d("CrmMonitor", "CallEnded: IGNORED (dedup — CallEnded recently processed for $lastCallEndedLoggedPhone within 6s)")
+                    return
+                }
+
                 // Fall back to the phone passed by the call-ended signal itself —
                 // needed when no overlay was ever shown (e.g. outbound calls, or
                 // the state already reset to Idle) so the call still gets logged.
@@ -172,6 +191,12 @@ class OverlayStateMachine(
                     android.util.Log.w("CrmMonitor", "CallEnded: NO PHONE AVAILABLE — dropping, no log will be created")
                     return
                 }
+
+                lastCallEndedLoggedPhone = phone
+                lastCallEndedLoggedAt = now
+                postCallEnteredAt = now
+
+                activeJob?.cancel()
                 android.util.Log.d("CrmMonitor", "CallEnded: proceeding to log call for phone=$phone direction=${event.direction}")
                 val initialIdentity = current.knownIdentity ?: CallerIdentity.Unknown
                 // Carry over a Contact created mid-call (via "Add to Contacts" on the

@@ -115,8 +115,12 @@ class SyncWorker(
 
         // ── Sync unsynced call logs ───────────────────────────────────────────
         val unsyncedCallLogs = db.callLogDao().getUnsynced()
+        val syncCutoff = System.currentTimeMillis() - 15000L
         for (log in unsyncedCallLogs) {
             if (log.frappeDocname.isNotBlank()) continue
+            // Avoid syncing rows created in the last 15 seconds to prevent race
+            // conditions with the in-flight network call in FrappeRepository.createCallLog
+            if (log.createdAt > syncCutoff) continue
             try {
                 val remote = api.createCallLog(
                     phone           = log.phoneNumber,

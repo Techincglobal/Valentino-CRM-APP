@@ -17,6 +17,9 @@ interface CallLogDao {
     @Query("SELECT * FROM call_logs WHERE isSynced = 0")
     suspend fun getUnsynced(): List<CallLogEntity>
 
+    @Query("SELECT * FROM call_logs WHERE createdAt >= :sinceTimestamp ORDER BY createdAt DESC LIMIT 20")
+    suspend fun getRecent(sinceTimestamp: Long): List<CallLogEntity>
+
     @Query("SELECT * FROM call_logs WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): CallLogEntity?
 }

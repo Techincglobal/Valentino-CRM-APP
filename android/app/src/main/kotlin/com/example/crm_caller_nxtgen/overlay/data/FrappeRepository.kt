@@ -490,6 +490,22 @@ class FrappeRepository(private val context: Context) {
             is CallerIdentity.Customer -> identity.name
         }
 
+        // Deduplication check: if a local call log was created for this same phone
+        // in the last 15 seconds, avoid inserting a duplicate local row or firing
+        // a duplicate remote request.
+        val cutoff = System.currentTimeMillis() - 15000L
+        val recentLogs = db.callLogDao().getRecent(cutoff)
+        val phoneDigits = phone.filter { it.isDigit() }.takeLast(8)
+        val existing = recentLogs.firstOrNull { r ->
+            val rDigits = r.phoneNumber.filter { it.isDigit() }.takeLast(8)
+            (phoneDigits.isNotBlank() && rDigits == phoneDigits) ||
+            (phoneDigits.isBlank() && r.phoneNumber == phone)
+        }
+        if (existing != null) {
+            android.util.Log.d("CrmMonitor", "createCallLog: local duplicate detected for $phone, returning existing localId=${existing.id}")
+            return@withContext CallLogRef(localId = existing.id, frappeDocname = existing.frappeDocname)
+        }
+
         val entity = CallLogEntity(
             id              = UUID.randomUUID().toString(),
             phoneNumber     = phone,
@@ -535,6 +551,7 @@ class FrappeRepository(private val context: Context) {
             // SyncWorker retries unsynced call logs — still return the local
             // ref so a later note can at least update the local row.
             android.util.Log.e("CrmMonitor", "createCallLog network sync failed, staying local-only", e)
+            SyncWorker.enqueue(context)
             CallLogRef(localId = entity.id)
         }
     }
