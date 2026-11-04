@@ -39,6 +39,10 @@ class CallMonitorService : Service() {
         private const val NOTIF_ID   = 2008
 
         fun start(context: Context) {
+            if (!hasCrmSession(context)) {
+                android.util.Log.d("CallMonitorService", "No CRM session stored (logged out) — skipping service start")
+                return
+            }
             try {
                 ContextCompat.startForegroundService(
                     context,
@@ -46,6 +50,14 @@ class CallMonitorService : Service() {
                 )
             } catch (e: Exception) {
                 android.util.Log.w("CallMonitorService", "Failed to start CallMonitorService from background: ${e.message}")
+            }
+        }
+
+        fun stop(context: Context) {
+            try {
+                context.stopService(Intent(context, CallMonitorService::class.java))
+            } catch (e: Exception) {
+                android.util.Log.w("CallMonitorService", "Failed to stop CallMonitorService: ${e.message}")
             }
         }
     }
@@ -88,6 +100,19 @@ class CallMonitorService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!hasCrmSession(this)) {
+            android.util.Log.d("CallMonitorService", "No CRM session in onStartCommand (logged out) — stopping self")
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
+            } catch (_: Exception) { }
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // Ensure foreground if system restarted us after being killed by OEM battery saver
         try {
             createNotificationChannel()
@@ -99,6 +124,14 @@ class CallMonitorService : Service() {
 
     override fun onDestroy() {
         unregisterPhoneListener()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+        } catch (_: Exception) { }
         super.onDestroy()
     }
 

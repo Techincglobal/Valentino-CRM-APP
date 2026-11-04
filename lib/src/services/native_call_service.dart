@@ -53,6 +53,22 @@ class NativeCallService {
     } catch (_) {}
   }
 
+  /// Starts the native CallMonitorService foreground service (called after login/restore).
+  static Future<void> startCallMonitor() async {
+    try {
+      await _channel.invokeMethod('startCallMonitor');
+    } catch (_) {}
+  }
+
+  /// Tells native Android to stop CallMonitorService, hide overlay, wipe
+  /// credentials/session from native prefs synchronously, cancel background sync,
+  /// and clear local Room database tables.
+  static Future<void> clearNativeSession() async {
+    try {
+      await _channel.invokeMethod('clearNativeSession');
+    } catch (_) {}
+  }
+
   /// Whether this app currently holds the system "Caller ID & spam blocking"
   /// role — required on Android 10+ to learn the real incoming number without
   /// READ_CALL_LOG (which Play Protect flags as a stalkerware indicator).

@@ -161,6 +161,7 @@ class NativeCallOverlayService : Service() {
         when (intent?.action) {
             ACTION_HIDE -> {
                 cleanup()
+                stopSelf()
                 return START_NOT_STICKY
             }
 

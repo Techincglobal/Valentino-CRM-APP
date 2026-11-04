@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'native_call_service.dart';
 import 'storage_service.dart';
 
 
@@ -38,6 +39,7 @@ class AuthService {
 
         await StorageService.saveBaseUrl(baseUrl);
         await StorageService.saveSessionId(sid);
+        await NativeCallService.startCallMonitor();
 
         final csrf = _extractCookieValue(cookies, 'csrf_token');
         if (csrf != null && csrf.isNotEmpty) {

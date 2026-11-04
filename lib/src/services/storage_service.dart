@@ -65,7 +65,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('crm_sid');
     await prefs.remove('crm_csrf_token');
-    await NativeCallService.hideOverlay();
+    await NativeCallService.clearNativeSession();
   }
 
   static Future<void> clearAll() async {
@@ -74,7 +74,7 @@ class StorageService {
     await prefs.remove('crm_base_url');
     await prefs.remove('crm_sid');
     await prefs.remove('crm_csrf_token');
-    await NativeCallService.hideOverlay();
+    await NativeCallService.clearNativeSession();
   }
 
   // ── Overlay schedule settings (SharedPreferences — readable by Kotlin) ─────

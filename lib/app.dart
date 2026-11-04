@@ -7,6 +7,7 @@ import 'src/screens/site_setup_screen.dart';
 import 'src/screens/login_screen.dart';
 import 'src/screens/main_shell.dart';
 import 'src/services/api_service.dart';
+import 'src/services/native_call_service.dart';
 import 'src/services/storage_service.dart';
 import 'src/theme/app_theme.dart';
 
@@ -71,6 +72,7 @@ class _MyAppState extends State<MyApp> {
         // them even if the user logged in before this migration was added.
         await StorageService.saveBaseUrl(baseUrl);
         await StorageService.saveSessionId(sid);
+        await NativeCallService.startCallMonitor();
 
         return (
           route: _StartupRoute.home,

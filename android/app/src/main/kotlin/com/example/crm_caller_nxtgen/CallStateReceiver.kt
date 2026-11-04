@@ -430,8 +430,12 @@ internal fun readStoredValue(context: Context, key: String): String? {
  */
 internal fun hasCrmSession(context: Context): Boolean {
     val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-    val url = prefs.getString("flutter.crm_base_url", "") ?: ""
-    val sid = prefs.getString("flutter.crm_sid", "") ?: ""
+    val url = prefs.getString("flutter.crm_base_url", null)
+        ?: prefs.getString("crm_base_url", null)
+        ?: ""
+    val sid = prefs.getString("flutter.crm_sid", null)
+        ?: prefs.getString("crm_sid", null)
+        ?: ""
     return url.isNotBlank() && sid.isNotBlank()
 }
 
@@ -456,5 +460,5 @@ internal fun clearStoredValue(context: Context, key: String) {
     prefs.edit()
         .remove(key)
         .remove("flutter.$key")
-        .apply()
+        .commit()
 }

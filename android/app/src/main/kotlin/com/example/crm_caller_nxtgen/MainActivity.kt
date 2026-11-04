@@ -14,6 +14,8 @@ import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.work.WorkManager
+import com.example.crm_caller_nxtgen.core.db.AppDatabase
 import com.example.crm_caller_nxtgen.overlay.data.FrappeRepository
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -54,7 +56,9 @@ class MainActivity : FlutterActivity() {
         // notice the Settings card — without it, every inbound call shows "Hidden"
         // since Android hides the real number from apps that don't hold this role.
         requestCallScreeningRole()
-        CallMonitorService.start(this)
+        if (hasCrmSession(this)) {
+            CallMonitorService.start(this)
+        }
         LocalBroadcastManager.getInstance(this).registerReceiver(
             pipelineRefreshReceiver,
             IntentFilter(NativeCallOverlayService.ACTION_PIPELINE_REFRESH),
@@ -99,7 +103,7 @@ class MainActivity : FlutterActivity() {
         val phoneStateGranted = permissions.indices.any { i ->
             permissions[i] == Manifest.permission.READ_PHONE_STATE && grantResults[i] == PackageManager.PERMISSION_GRANTED
         }
-        if (phoneStateGranted) {
+        if (phoneStateGranted && hasCrmSession(this)) {
             CallMonitorService.start(this)
         }
     }
@@ -282,6 +286,57 @@ class MainActivity : FlutterActivity() {
                             action = NativeCallOverlayService.ACTION_HIDE
                         },
                     )
+                    result.success(true)
+                }
+
+                "startCallMonitor" -> {
+                    if (hasCrmSession(this)) {
+                        CallMonitorService.start(this)
+                    }
+                    result.success(true)
+                }
+
+                "clearNativeSession" -> {
+                    // 1. Synchronously purge credentials & call session state from native SharedPreferences
+                    val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .remove("flutter.crm_sid")
+                        .remove("crm_sid")
+                        .remove("flutter.crm_csrf_token")
+                        .remove("crm_csrf_token")
+                        .remove("flutter.crm_caller_phone")
+                        .remove("crm_caller_phone")
+                        .remove("flutter.crm_caller_name")
+                        .remove("crm_caller_name")
+                        .remove("flutter.crm_caller_type")
+                        .remove("crm_caller_type")
+                        .remove("flutter.crm_caller_docname")
+                        .remove("crm_caller_docname")
+                        .remove("crm_last_out_phone")
+                        .remove("crm_is_incoming_call")
+                        .remove("crm_call_started_at")
+                        .commit()
+
+                    // 2. Hide and stop NativeCallOverlayService
+                    stopService(Intent(this, NativeCallOverlayService::class.java).apply {
+                        action = NativeCallOverlayService.ACTION_HIDE
+                    })
+
+                    // 3. Stop CallMonitorService and remove persistent notification
+                    CallMonitorService.stop(this)
+
+                    // 4. Cancel all pending background sync jobs
+                    try {
+                        WorkManager.getInstance(applicationContext).cancelAllWork()
+                    } catch (_: Exception) { }
+
+                    // 5. Clear offline SQLite Room database cache
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            AppDatabase.getDatabase(applicationContext).clearAllTables()
+                        } catch (_: Exception) { }
+                    }
+
                     result.success(true)
                 }
 
