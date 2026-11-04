@@ -306,7 +306,7 @@ class _SalesScreenState extends State<SalesScreen>
       backgroundColor: ac.bgBase,
       floatingActionButton: AnimatedBuilder(
         animation: _tab,
-        builder: (_, _) {
+        builder: (_, __) {
           if (_tab.index == 0) {
             return FloatingActionButton.extended(
               heroTag: 'new_lead_fab',
@@ -331,7 +331,7 @@ class _SalesScreenState extends State<SalesScreen>
         },
       ),
       body: NestedScrollView(
-        headerSliverBuilder: (_, _) => [
+        headerSliverBuilder: (_, __) => [
           SliverToBoxAdapter(child: _Header(summary: _summary)),
           SliverToBoxAdapter(child: _GlassTabBar(controller: _tab, leads: _leads.length, opps: _opps.length)),
         ],
@@ -1966,7 +1966,7 @@ class _ItemSearchSheetState extends State<_ItemSearchSheet> {
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: _results.length,
-              separatorBuilder: (_, _) => Divider(color: ac.border, height: 1),
+              separatorBuilder: (_, __) => Divider(color: ac.border, height: 1),
               itemBuilder: (_, i) {
                 final item = _results[i];
                 final label = item.itemName.isNotEmpty ? item.itemName : item.itemCode;

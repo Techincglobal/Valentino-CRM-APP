@@ -1306,7 +1306,7 @@ class _LogsCardState extends State<_LogsCard> {
               child: ListView.separated(
                 itemCount: widget.logs.length,
                 physics: const BouncingScrollPhysics(),
-                separatorBuilder: (_, _) => Divider(
+                separatorBuilder: (_, __) => Divider(
                     height: 10,
                     thickness: 0.5,
                     color: ac.border),

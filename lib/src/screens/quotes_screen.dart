@@ -128,7 +128,7 @@ class _QuotesScreenState extends State<QuotesScreen>
       backgroundColor: ac.bgBase,
       floatingActionButton: AnimatedBuilder(
         animation: _tab,
-        builder: (_, _) => _tab.index == 0
+        builder: (_, __) => _tab.index == 0
             ? FloatingActionButton.extended(
                 onPressed: _showCreateQuoteForm,
                 backgroundColor: _amber,
@@ -139,7 +139,7 @@ class _QuotesScreenState extends State<QuotesScreen>
             : const SizedBox.shrink(),
       ),
       body: NestedScrollView(
-        headerSliverBuilder: (_, _) => [
+        headerSliverBuilder: (_, __) => [
           SliverToBoxAdapter(child: _Header(summary: _summary)),
           SliverToBoxAdapter(
             child: _GlassTabBar(

@@ -150,7 +150,7 @@ class _CallLogsScreenState extends State<CallLogsScreen>
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
       ),
       body: NestedScrollView(
-        headerSliverBuilder: (_, _) => [
+        headerSliverBuilder: (_, __) => [
           SliverToBoxAdapter(child: _buildHeader(ac, isDark)),
         ],
         body: _buildBody(ac, isDark, bottom),
