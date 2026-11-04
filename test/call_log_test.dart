@@ -106,5 +106,46 @@ void main() {
       expect(phoneOnlyLog.callerLabel, equals('0722084691'));
       expect(phoneOnlyLog.initials, equals('0'));
     });
+
+    test('parses Declined and Rejected status correctly', () {
+      final declinedLog = CallLog.fromJson({
+        'name': '10', 'phone_number': '0722084691', 'caller_name': 'Unknown',
+        'direction': 'Received', 'status': 'Declined',
+      });
+      expect(declinedLog.isDeclined, isTrue);
+      expect(declinedLog.directionLabel, equals('Declined'));
+      expect(declinedLog.statusLabel, equals('Declined'));
+
+      final rejectedLog = CallLog.fromJson({
+        'name': '11', 'phone_number': '0722084691', 'caller_name': 'Unknown',
+        'direction': 'Inbound', 'status': 'Rejected',
+      });
+      expect(rejectedLog.isDeclined, isTrue);
+      expect(rejectedLog.directionLabel, equals('Declined'));
+      expect(rejectedLog.statusLabel, equals('Declined'));
+    });
+
+    test('parses Answered, No Answer, and Busy status correctly', () {
+      final ansLog = CallLog.fromJson({
+        'name': '12', 'phone_number': '0722084691', 'caller_name': 'Amila',
+        'direction': 'Sent', 'status': 'Answered',
+      });
+      expect(ansLog.isAnswered, isTrue);
+      expect(ansLog.statusLabel, equals('Answered'));
+
+      final noAnsLog = CallLog.fromJson({
+        'name': '13', 'phone_number': '0722084691', 'caller_name': 'Amila',
+        'direction': 'Sent', 'status': 'No Answer',
+      });
+      expect(noAnsLog.isNoAnswer, isTrue);
+      expect(noAnsLog.statusLabel, equals('No Answer'));
+
+      final busyLog = CallLog.fromJson({
+        'name': '14', 'phone_number': '0722084691', 'caller_name': 'Amila',
+        'direction': 'Sent', 'status': 'Busy',
+      });
+      expect(busyLog.isBusy, isTrue);
+      expect(busyLog.statusLabel, equals('Busy'));
+    });
   });
 }

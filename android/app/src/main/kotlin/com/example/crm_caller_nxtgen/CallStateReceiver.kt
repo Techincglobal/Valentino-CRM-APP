@@ -371,13 +371,13 @@ internal fun queryLatestSystemCallRecord(
 
                 val status = when (type) {
                     android.provider.CallLog.Calls.INCOMING_TYPE,
-                    android.provider.CallLog.Calls.ANSWERED_EXTERNALLY_TYPE -> "Answered"
+                    android.provider.CallLog.Calls.ANSWERED_EXTERNALLY_TYPE -> if (duration > 0L) "Answered" else "Missed"
                     android.provider.CallLog.Calls.OUTGOING_TYPE -> if (duration > 0L) "Answered" else "No Answer"
                     android.provider.CallLog.Calls.MISSED_TYPE -> "Missed"
                     android.provider.CallLog.Calls.REJECTED_TYPE,
-                    android.provider.CallLog.Calls.BLOCKED_TYPE -> "Rejected"
+                    android.provider.CallLog.Calls.BLOCKED_TYPE -> "Declined"
                     android.provider.CallLog.Calls.VOICEMAIL_TYPE -> "No Answer"
-                    else -> if (duration > 0L) "Answered" else "Missed"
+                    else -> if (duration > 0L) "Answered" else if (isInboundType) "Missed" else "No Answer"
                 }
 
                 val finalNumber = rowPhone.takeIf { it.isNotBlank() } ?: phone

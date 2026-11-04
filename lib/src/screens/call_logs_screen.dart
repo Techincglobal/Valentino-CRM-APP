@@ -19,25 +19,23 @@ const _amber  = Color(0xFFF59E0B);
 const _rose   = Color(0xFFEF4444); // aligned with shared danger red
 
 Color _statusColor(String status) {
-  switch (status) {
-    case 'Answered':  return _green;
-    case 'Missed':    return _rose;
-    case 'Rejected':  return _rose;
-    case 'Busy':      return _amber;
-    case 'No Answer': return _slate;
-    default:          return _slate;
-  }
+  final s = status.toLowerCase();
+  if (s == 'answered') return _green;
+  if (s == 'missed')   return _rose;
+  if (s == 'declined' || s == 'rejected') return _rose;
+  if (s == 'busy')     return _amber;
+  if (s == 'no answer' || s == 'unanswered') return _amber;
+  return _slate;
 }
 
 IconData _statusIcon(String status) {
-  switch (status) {
-    case 'Answered':  return Icons.call_rounded;
-    case 'Missed':    return Icons.call_missed_rounded;
-    case 'Rejected':  return Icons.call_end_rounded;
-    case 'Busy':      return Icons.phone_disabled_rounded;
-    case 'No Answer': return Icons.phone_missed_rounded;
-    default:          return Icons.call_rounded;
-  }
+  final s = status.toLowerCase();
+  if (s == 'answered') return Icons.check_circle_outline_rounded;
+  if (s == 'missed')   return Icons.call_missed_rounded;
+  if (s == 'declined' || s == 'rejected') return Icons.call_end_rounded;
+  if (s == 'busy')     return Icons.phone_disabled_rounded;
+  if (s == 'no answer' || s == 'unanswered') return Icons.phone_missed_rounded;
+  return Icons.call_rounded;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,6 +49,8 @@ abstract class CallLogsScreenController {
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
 // ─────────────────────────────────────────────────────────────────────────────
+
+enum CallLogTab { all, incoming, outgoing, missed }
 
 class CallLogsScreen extends StatefulWidget {
   const CallLogsScreen({super.key});
@@ -89,6 +89,20 @@ class _CallLogsScreenState extends State<CallLogsScreen>
   List<CallLog> _logs = [];
   bool   _loading = false;
   String _error   = '';
+  CallLogTab _selectedTab = CallLogTab.all;
+
+  List<CallLog> get _filteredLogs {
+    switch (_selectedTab) {
+      case CallLogTab.all:
+        return _logs;
+      case CallLogTab.incoming:
+        return _logs.where((l) => l.isInbound && !l.isMissed && !l.isDeclined).toList();
+      case CallLogTab.outgoing:
+        return _logs.where((l) => l.isOutbound).toList();
+      case CallLogTab.missed:
+        return _logs.where((l) => l.isMissed || l.isDeclined).toList();
+    }
+  }
 
   void _showLogCallForm() {
     showModalBottomSheet(
@@ -224,11 +238,81 @@ class _CallLogsScreenState extends State<CallLogsScreen>
           ),
         ]),
         const SizedBox(height: 24),
-        if (!_loading && _error.isEmpty && _logs.isNotEmpty)
+        if (!_loading && _error.isEmpty && _logs.isNotEmpty) ...[
           _buildStats(ac, isDark),
-        if (!_loading && _error.isEmpty && _logs.isNotEmpty)
           const SizedBox(height: 16),
+          _buildFilterTabs(ac, isDark),
+          const SizedBox(height: 16),
+        ],
       ]),
+    );
+  }
+
+  // ── Filter tabs row ───────────────────────────────────────────────────────
+
+  Widget _buildFilterTabs(AdaptiveColors ac, bool isDark) {
+    final incomingCount = _logs.where((l) => l.isInbound && !l.isMissed && !l.isDeclined).length;
+    final outgoingCount = _logs.where((l) => l.isOutbound).length;
+    final missedCount   = _logs.where((l) => l.isMissed || l.isDeclined).length;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(children: [
+        _buildFilterPill(CallLogTab.all, 'All', _logs.length, _blue, ac, isDark),
+        const SizedBox(width: 8),
+        _buildFilterPill(CallLogTab.incoming, 'Incoming', incomingCount, _green, ac, isDark),
+        const SizedBox(width: 8),
+        _buildFilterPill(CallLogTab.outgoing, 'Outgoing', outgoingCount, _blue, ac, isDark),
+        const SizedBox(width: 8),
+        _buildFilterPill(CallLogTab.missed, 'Missed & Declined', missedCount, _rose, ac, isDark),
+      ]),
+    );
+  }
+
+  Widget _buildFilterPill(CallLogTab tab, String label, int count, Color color, AdaptiveColors ac, bool isDark) {
+    final selected = _selectedTab == tab;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedTab = tab);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: isDark ? 0.22 : 0.14)
+              : (isDark ? const Color(0xFF131A2A) : ac.bgCard),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? color : (isDark ? Colors.white.withValues(alpha: 0.08) : ac.border),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label,
+              style: TextStyle(
+                color: selected ? color : ac.textSecondary,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              )),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: selected ? color : ac.textTertiary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text('$count',
+                style: TextStyle(
+                  color: selected ? Colors.white : ac.textTertiary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -263,15 +347,35 @@ class _CallLogsScreenState extends State<CallLogsScreen>
     if (_logs.isEmpty) {
       return _buildEmpty(ac, isDark);
     }
+    final logs = _filteredLogs;
+    if (logs.isEmpty) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.filter_list_off_rounded, color: ac.textTertiary, size: 38),
+          const SizedBox(height: 12),
+          Text(
+            _selectedTab == CallLogTab.incoming
+                ? 'No incoming calls'
+                : (_selectedTab == CallLogTab.outgoing
+                    ? 'No outgoing calls'
+                    : 'No missed or declined calls'),
+            style: TextStyle(color: ac.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text('Try selecting a different filter above',
+              style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+        ]),
+      );
+    }
     return RefreshIndicator(
       onRefresh: _load,
       color:     _blue,
       child: ListView.builder(
         padding:   EdgeInsets.fromLTRB(20, 0, 20, bottom + 100),
-        itemCount: _logs.length,
+        itemCount: logs.length,
         itemBuilder: (_, i) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: _CallLogCard(log: _logs[i], onRefresh: _load),
+          child: _CallLogCard(log: logs[i], onRefresh: _load),
         ),
       ),
     );
@@ -427,11 +531,21 @@ class CallLogCard extends StatelessWidget {
     final isDark = context.isDark;
     final isWA   = log.isWhatsApp;
     final accent = isWA ? _green : _blue;
-    final isOutgoing = log.isOutbound;
-    final dirIcon = log.isMissed
-        ? Icons.call_missed_rounded
-        : (isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded);
-    final dirColor = log.isMissed ? _amber : (isOutgoing ? _rose : _green);
+    final IconData dirIcon;
+    final Color dirColor;
+    if (log.isDeclined) {
+      dirIcon = Icons.call_end_rounded;
+      dirColor = _rose;
+    } else if (log.isMissed) {
+      dirIcon = Icons.call_missed_rounded;
+      dirColor = _rose;
+    } else if (log.isOutbound) {
+      dirIcon = Icons.call_made_rounded;
+      dirColor = log.isAnswered ? _blue : _amber;
+    } else {
+      dirIcon = Icons.call_received_rounded;
+      dirColor = _green;
+    }
 
     return GestureDetector(
       onTap: () => _openDetail(context),
@@ -455,24 +569,45 @@ class CallLogCard extends StatelessWidget {
 
           // ── Row 1: avatar + name + direction icon + time ─────────────────
           Row(children: [
-            // Avatar
-            Container(
-              width: 46, height: 46,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [accent.withValues(alpha: 0.25), accent.withValues(alpha: 0.10)],
-                  begin: Alignment.topLeft,
-                  end:   Alignment.bottomRight,
+            // Avatar with direction badge
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 46, height: 46,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [accent.withValues(alpha: 0.25), accent.withValues(alpha: 0.10)],
+                      begin: Alignment.topLeft,
+                      end:   Alignment.bottomRight,
+                    ),
+                    shape:  BoxShape.circle,
+                    border: Border.all(color: accent.withValues(alpha: 0.3)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      log.initials,
+                      style: TextStyle(color: accent, fontSize: 15, fontWeight: FontWeight.w900),
+                    ),
+                  ),
                 ),
-                shape:  BoxShape.circle,
-                border: Border.all(color: accent.withValues(alpha: 0.3)),
-              ),
-              child: Center(
-                child: Text(
-                  log.initials,
-                  style: TextStyle(color: accent, fontSize: 15, fontWeight: FontWeight.w900),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: dirColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF131A2A) : ac.bgCard,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Icon(dirIcon, size: 9, color: Colors.white),
+                  ),
                 ),
-              ),
+              ],
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -541,11 +676,11 @@ class CallLogCard extends StatelessWidget {
                     label: isWA ? 'WhatsApp' : 'Regular',
                     color: accent,
                   ),
-                  if (log.status.isNotEmpty)
+                  if (log.statusLabel.isNotEmpty)
                     _Chip(
-                      icon:  _statusIcon(log.status),
-                      label: log.status,
-                      color: _statusColor(log.status),
+                      icon:  _statusIcon(log.statusLabel),
+                      label: log.statusLabel,
+                      color: _statusColor(log.statusLabel),
                     ),
                   if (log.linkedDoctype.isNotEmpty)
                     _Chip(
@@ -698,11 +833,21 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
     final log    = widget.log;
     final isWA   = log.isWhatsApp;
     final accent = isWA ? _green : _blue;
-    final isOutgoing = log.isOutbound;
-    final dirIcon = log.isMissed
-        ? Icons.call_missed_rounded
-        : (isOutgoing ? Icons.call_made_rounded : Icons.call_received_rounded);
-    final dirColor = log.isMissed ? _amber : (isOutgoing ? _rose : _green);
+    final IconData dirIcon;
+    final Color dirColor;
+    if (log.isDeclined) {
+      dirIcon = Icons.call_end_rounded;
+      dirColor = _rose;
+    } else if (log.isMissed) {
+      dirIcon = Icons.call_missed_rounded;
+      dirColor = _rose;
+    } else if (log.isOutbound) {
+      dirIcon = Icons.call_made_rounded;
+      dirColor = log.isAnswered ? _blue : _amber;
+    } else {
+      dirIcon = Icons.call_received_rounded;
+      dirColor = _green;
+    }
     final bottom = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
 
     return Container(
@@ -731,20 +876,41 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
 
               // ── Header: avatar + name + phone + direction ─────────────────
               Row(children: [
-                Container(
-                  width: 58, height: 58,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [accent.withValues(alpha: 0.30), accent.withValues(alpha: 0.12)],
-                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 58, height: 58,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [accent.withValues(alpha: 0.30), accent.withValues(alpha: 0.12)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        shape:  BoxShape.circle,
+                        border: Border.all(color: accent.withValues(alpha: 0.35), width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text(log.initials,
+                            style: TextStyle(color: accent, fontSize: 20, fontWeight: FontWeight.w900)),
+                      ),
                     ),
-                    shape:  BoxShape.circle,
-                    border: Border.all(color: accent.withValues(alpha: 0.35), width: 1.5),
-                  ),
-                  child: Center(
-                    child: Text(log.initials,
-                        style: TextStyle(color: accent, fontSize: 20, fontWeight: FontWeight.w900)),
-                  ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: dirColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF131A2A) : Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(dirIcon, size: 12, color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1507,7 +1673,7 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
   bool _saving = false;
   String? _error;
 
-  static const _statusLabels = ['Answered', 'Missed', 'No Answer', 'Busy'];
+  static const _statusLabels = ['Answered', 'Missed', 'Declined', 'No Answer', 'Busy'];
 
   @override
   void initState() {
@@ -1914,7 +2080,7 @@ class _LogCallSheetState extends State<_LogCallSheet> {
     }
   }
 
-  static const _statusLabels = ['Answered', 'Missed', 'No Answer', 'Busy'];
+  static const _statusLabels = ['Answered', 'Missed', 'Declined', 'No Answer', 'Busy'];
 
   Widget _buildStatusPills(AdaptiveColors ac, bool isDark) {
     return Wrap(

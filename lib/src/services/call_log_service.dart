@@ -123,8 +123,35 @@ class CallLog {
       direction.toLowerCase() == 'missed' ||
       status.toLowerCase() == 'missed';
 
+  bool get isDeclined =>
+      status.toLowerCase() == 'declined' ||
+      status.toLowerCase() == 'rejected' ||
+      callOutcome.toLowerCase() == 'declined' ||
+      callOutcome.toLowerCase() == 'rejected';
+
+  bool get isAnswered =>
+      status.toLowerCase() == 'answered' ||
+      (!isMissed && !isDeclined && durationSeconds > 0);
+
+  bool get isBusy => status.toLowerCase() == 'busy';
+
+  bool get isNoAnswer =>
+      status.toLowerCase() == 'no answer' ||
+      status.toLowerCase() == 'unanswered' ||
+      (isOutbound && durationSeconds == 0 && !isDeclined && !isBusy);
+
+  String get statusLabel {
+    if (isDeclined) return 'Declined';
+    if (isMissed) return 'Missed';
+    if (isBusy) return 'Busy';
+    if (isAnswered) return 'Answered';
+    if (isNoAnswer) return 'No Answer';
+    return status.isNotEmpty ? status : (durationSeconds > 0 ? 'Answered' : 'No Answer');
+  }
+
   String get directionLabel {
     if (isMissed) return 'Missed';
+    if (isDeclined) return 'Declined';
     if (isInbound) return 'Incoming';
     if (isOutbound) return 'Outgoing';
     return direction.isNotEmpty ? direction : 'Call';

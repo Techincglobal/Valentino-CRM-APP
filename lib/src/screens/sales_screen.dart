@@ -1150,64 +1150,76 @@ class _ConvertSheetState extends State<_ConvertSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.of(context).viewInsets.bottom;
     final ac    = context.ac;
-    return _GlassSheet(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
+      ),
+      child: _GlassSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SheetHandle(),
-            _SheetHeader(icon: Icons.trending_up_rounded, color: _indigo, title: 'Convert to Opportunity', subtitle: widget.lead.displayName),
-            const SizedBox(height: 20),
-            if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
-            _GlassField(
-              controller: _valueCtrl, label: 'Expected Value *',
-              keyboardType: TextInputType.number, enabled: !_busy,
-              errorText: _valueError, onChanged: () => setState(() => _valueError = null),
-            ),
-            const SizedBox(height: 12),
-            // Closing date picker
-            GestureDetector(
-              onTap: _busy ? null : _pickDate,
-              child: AbsorbPointer(
-                child: _GlassField(
-                  controller: _closingCtrl,
-                  label: 'Expected Closing Date',
-                  enabled: !_busy,
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SheetHeader(icon: Icons.trending_up_rounded, color: _indigo, title: 'Convert to Opportunity', subtitle: widget.lead.displayName),
+                    const SizedBox(height: 20),
+                    if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
+                    _GlassField(
+                      controller: _valueCtrl, label: 'Expected Value *',
+                      keyboardType: TextInputType.number, enabled: !_busy,
+                      errorText: _valueError, onChanged: () => setState(() => _valueError = null),
+                    ),
+                    const SizedBox(height: 12),
+                    // Closing date picker
+                    GestureDetector(
+                      onTap: _busy ? null : _pickDate,
+                      child: AbsorbPointer(
+                        child: _GlassField(
+                          controller: _closingCtrl,
+                          label: 'Expected Closing Date',
+                          enabled: !_busy,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Stage', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, runSpacing: 8, children: _oppStages.map((s) {
+                      final sel = s == _stage;
+                      return GestureDetector(
+                        onTap: _busy ? null : () => setState(() => _stage = s),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: sel ? LinearGradient(colors: [_indigo.withValues(alpha: 0.30), _indigo.withValues(alpha: 0.14)]) : null,
+                            color: sel ? null : ac.bgInput,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: sel ? _indigo.withValues(alpha: 0.55) : ac.border),
+                          ),
+                          child: Text(s, style: TextStyle(
+                            color: sel ? Colors.white : ac.textSecondary,
+                            fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                          )),
+                        ),
+                      );
+                    }).toList()),
+                    const SizedBox(height: 14),
+                    _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
+                    const SizedBox(height: 20),
+                    Row(children: [
+                      Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Creating…' : 'Convert', icon: Icons.trending_up_rounded, color: _indigo, loading: _busy, onTap: _busy ? null : _submit)),
+                    ]),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Text('Stage', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: _oppStages.map((s) {
-              final sel = s == _stage;
-              return GestureDetector(
-                onTap: _busy ? null : () => setState(() => _stage = s),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: sel ? LinearGradient(colors: [_indigo.withValues(alpha: 0.30), _indigo.withValues(alpha: 0.14)]) : null,
-                    color: sel ? null : ac.bgInput,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: sel ? _indigo.withValues(alpha: 0.55) : ac.border),
-                  ),
-                  child: Text(s, style: TextStyle(
-                    color: sel ? Colors.white : ac.textSecondary,
-                    fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                  )),
-                ),
-              );
-            }).toList()),
-            const SizedBox(height: 14),
-            _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Creating…' : 'Convert', icon: Icons.trending_up_rounded, color: _indigo, loading: _busy, onTap: _busy ? null : _submit)),
-            ]),
           ],
         ),
       ),
@@ -2082,52 +2094,64 @@ class _CreateLeadSheetState extends State<_CreateLeadSheet> {
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.of(context).viewInsets.bottom;
-    return _GlassSheet(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
+      ),
+      child: _GlassSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SheetHandle(),
-            _SheetHeader(
-              icon: Icons.person_add_rounded,
-              color: _indigo,
-              title: 'New Lead',
-              subtitle: 'Add a contact to your CRM',
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SheetHeader(
+                      icon: Icons.person_add_rounded,
+                      color: _indigo,
+                      title: 'New Lead',
+                      subtitle: 'Add a contact to your CRM',
+                    ),
+                    const SizedBox(height: 20),
+                    if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
+                    _GlassField(
+                      controller: _nameCtrl, label: 'Full Name *', enabled: !_busy,
+                      errorText: _nameError, onChanged: () => setState(() => _nameError = null),
+                    ),
+                    const SizedBox(height: 12),
+                    _GlassField(
+                      controller: _phoneCtrl, label: 'Phone Number',
+                      keyboardType: TextInputType.phone, enabled: !_busy,
+                      errorText: _phoneError, onChanged: () => setState(() => _phoneError = null),
+                    ),
+                    const SizedBox(height: 12),
+                    _GlassField(
+                      controller: _emailCtrl, label: 'Email Address',
+                      keyboardType: TextInputType.emailAddress, enabled: !_busy,
+                      errorText: _emailError, onChanged: () => setState(() => _emailError = null),
+                    ),
+                    const SizedBox(height: 12),
+                    _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
+                    const SizedBox(height: 20),
+                    Row(children: [
+                      Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: _GlassFillBtn(
+                        label:   _busy ? 'Creating…' : 'Create Lead',
+                        icon:    Icons.person_add_rounded,
+                        color:   _indigo,
+                        loading: _busy,
+                        onTap:   _busy ? null : _submit,
+                      )),
+                    ]),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 20),
-            if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
-            _GlassField(
-              controller: _nameCtrl, label: 'Full Name *', enabled: !_busy,
-              errorText: _nameError, onChanged: () => setState(() => _nameError = null),
-            ),
-            const SizedBox(height: 12),
-            _GlassField(
-              controller: _phoneCtrl, label: 'Phone Number',
-              keyboardType: TextInputType.phone, enabled: !_busy,
-              errorText: _phoneError, onChanged: () => setState(() => _phoneError = null),
-            ),
-            const SizedBox(height: 12),
-            _GlassField(
-              controller: _emailCtrl, label: 'Email Address',
-              keyboardType: TextInputType.emailAddress, enabled: !_busy,
-              errorText: _emailError, onChanged: () => setState(() => _emailError = null),
-            ),
-            const SizedBox(height: 12),
-            _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: _GlassFillBtn(
-                label:   _busy ? 'Creating…' : 'Create Lead',
-                icon:    Icons.person_add_rounded,
-                color:   _indigo,
-                loading: _busy,
-                onTap:   _busy ? null : _submit,
-              )),
-            ]),
           ],
         ),
       ),
@@ -2622,119 +2646,131 @@ class _CreateOppSheetState extends State<_CreateOppSheet> {
     final inset  = MediaQuery.of(context).viewInsets.bottom;
     final ac     = context.ac;
     const purple = Color(0xFF2490EF);
-    return _GlassSheet(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
+      ),
+      child: _GlassSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SheetHandle(),
-            _SheetHeader(icon: Icons.trending_up_rounded, color: purple, title: 'New Opportunity', subtitle: 'Link to an existing lead'),
-            const SizedBox(height: 20),
-            if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(22, 0, 22, 20 + inset),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SheetHeader(icon: Icons.trending_up_rounded, color: purple, title: 'New Opportunity', subtitle: 'Link to an existing lead'),
+                    const SizedBox(height: 20),
+                    if (_error != null) ...[_ErrorBanner(message: _error!), const SizedBox(height: 12)],
 
-            // Lead picker
-            Text('Select Lead *', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-            const SizedBox(height: 8),
-            if (_selected != null)
-              GestureDetector(
-                onTap: () => setState(() { _selected = null; _searchCtrl.clear(); }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: purple.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: purple.withValues(alpha: 0.40)),
-                  ),
-                  child: Row(children: [
-                    Icon(Icons.person_rounded, color: purple, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_selected!.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600))),
-                    Icon(Icons.close_rounded, color: ac.textSecondary, size: 16),
-                  ]),
-                ),
-              )
-            else ...[
-              _GlassField(
-                controller: _searchCtrl,
-                label: 'Search lead name…',
-                enabled: !_busy,
-                errorText: _leadError,
-                onChanged: () {
-                  setState(() => _leadError = null);
-                  _searchLeads(_searchCtrl.text.trim());
-                },
-              ),
-              if (_searching)
-                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: purple))))
-              else if (_suggestions.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  constraints: const BoxConstraints(maxHeight: 160),
-                  decoration: BoxDecoration(
-                    color: ac.bgInput,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: ac.border),
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _suggestions.length,
-                    itemBuilder: (_, i) {
-                      final l = _suggestions[i];
-                      return InkWell(
-                        onTap: () => setState(() { _selected = l; _suggestions = []; }),
-                        child: Padding(
+                    // Lead picker
+                    Text('Select Lead *', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                    const SizedBox(height: 8),
+                    if (_selected != null)
+                      GestureDetector(
+                        onTap: () => setState(() { _selected = null; _searchCtrl.clear(); }),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(l.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
-                            if (l.mobile.isNotEmpty)
-                              Text(l.mobile, style: TextStyle(color: ac.textSecondary, fontSize: 11)),
+                          decoration: BoxDecoration(
+                            color: purple.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: purple.withValues(alpha: 0.40)),
+                          ),
+                          child: Row(children: [
+                            Icon(Icons.person_rounded, color: purple, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(_selected!.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600))),
+                            Icon(Icons.close_rounded, color: ac.textSecondary, size: 16),
                           ]),
                         ),
+                      )
+                    else ...[
+                      _GlassField(
+                        controller: _searchCtrl,
+                        label: 'Search lead name…',
+                        enabled: !_busy,
+                        errorText: _leadError,
+                        onChanged: () {
+                          setState(() => _leadError = null);
+                          _searchLeads(_searchCtrl.text.trim());
+                        },
+                      ),
+                      if (_searching)
+                        const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: purple))))
+                      else if (_suggestions.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          constraints: const BoxConstraints(maxHeight: 160),
+                          decoration: BoxDecoration(
+                            color: ac.bgInput,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: ac.border),
+                          ),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: _suggestions.length,
+                            itemBuilder: (_, i) {
+                              final l = _suggestions[i];
+                              return InkWell(
+                                onTap: () => setState(() { _selected = l; _suggestions = []; }),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(l.displayName, style: TextStyle(color: ac.textPrimary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                    if (l.mobile.isNotEmpty)
+                                      Text(l.mobile, style: TextStyle(color: ac.textSecondary, fontSize: 11)),
+                                  ]),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                    const SizedBox(height: 14),
+                    _GlassField(
+                      controller: _valueCtrl, label: 'Expected Value *',
+                      keyboardType: TextInputType.number, enabled: !_busy,
+                      errorText: _valueError, onChanged: () => setState(() => _valueError = null),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _busy ? null : _pickDate,
+                      child: AbsorbPointer(child: _GlassField(controller: _closingCtrl, label: 'Expected Closing Date', enabled: !_busy)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Stage', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, runSpacing: 8, children: _oppStages.map((s) {
+                      final sel = s == _stage;
+                      return GestureDetector(
+                        onTap: _busy ? null : () => setState(() => _stage = s),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: sel ? LinearGradient(colors: [purple.withValues(alpha: 0.30), purple.withValues(alpha: 0.14)]) : null,
+                            color: sel ? null : ac.bgInput,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: sel ? purple.withValues(alpha: 0.55) : ac.border),
+                          ),
+                          child: Text(s, style: TextStyle(color: sel ? Colors.white : ac.textSecondary, fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w400)),
+                        ),
                       );
-                    },
-                  ),
+                    }).toList()),
+                    const SizedBox(height: 14),
+                    _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
+                    const SizedBox(height: 20),
+                    Row(children: [
+                      Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Creating…' : 'Create Opportunity', icon: Icons.trending_up_rounded, color: purple, loading: _busy, onTap: _busy ? null : _submit)),
+                    ]),
+                  ],
                 ),
-            ],
-            const SizedBox(height: 14),
-            _GlassField(
-              controller: _valueCtrl, label: 'Expected Value *',
-              keyboardType: TextInputType.number, enabled: !_busy,
-              errorText: _valueError, onChanged: () => setState(() => _valueError = null),
+              ),
             ),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: _busy ? null : _pickDate,
-              child: AbsorbPointer(child: _GlassField(controller: _closingCtrl, label: 'Expected Closing Date', enabled: !_busy)),
-            ),
-            const SizedBox(height: 16),
-            Text('Stage', style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: _oppStages.map((s) {
-              final sel = s == _stage;
-              return GestureDetector(
-                onTap: _busy ? null : () => setState(() => _stage = s),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: sel ? LinearGradient(colors: [purple.withValues(alpha: 0.30), purple.withValues(alpha: 0.14)]) : null,
-                    color: sel ? null : ac.bgInput,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: sel ? purple.withValues(alpha: 0.55) : ac.border),
-                  ),
-                  child: Text(s, style: TextStyle(color: sel ? Colors.white : ac.textSecondary, fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w400)),
-                ),
-              );
-            }).toList()),
-            const SizedBox(height: 14),
-            _GlassField(controller: _noteCtrl, label: 'Note', maxLines: 2, enabled: !_busy),
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: _GlassOutlineBtn(label: 'Cancel', onTap: _busy ? null : () => Navigator.pop(context))),
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: _GlassFillBtn(label: _busy ? 'Creating…' : 'Create Opportunity', icon: Icons.trending_up_rounded, color: purple, loading: _busy, onTap: _busy ? null : _submit)),
-            ]),
           ],
         ),
       ),
