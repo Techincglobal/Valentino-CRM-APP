@@ -854,28 +854,43 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
       padding: EdgeInsets.fromLTRB(0, 8, 0, bottom + 16),
       decoration: BoxDecoration(
-        color:        isDark ? const Color(0xFF131A2A) : Colors.white,
+        color:        isDark ? const Color(0xFF0F1523) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0),
+            width: 1.2,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         // Handle bar
         Center(
           child: Container(
-            width: 40, height: 4,
-            margin: const EdgeInsets.only(bottom: 4),
+            width: 42, height: 4.5,
+            margin: const EdgeInsets.only(top: 4, bottom: 6),
             decoration: BoxDecoration(
-              color: ac.border, borderRadius: BorderRadius.circular(2)),
+              color: isDark ? Colors.white.withValues(alpha: 0.20) : Colors.black.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(2.5),
+            ),
           ),
         ),
 
         // ── Scrollable content ────────────────────────────────────────────
         Flexible(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-              // ── Header: avatar + name + phone + direction ─────────────────
-              Row(children: [
+              // ── Header: avatar + name + phone + direction + close button ──
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -903,7 +918,7 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                           color: dirColor,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isDark ? const Color(0xFF131A2A) : Colors.white,
+                            color: isDark ? const Color(0xFF0F1523) : Colors.white,
                             width: 2,
                           ),
                         ),
@@ -920,7 +935,7 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                           color: ac.textPrimary, fontSize: 18,
                           fontWeight: FontWeight.w800, letterSpacing: -0.4,
                         )),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     if (log.phoneNumber.isNotEmpty)
                       GestureDetector(
                         onTap: _copyPhone,
@@ -944,25 +959,41 @@ class _CallDetailSheetState extends State<_CallDetailSheet> {
                     ],
                   ]),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: dirColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: dirColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(
-                      dirIcon,
-                      size: 13, color: dirColor,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+                        ),
+                        child: Icon(Icons.close_rounded, size: 17, color: ac.textSecondary),
+                      ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(log.directionLabel,
-                        style: TextStyle(
-                          color: dirColor,
-                          fontSize: 11, fontWeight: FontWeight.w700,
-                        )),
-                  ]),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: dirColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: dirColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(dirIcon, size: 12, color: dirColor),
+                        const SizedBox(width: 4),
+                        Text(log.directionLabel,
+                            style: TextStyle(
+                              color: dirColor,
+                              fontSize: 11, fontWeight: FontWeight.w700,
+                            )),
+                      ]),
+                    ),
+                  ],
                 ),
               ]),
 
@@ -1328,25 +1359,32 @@ class _DetailSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color:        isDark ? const Color(0xFF0A0F1E) : ac.bgBase,
+        color:        isDark ? const Color(0xFF0A0F1E) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: accent.withValues(alpha: 0.18)),
+        border:       Border.all(color: accent.withValues(alpha: 0.20)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Section header
         Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
           child: Row(children: [
-            Icon(icon, size: 14, color: accent),
-            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 13, color: accent),
+            ),
+            const SizedBox(width: 8),
             Text(title,
                 style: TextStyle(
                   color: accent, fontSize: 11,
-                  fontWeight: FontWeight.w800, letterSpacing: 0.5,
+                  fontWeight: FontWeight.w800, letterSpacing: 0.6,
                 )),
           ]),
         ),
-        Divider(height: 1, color: accent.withValues(alpha: 0.12)),
+        Divider(height: 1, color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFE2E8F0)),
         ...children,
       ]),
     );
@@ -1383,10 +1421,11 @@ class _DetailRow extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         SizedBox(
-          width: 80,
+          width: 85,
           child: Text(label,
               style: TextStyle(
-                color: ac.textSecondary, fontSize: 12,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               )),
         ),
@@ -1448,6 +1487,7 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _emailCtrl;
+  late final TextEditingController _companyCtrl;
   late final TextEditingController _noteCtrl;
   bool _loading = false;
 
@@ -1458,10 +1498,11 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
   void initState() {
     super.initState();
     final label = widget.log.callerLabel;
-    _nameCtrl  = TextEditingController(text: _looksLikeName(label) ? label : '');
-    _phoneCtrl = TextEditingController(text: widget.log.phoneNumber);
-    _emailCtrl = TextEditingController();
-    _noteCtrl  = TextEditingController(text: widget.log.notes);
+    _nameCtrl    = TextEditingController(text: _looksLikeName(label) ? label : '');
+    _phoneCtrl   = TextEditingController(text: widget.log.phoneNumber);
+    _emailCtrl   = TextEditingController();
+    _companyCtrl = TextEditingController();
+    _noteCtrl    = TextEditingController(text: widget.log.notes);
   }
 
   @override
@@ -1469,6 +1510,7 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
+    _companyCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -1490,6 +1532,7 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
         firstName:   name,
         mobileNo:    _phoneCtrl.text.trim(),
         email:       email,
+        companyName: _companyCtrl.text.trim(),
         noteContent: _noteCtrl.text.trim(),
       );
       if (!mounted) return;
@@ -1530,50 +1573,189 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
     final isDark  = context.isDark;
     final bottom  = MediaQuery.of(context).viewInsets.bottom;
 
+    final IconData dirIcon;
+    final Color dirColor;
+    if (widget.log.isDeclined) {
+      dirIcon = Icons.call_end_rounded;
+      dirColor = _rose;
+    } else if (widget.log.isMissed) {
+      dirIcon = Icons.call_missed_rounded;
+      dirColor = _rose;
+    } else if (widget.log.isOutbound) {
+      dirIcon = Icons.call_made_rounded;
+      dirColor = widget.log.isAnswered ? _blue : _amber;
+    } else {
+      dirIcon = Icons.call_received_rounded;
+      dirColor = _green;
+    }
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       decoration: BoxDecoration(
-        color:        isDark ? const Color(0xFF131A2A) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        color:        isDark ? const Color(0xFF0F1523) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0),
+            width: 1.2,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Center(
           child: Container(
-            width: 40, height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 38, height: 4,
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
             decoration: BoxDecoration(
-              color: ac.border, borderRadius: BorderRadius.circular(2)),
+              color: isDark ? Colors.white.withValues(alpha: 0.20) : Colors.black.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
 
         Flexible(
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, bottom + 24),
+            padding: EdgeInsets.fromLTRB(20, 4, 20, bottom + 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Container(
-                    padding: const EdgeInsets.all(9),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF2490EF), Color(0xFF1A7FD4)]),
-                      borderRadius: BorderRadius.circular(12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _blue.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _blue.withValues(alpha: 0.25)),
+                  ),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.person_add_alt_1_rounded, size: 11, color: _blue),
+                    SizedBox(width: 4),
+                    Text(
+                      'CRM · NEW LEAD',
+                      style: TextStyle(
+                        color: _blue,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
                     ),
-                    child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 20),
+                  ]),
+                ),
+
+                const SizedBox(height: 8),
+
+                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF2490EF), Color(0xFF1668B8)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(13),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2490EF).withValues(alpha: 0.35),
+                          blurRadius: 10, offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 21),
                   ),
                   const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Create Lead',
-                        style: TextStyle(color: ac.textPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
-                    Text('From call with ${widget.log.callerLabel}',
-                        style: TextStyle(color: ac.textSecondary, fontSize: 12)),
-                  ]),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Create Lead',
+                          style: TextStyle(
+                            color: ac.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          )),
+                      const SizedBox(height: 2),
+                      Text('From call with ${widget.log.callerLabel}',
+                          style: TextStyle(
+                            color: ac.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border,
+                        ),
+                      ),
+                      child: Icon(Icons.close_rounded, size: 17, color: ac.textSecondary),
+                    ),
+                  ),
                 ]),
 
-                const SizedBox(height: 22),
+                const SizedBox(height: 10),
+
+                // Call context badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF141C2E) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: dirColor.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(dirIcon, size: 12, color: dirColor),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('${widget.log.directionLabel} Call · ${widget.log.callType}',
+                            style: TextStyle(color: ac.textPrimary, fontSize: 11, fontWeight: FontWeight.w700)),
+                        Text(widget.log.fullDateLabel.isNotEmpty ? widget.log.fullDateLabel : widget.log.timeLabel,
+                            style: TextStyle(color: ac.textTertiary, fontSize: 10)),
+                      ]),
+                    ),
+                    if (widget.log.durationLabel.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _amber.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _amber.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.timer_outlined, size: 10, color: _amber),
+                          const SizedBox(width: 3),
+                          Text(widget.log.durationLabel,
+                              style: const TextStyle(color: _amber, fontSize: 10, fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                  ]),
+                ),
+
+                const SizedBox(height: 12),
 
                 _SheetField(
                   ctrl: _nameCtrl, label: 'Full Name *',
@@ -1581,7 +1763,7 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
                   icon: Icons.person_outline_rounded,
                   ac: ac, isDark: isDark,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 _SheetField(
                   ctrl: _phoneCtrl, label: 'Phone Number',
@@ -1590,7 +1772,7 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
                   keyboardType: TextInputType.phone,
                   ac: ac, isDark: isDark,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 _SheetField(
                   ctrl: _emailCtrl, label: 'Email',
@@ -1599,52 +1781,80 @@ class _CreateLeadSheetState extends State<CreateLeadSheet> {
                   keyboardType: TextInputType.emailAddress,
                   ac: ac, isDark: isDark,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+
+                _SheetField(
+                  ctrl: _companyCtrl, label: 'Company / Organization',
+                  hint: 'e.g. Acme Corp (optional)',
+                  icon: Icons.business_outlined,
+                  ac: ac, isDark: isDark,
+                ),
+                const SizedBox(height: 10),
 
                 _SheetField(
                   ctrl: _noteCtrl, label: 'Note',
                   hint: 'Call summary or follow-up…',
                   icon: Icons.notes_rounded,
-                  maxLines: 3,
+                  maxLines: 2,
                   ac: ac, isDark: isDark,
                 ),
 
-                const SizedBox(height: 22),
+                const SizedBox(height: 16),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: GestureDetector(
-                    onTap: _loading ? null : _submit,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: _loading
-                              ? [const Color(0xFF2490EF).withValues(alpha: 0.5), const Color(0xFF1A7FD4).withValues(alpha: 0.5)]
-                              : [const Color(0xFF2490EF), const Color(0xFF1A7FD4)],
+                Row(children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _loading ? null : () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF141C2E) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
                         ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: _loading ? [] : [
-                          BoxShadow(color: const Color(0xFF2490EF).withValues(alpha: 0.35),
-                              blurRadius: 14, offset: const Offset(0, 5)),
-                        ],
-                      ),
-                      child: Center(
-                        child: _loading
-                            ? const SizedBox(width: 20, height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                            : const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Text('Create Lead',
-                                    style: TextStyle(color: Colors.white, fontSize: 15,
-                                        fontWeight: FontWeight.w700)),
-                              ]),
+                        child: Center(
+                          child: Text('Cancel',
+                              style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w700)),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: GestureDetector(
+                      onTap: _loading ? null : _submit,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _loading
+                                ? [const Color(0xFF2490EF).withValues(alpha: 0.5), const Color(0xFF1668B8).withValues(alpha: 0.5)]
+                                : [const Color(0xFF2490EF), const Color(0xFF1668B8)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: _loading ? [] : [
+                            BoxShadow(color: const Color(0xFF2490EF).withValues(alpha: 0.35),
+                                blurRadius: 14, offset: const Offset(0, 4)),
+                          ],
+                        ),
+                        child: Center(
+                          child: _loading
+                              ? const SizedBox(width: 20, height: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                              : const Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Icon(Icons.person_add_rounded, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Create Lead',
+                                      style: TextStyle(color: Colors.white, fontSize: 14,
+                                          fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+                                ]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ]),
               ],
             ),
           ),
@@ -1722,19 +1932,25 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
     final inset  = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
+        color: isDark ? const Color(0xFF0F1523) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : ac.border)),
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0), width: 1.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.12),
+            blurRadius: 24, offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Center(child: Container(
           margin: const EdgeInsets.only(top: 12, bottom: 6),
-          width: 36, height: 4,
+          width: 42, height: 4.5,
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(2),
+            color: isDark ? Colors.white.withValues(alpha: 0.20) : Colors.black.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(2.5),
           ),
         )),
         Flexible(child: SingleChildScrollView(
@@ -1743,28 +1959,48 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
             // Header
             Row(children: [
               Container(
-                padding: const EdgeInsets.all(9),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _blue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _blue.withValues(alpha: 0.30)),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2490EF), Color(0xFF1668B8)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFF2490EF).withValues(alpha: 0.30), blurRadius: 10, offset: const Offset(0, 3)),
+                  ],
                 ),
-                child: const Icon(Icons.edit_note_rounded, color: _blue, size: 20),
+                child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Edit Call Log',
-                    style: TextStyle(color: ac.textPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: ac.textPrimary, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                 Text(widget.log.callerLabel,
-                    style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                    style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
               ])),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+                  ),
+                  child: Icon(Icons.close_rounded, size: 17, color: ac.textSecondary),
+                ),
+              ),
             ]),
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
 
             // Status
-            Text('Status',
-                style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text('Call Status',
+                style: TextStyle(
+                  color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                  fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.2,
+                )),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8, runSpacing: 8,
@@ -1776,15 +2012,18 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
                   onTap: _saving ? null : () => setState(() => _status = label),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: selected ? color.withValues(alpha: 0.15)
-                          : (isDark ? const Color(0xFF1A2235) : ac.bgCard),
-                      borderRadius: BorderRadius.circular(10),
+                      color: selected ? color.withValues(alpha: 0.16)
+                          : (isDark ? const Color(0xFF0A0F1E) : const Color(0xFFF8FAFC)),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: selected ? color : ac.border,
-                        width: selected ? 1.5 : 1,
+                        color: selected ? color : (isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0)),
+                        width: selected ? 1.6 : 1,
                       ),
+                      boxShadow: selected ? [
+                        BoxShadow(color: color.withValues(alpha: 0.20), blurRadius: 8, offset: const Offset(0, 2)),
+                      ] : null,
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(icon, size: 13, color: selected ? color : ac.textSecondary),
@@ -1838,7 +2077,7 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
               ),
             ],
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
 
             Row(children: [
               Expanded(
@@ -1847,16 +2086,16 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0A0F1E) : ac.bgCard,
+                      color: isDark ? const Color(0xFF141C2E) : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: ac.border),
+                      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
                     ),
                     child: Center(child: Text('Cancel',
-                        style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w600))),
+                        style: TextStyle(color: ac.textSecondary, fontSize: 14, fontWeight: FontWeight.w700))),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 flex: 2,
                 child: GestureDetector(
@@ -1865,8 +2104,15 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
                     duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: _saving ? _blue.withValues(alpha: 0.5) : _blue,
+                      gradient: LinearGradient(
+                        colors: _saving
+                            ? [const Color(0xFF2490EF).withValues(alpha: 0.5), const Color(0xFF1668B8).withValues(alpha: 0.5)]
+                            : [const Color(0xFF2490EF), const Color(0xFF1668B8)],
+                      ),
                       borderRadius: BorderRadius.circular(14),
+                      boxShadow: _saving ? [] : [
+                        BoxShadow(color: const Color(0xFF2490EF).withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 4)),
+                      ],
                     ),
                     child: Center(
                       child: _saving
@@ -1877,7 +2123,7 @@ class _EditCallLogSheetState extends State<_EditCallLogSheet> {
                               SizedBox(width: 6),
                               Text('Save Changes',
                                   style: TextStyle(color: Colors.white, fontSize: 14,
-                                      fontWeight: FontWeight.w700)),
+                                      fontWeight: FontWeight.w700, letterSpacing: 0.2)),
                             ]),
                     ),
                   ),
@@ -1914,27 +2160,51 @@ class _SheetField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isRequired = label.contains('*');
+    final cleanLabel = label.replaceAll('*', '').trim();
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label,
-          style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 5),
+      Row(children: [
+        Text(cleanLabel,
+            style: TextStyle(
+              color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+              fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.2,
+            )),
+        if (isRequired) ...[
+          const SizedBox(width: 4),
+          const Text('*',
+              style: TextStyle(
+                color: Color(0xFFF59E0B),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              )),
+        ],
+      ]),
+      const SizedBox(height: 6),
       Container(
         decoration: BoxDecoration(
-          color:        isDark ? const Color(0xFF0A0F1E) : ac.bgBase,
-          borderRadius: BorderRadius.circular(12),
-          border:       Border.all(color: ac.border),
+          color:        isDark ? const Color(0xFF0A0F1E) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border:       Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.09) : const Color(0xFFE2E8F0),
+            width: 1.2,
+          ),
         ),
         child: TextField(
           controller:   ctrl,
           keyboardType: keyboardType,
           maxLines:     maxLines,
-          style:        TextStyle(color: ac.textPrimary, fontSize: 14),
+          style:        TextStyle(color: ac.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             hintText:        hint,
-            hintStyle:       TextStyle(color: ac.textTertiary, fontSize: 13),
-            prefixIcon:      Icon(icon, color: ac.textTertiary, size: 17),
+            hintStyle:       TextStyle(color: ac.textTertiary, fontSize: 13, fontWeight: FontWeight.w400),
+            prefixIcon:      Padding(
+              padding: const EdgeInsets.only(left: 12, right: 10),
+              child: Icon(icon, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), size: 18),
+            ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             border:          InputBorder.none,
-            contentPadding:  const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+            contentPadding:  EdgeInsets.symmetric(vertical: maxLines > 1 ? 14 : 12, horizontal: 12),
           ),
         ),
       ),
@@ -2131,24 +2401,31 @@ class _LogCallSheetState extends State<_LogCallSheet> {
       constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.90),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D1117) : ac.bgBase,
+        color: isDark ? const Color(0xFF0F1523) : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(
             top: BorderSide(
                 color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : ac.border)),
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : const Color(0xFFE2E8F0),
+                width: 1.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.12),
+            blurRadius: 24, offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         // Handle
         Center(child: Container(
           margin: const EdgeInsets.only(top: 12, bottom: 6),
-          width: 36, height: 4,
+          width: 42, height: 4.5,
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.white.withValues(alpha: 0.18)
-                : Colors.black.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(2),
+                ? Colors.white.withValues(alpha: 0.20)
+                : Colors.black.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(2.5),
           ),
         )),
         Flexible(child: SingleChildScrollView(
@@ -2160,22 +2437,42 @@ class _LogCallSheetState extends State<_LogCallSheet> {
               // Header
               Row(children: [
                 Container(
-                  width: 40, height: 40,
+                  width: 46, height: 46,
                   decoration: BoxDecoration(
-                    color: _blue.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _blue.withValues(alpha: 0.30)),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2490EF), Color(0xFF1668B8)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2490EF).withValues(alpha: 0.30),
+                        blurRadius: 10, offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.add_call, color: _blue, size: 20),
+                  child: const Icon(Icons.add_call, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Log a Call', style: TextStyle(
-                      color: ac.textPrimary, fontSize: 17,
-                      fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                      color: ac.textPrimary, fontSize: 18,
+                      fontWeight: FontWeight.w800, letterSpacing: -0.3)),
                   Text('Manually record a call in the CRM',
-                      style: TextStyle(color: ac.textSecondary, fontSize: 12)),
+                      style: TextStyle(color: ac.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
                 ])),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.10) : ac.border),
+                    ),
+                    child: Icon(Icons.close_rounded, size: 17, color: ac.textSecondary),
+                  ),
+                ),
               ]),
               const SizedBox(height: 20),
 

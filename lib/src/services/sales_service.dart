@@ -538,6 +538,7 @@ class SalesService {
     required String firstName,
     String mobileNo    = '',
     String email       = '',
+    String companyName = '',
     String noteContent = '',
   }) async {
     final payload = <String, dynamic>{'first_name': firstName};
@@ -545,6 +546,7 @@ class SalesService {
     if (email.isNotEmpty && email.contains('@') && email.contains('.')) {
       payload['email_id'] = email;
     }
+    if (companyName.isNotEmpty) payload['company_name'] = companyName;
     if (noteContent.isNotEmpty) payload['note_content'] = noteContent;
     final resp = await ApiService.post(
         '/api/method/nxtgen_crm_mobile.api.create_lead_with_note', payload);

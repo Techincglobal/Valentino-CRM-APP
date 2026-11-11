@@ -88,8 +88,10 @@ void main() {
       // Enter incomplete email 'amila' (from user screenshot)
       await tester.enterText(find.widgetWithText(TextField, 'lead@example.com'), 'amila');
 
-      // Tap 'Create Lead' button
-      await tester.tap(find.widgetWithText(GestureDetector, 'Create Lead'));
+      // Ensure button is visible in scrollable sheet then tap 'Create Lead' button
+      final createLeadBtn = find.widgetWithText(GestureDetector, 'Create Lead');
+      await tester.ensureVisible(createLeadBtn);
+      await tester.tap(createLeadBtn);
       await tester.pump();
 
       // Verify error snackbar is displayed
